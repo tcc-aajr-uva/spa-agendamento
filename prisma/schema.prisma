@@ -1,0 +1,304 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Perfil {
+  COORDENACAO
+  SECRETARIA
+  SUPERVISOR
+  ESTAGIARIO
+}
+
+enum StatusAgendamento {
+  PENDENTE
+  CONFIRMADO
+  EM_ATENDIMENTO
+  ENCERRADO
+  CANCELADO
+}
+
+enum MotivoEncerramento {
+  NAO_CONFIRMADO
+  NAO_LOCALIZADO
+  DESISTENCIA
+  FALTA_PRIMEIRA_SESSAO
+  TRES_FALTAS
+  CANCELADO_PELO_PACIENTE
+  CANCELADO_PELO_ESTAGIARIO
+  TRANSFERENCIA
+  ALTA
+  FIM_DO_PERIODO
+}
+
+enum Presenca {
+  PRESENTE
+  FALTA
+  FALTA_JUSTIFICADA
+}
+
+enum TipoEvento {
+  CRIADO
+  CONFIRMADO
+  CANCELADO
+  REMARCADO
+  FALTA
+  TERMO_ASSINADO
+  TRANSFERIDO
+  ENCERRADO
+}
+
+enum StatusListaEspera {
+  AGUARDANDO
+  CHAMADO
+  REMOVIDO
+}
+
+enum TipoToken {
+  CANCELAMENTO
+}
+
+model Unidade {
+  id                String   @id @default(cuid())
+  nome              String
+  ativa             Boolean  @default(true)
+  permitePaciente   Boolean  @default(true)
+  permiteEstagiario Boolean  @default(true)
+  permiteSecretaria Boolean  @default(true)
+  agendamentoAberto Boolean  @default(false)
+  horaAbertura      Int      @default(480)
+  horaFechamento    Int      @default(1260)
+  duracaoBlocoMin   Int      @default(50)
+  criadoEm          DateTime @default(now())
+
+  equipes      Equipe[]
+  periodos     PeriodoLetivo[]
+  usuarios     Usuario[]
+  salas        Sala[]
+  agendamentos Agendamento[]
+  listaEspera  ListaEspera[]
+}
+
+model Equipe {
+  id           String   @id @default(cuid())
+  unidadeId    String
+  nome         String
+  supervisorId String?
+  ativa        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+
+  unidade      Unidade       @relation(fields: [unidadeId], references: [id])
+  supervisor   Usuario?      @relation("SupervisorDaEquipe", fields: [supervisorId], references: [id])
+  membros      Usuario[]     @relation("MembrosDaEquipe")
+  agendamentos Agendamento[]
+  listaEspera  ListaEspera[]
+
+  @@unique([unidadeId, nome])
+}
+
+model PeriodoLetivo {
+  id        String   @id @default(cuid())
+  unidadeId String
+  inicio    DateTime @db.Date
+  fim       DateTime @db.Date
+
+  unidade Unidade @relation(fields: [unidadeId], references: [id])
+
+  @@index([unidadeId, inicio, fim])
+}
+
+model Usuario {
+  id              String   @id @default(cuid())
+  nome            String
+  email           String   @unique
+  senhaHash       String?
+  perfil          Perfil
+  unidadeId       String?
+  equipeId        String?
+  liberado        Boolean  @default(false)
+  limitePacientes Int      @default(0)
+  ativo           Boolean  @default(true)
+  criadoEm        DateTime @default(now())
+
+  unidade                Unidade?            @relation(fields: [unidadeId], references: [id])
+  equipe                 Equipe?             @relation("MembrosDaEquipe", fields: [equipeId], references: [id])
+  equipesSupervisionadas Equipe[]            @relation("SupervisorDaEquipe")
+  convites               Convite[]
+  horarios               HorarioDisponivel[]
+  agendamentos           Agendamento[]       @relation("EstagiarioDoAgendamento")
+  agendamentosCriados    Agendamento[]       @relation("CriadorDoAgendamento")
+  sessoesRegistradas     Sessao[]
+  eventos                EventoAgendamento[]
+
+  @@index([unidadeId, perfil])
+  @@index([equipeId, perfil])
+}
+
+model Convite {
+  id        String    @id @default(cuid())
+  usuarioId String
+  tokenHash String    @unique
+  expiraEm  DateTime
+  usadoEm   DateTime?
+  criadoEm  DateTime  @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId])
+}
+
+model Sala {
+  id        String   @id @default(cuid())
+  unidadeId String
+  nome      String
+  ativa     Boolean  @default(true)
+  criadoEm  DateTime @default(now())
+
+  unidade      Unidade       @relation(fields: [unidadeId], references: [id])
+  agendamentos Agendamento[]
+
+  @@unique([unidadeId, nome])
+}
+
+model HorarioDisponivel {
+  id           String   @id @default(cuid())
+  estagiarioId String
+  diaSemana    Int
+  horaInicio   Int
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+
+  estagiario   Usuario       @relation(fields: [estagiarioId], references: [id])
+  agendamentos Agendamento[] @relation("HorarioDoAgendamento")
+  ocupadoPor   Agendamento?  @relation("HorarioOcupado")
+
+  @@unique([estagiarioId, diaSemana, horaInicio])
+  @@index([diaSemana, horaInicio])
+}
+
+model Paciente {
+  id              String   @id @default(cuid())
+  nome            String
+  cpf             String   @unique
+  dataNascimento  DateTime @db.Date
+  telefone        String
+  email           String
+  responsavelNome String?
+  responsavelCpf  String?
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  agendamentos     Agendamento[] @relation("PacienteDoAgendamento")
+  agendamentoAtivo Agendamento?  @relation("PacienteComAgendamentoAtivo")
+  listaEspera      ListaEspera[] @relation("PacienteDaLista")
+  posicaoAtiva     ListaEspera?  @relation("PacienteNaListaAtiva")
+}
+
+model Agendamento {
+  id                  String              @id @default(cuid())
+  unidadeId           String
+  equipeId            String
+  horarioDisponivelId String
+  estagiarioId        String
+  salaId              String
+  pacienteId          String
+  diaSemana           Int
+  horaInicio          Int
+  status              StatusAgendamento   @default(PENDENTE)
+  dataInicio          DateTime            @db.Date
+  dataFim             DateTime            @db.Date
+  prazoConfirmacao    DateTime
+  confirmadoEm        DateTime?
+  termoAssinadoEm     DateTime?
+  motivoEncerramento  MotivoEncerramento?
+  encerradoEm         DateTime?
+  criadoPorId         String?
+  criadoEm            DateTime            @default(now())
+  horarioAtivoId      String?             @unique
+  salaAtivaChave      String?             @unique
+  pacienteAtivoId     String?             @unique
+
+  unidade       Unidade             @relation(fields: [unidadeId], references: [id])
+  equipe        Equipe              @relation(fields: [equipeId], references: [id])
+  horario       HorarioDisponivel   @relation("HorarioDoAgendamento", fields: [horarioDisponivelId], references: [id])
+  horarioAtivo  HorarioDisponivel?  @relation("HorarioOcupado", fields: [horarioAtivoId], references: [id])
+  estagiario    Usuario             @relation("EstagiarioDoAgendamento", fields: [estagiarioId], references: [id])
+  sala          Sala                @relation(fields: [salaId], references: [id])
+  paciente      Paciente            @relation("PacienteDoAgendamento", fields: [pacienteId], references: [id])
+  pacienteAtivo Paciente?           @relation("PacienteComAgendamentoAtivo", fields: [pacienteAtivoId], references: [id])
+  criadoPor     Usuario?            @relation("CriadorDoAgendamento", fields: [criadoPorId], references: [id])
+  sessoes       Sessao[]
+  eventos       EventoAgendamento[]
+  tokens        TokenAcesso[]
+
+  @@index([unidadeId, status])
+  @@index([estagiarioId, status])
+  @@index([status, prazoConfirmacao])
+  @@index([pacienteId])
+}
+
+model Sessao {
+  id              String   @id @default(cuid())
+  agendamentoId   String
+  data            DateTime @db.Date
+  presenca        Presenca
+  registradoPorId String
+  criadoEm        DateTime @default(now())
+
+  agendamento   Agendamento @relation(fields: [agendamentoId], references: [id])
+  registradoPor Usuario     @relation(fields: [registradoPorId], references: [id])
+
+  @@unique([agendamentoId, data])
+}
+
+model EventoAgendamento {
+  id            String     @id @default(cuid())
+  agendamentoId String
+  tipo          TipoEvento
+  usuarioId     String?
+  observacao    String?
+  criadoEm      DateTime   @default(now())
+
+  agendamento Agendamento @relation(fields: [agendamentoId], references: [id])
+  usuario     Usuario?    @relation(fields: [usuarioId], references: [id])
+
+  @@index([agendamentoId, criadoEm])
+}
+
+model ListaEspera {
+  id              String            @id @default(cuid())
+  unidadeId       String
+  equipeId        String
+  pacienteId      String
+  status          StatusListaEspera @default(AGUARDANDO)
+  inscritoEm      DateTime          @default(now())
+  atualizadoEm    DateTime          @updatedAt
+  pacienteAtivoId String?           @unique
+
+  unidade       Unidade   @relation(fields: [unidadeId], references: [id])
+  equipe        Equipe    @relation(fields: [equipeId], references: [id])
+  paciente      Paciente  @relation("PacienteDaLista", fields: [pacienteId], references: [id])
+  pacienteAtivo Paciente? @relation("PacienteNaListaAtiva", fields: [pacienteAtivoId], references: [id])
+
+  @@index([equipeId, status, inscritoEm])
+  @@index([unidadeId, status])
+}
+
+model TokenAcesso {
+  id            String    @id @default(cuid())
+  agendamentoId String
+  tokenHash     String    @unique
+  codigo        String
+  tipo          TipoToken
+  expiraEm      DateTime
+  usadoEm       DateTime?
+  criadoEm      DateTime  @default(now())
+
+  agendamento Agendamento @relation(fields: [agendamentoId], references: [id])
+
+  @@index([agendamentoId])
+}
