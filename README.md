@@ -12,7 +12,7 @@ Sistema de agendamento do Serviço de Psicologia Aplicada (SPA) da Universidade 
 
 ## Primeiros passos
 
-1. Suba um banco e copie `.env.example` para `.env`:
+1. Suba um banco, copie `.env.example` para `.env` e preencha as variáveis conforme [Configuração do ambiente](#configuração-do-ambiente):
    - **Local (Docker):** veja [Banco local com Docker](#banco-local-com-docker).
    - **Neon:** crie a sua branch. `DATABASE_URL` é a connection string **com pool** (host com `-pooler`), usada pelo app; `DIRECT_URL` é a **direta**, usada pelo CLI do Prisma.
 2. Instale as dependências (o `postinstall` já gera o client do Prisma em `src/generated/prisma`):
@@ -30,13 +30,53 @@ Sistema de agendamento do Serviço de Psicologia Aplicada (SPA) da Universidade 
 
    Mudou o `schema.prisma`? Gere uma migration nova com nome descritivo (`npx prisma migrate dev --name tabela-sessao`) e leve a pasta gerada no PR. Nunca apague nem edite uma migration que já foi aplicada; em produção as migrations rodam com `npx prisma migrate deploy`.
 
-4. Rode o projeto e entre como qualquer usuário do seed em `/dev/entrar`:
+4. Rode o projeto e acesse `/entrar`:
 
    ```bash
    npm run dev
    ```
 
+   Quando a credencial local do seed estiver habilitada, use o e-mail `seed-coordenacao@spa.teste` e a senha definida em `SEED_PASSWORD`.
+
 O seed é idempotente: pode rodar de novo para restaurar os dados de teste.
+
+## Configuração do ambiente
+
+Crie o arquivo `.env` na raiz do projeto a partir do exemplo versionado:
+
+```bash
+cp .env.example .env
+```
+
+Gere uma chave aleatória para `BETTER_AUTH_SECRET`:
+
+```bash
+npx auth@1.7 secret
+```
+
+Copie o valor exibido pelo comando para o `BETTER_AUTH_SECRET` do seu `.env`.
+
+Para o PostgreSQL local fornecido pelo projeto, um exemplo completo é:
+
+```env
+DATABASE_URL=postgresql://postgres:B%40nco123@localhost:5432/spa
+DIRECT_URL=postgresql://postgres:B%40nco123@localhost:5432/spa
+BETTER_AUTH_URL=http://localhost:3000
+BETTER_AUTH_SECRET=substitua-por-uma-chave-local-longa-e-aleatoria
+SEED_AUTH_ENABLED=true
+SEED_PASSWORD=Teste@1234
+```
+
+| Variável | Finalidade |
+| --- | --- |
+| `DATABASE_URL` | Conexão usada pela aplicação e pelo Prisma Client. Em serviços hospedados, use a URL com pool quando o provedor oferecer essa opção. |
+| `DIRECT_URL` | Conexão direta usada pelo CLI do Prisma para migrations. No banco local, pode ser igual à `DATABASE_URL`. |
+| `BETTER_AUTH_URL` | URL base da aplicação. Localmente, use `http://localhost:3000`; no deploy, use a URL HTTPS pública. |
+| `BETTER_AUTH_SECRET` | Chave longa e aleatória usada para proteger a autenticação. Cada ambiente deve possuir seu próprio valor. |
+| `SEED_AUTH_ENABLED` | Quando `true`, permite que o seed crie ou atualize a credencial local da coordenação. Mantenha `false` em produção. |
+| `SEED_PASSWORD` | Senha da conta `seed-coordenacao@spa.teste`, usada somente quando `SEED_AUTH_ENABLED=true`. Deve possuir entre 8 e 128 caracteres. |
+
+O arquivo `.env` não deve ser commitado. Em produção, configure as variáveis diretamente no provedor de deploy, mantenha `SEED_AUTH_ENABLED=false` e não defina `SEED_PASSWORD`.
 
 ## Banco local com Docker
 
@@ -73,11 +113,12 @@ A senha deste arquivo é só para o banco local de desenvolvimento. Nunca use no
 
 ```
 prisma/
-  schema.prisma          todas as tabelas dos 4 cards
+  schema.prisma          modelos de domínio
+  auth.prisma            usuários, vínculos, convites e modelos do Better Auth
   seed.ts                2 unidades, 2 equipes cada, 3 salas, usuários de todos os perfis, agendamentos e lista de espera
 prisma.config.ts         configuração do CLI (DIRECT_URL, seed)
 docker/docker-compose.yaml  PostgreSQL local para desenvolvimento
-src/app/(public)/        páginas sem login: início, agendar, cancelar, dev/entrar
+src/app/(public)/        páginas sem login: início, entrar, agendar e cancelar
 src/app/(private)/       páginas com login: inicio, cadastros, salas, agenda, reservas, pacientes, lista-espera, painel
 src/lib/                 regras e acesso a dados compartilhados (só servidor)
 ```
@@ -93,8 +134,9 @@ Com Cache Components, qualquer leitura de cookie, banco ou `searchParams` fica d
 | `prisma.ts` | instância única do Prisma Client | todos |
 | `transacao.ts` | `executarEmTransacao` (Serializable, repete em conflito) e `violouUnicidade` | todos |
 | `erros.ts` | `ErroDeRegra` com código; as actions mostram `erro.message` | todos |
-| `auth/usuario-atual.ts` | `obterUsuarioAtual()` → `{ id, nome, perfil, unidadeId, equipeId }` ou `null` | todos |
-| `auth/permissao.ts` | `exigirUsuario(perfis?)`, `podeAcessar(usuario, escopo)`, `filtroDeUnidade(usuario)` | todos |
+| `auth/config.ts` | configuração do Better Auth, bcrypt, sessão e limite de requisições | autenticação |
+| `auth/sessao.ts` | carrega a sessão e os vínculos ativos do usuário com unidades e equipes | todos |
+| `auth/autorizacao.ts` | `exigirUsuario(perfis?)`, `podeAcessar(usuario, escopo)` e filtros de escopo | todos |
 | `token.ts` | `gerarToken`, `hashToken` (sha256), `gerarCodigo` | #1 convite, #4 cancelamento |
 | `paciente/dados-paciente.ts` | schema Zod da inscrição (CPF, menor exige responsável) | #4 |
 | `agendamento/regras.ts` | prazo de 48 h, 3 faltas, `filtroAgendamentoAtivo`, `estaOcupando`, `pendenteVencendo`, `horarioNaGrade`, datas | #2, #3, #4 |
@@ -103,9 +145,9 @@ Com Cache Components, qualquer leitura de cookie, banco ou `searchParams` fica d
 | `agendamento/liberar-agendamento.ts` | `liberarAgendamento(id, { status, motivo, usuarioId })`: a função única que libera horário e sala | #2, #3, #4 |
 | `lista-espera/adicionar-lista-espera.ts` | `adicionarListaEspera(entrada, usuario)` | #4, #3 |
 
-### Login provisório
+### Autenticação
 
-O login real (e-mail, senha, convite) é do card #1. Até lá, `obterUsuarioAtual()` lê o cookie `dev_usuario` gravado por `/dev/entrar`, **só com `NODE_ENV=development`**. Em produção ele devolve `null` e `/dev/entrar` responde 404. O #1 troca só o miolo de `obterUsuarioAtual()`; quem chama não muda.
+O login em `/entrar` usa e-mail e senha pelo Better Auth. A sessão é mantida em cookie seguro e validada no servidor. Não existe auto-cadastro: os usuários serão criados pelo fluxo administrativo e definirão a senha por convite. A credencial criada pelo seed existe somente para desenvolvimento local e depende de `SEED_AUTH_ENABLED=true`.
 
 ### Concorrência
 

@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import type { UsuarioAtual } from "@/lib/auth/usuario-atual";
+import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { dadosPacienteSchema } from "@/lib/paciente/dados-paciente";
 import { salvarPaciente } from "@/lib/paciente/salvar-paciente";
@@ -23,7 +23,7 @@ export type PosicaoNaLista = {
 
 export async function adicionarListaEspera(
   entrada: InscricaoListaEspera,
-  usuario: UsuarioAtual | null,
+  usuario: ContextoAutorizacao | null,
   agora = new Date(),
 ): Promise<PosicaoNaLista> {
   const dados = inscricaoListaEsperaSchema.safeParse(entrada);

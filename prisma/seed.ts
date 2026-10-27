@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type Perfil } from "../src/generated/prisma/client";
+import { gerarHashDaSenha } from "../src/lib/auth/password";
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
@@ -30,17 +31,68 @@ const HORARIOS_POR_ESTAGIARIO = [
   ],
 ];
 
-async function usuario(id: string, nome: string, perfil: Perfil, extra: { unidadeId?: string; equipeId?: string; liberado?: boolean; limitePacientes?: number } = {}) {
-  const dados = { nome, email: `${id}@spa.teste`, perfil, ...extra };
+async function usuario(id: string, nome: string, perfil: Perfil) {
+  const dados = { nome, email: `${id}@spa.teste`, perfil };
   await prisma.usuario.upsert({ where: { id }, create: { id, ...dados }, update: dados });
+}
+
+async function criarCredencialDeTeste(usuarioId: string) {
+  if (process.env.SEED_AUTH_ENABLED !== "true") {
+    return;
+  }
+
+  const senha = process.env.SEED_PASSWORD;
+
+  if (!senha || senha.length < 8 || senha.length > 128) {
+    throw new Error("SEED_PASSWORD deve possuir entre 8 e 128 caracteres.");
+  }
+
+  const senhaHash = await gerarHashDaSenha(senha);
+
+  await prisma.contaAutenticacao.upsert({
+    where: {
+      providerId_accountId: {
+        providerId: "credential",
+        accountId: usuarioId,
+      },
+    },
+    create: {
+      providerId: "credential",
+      accountId: usuarioId,
+      userId: usuarioId,
+      password: senhaHash,
+    },
+    update: {
+      userId: usuarioId,
+      password: senhaHash,
+    },
+  });
+}
+
+async function vincularUnidade(usuarioId: string, unidadeId: string) {
+  await prisma.usuarioUnidade.upsert({
+    where: { usuarioId_unidadeId: { usuarioId, unidadeId } },
+    create: { usuarioId, unidadeId },
+    update: { ativo: true },
+  });
+}
+
+async function vincularEquipe(usuarioId: string, equipeId: string, unidadeId: string) {
+  await prisma.usuarioEquipe.upsert({
+    where: { usuarioId_equipeId: { usuarioId, equipeId } },
+    create: { usuarioId, equipeId, unidadeId },
+    update: { unidadeId, ativo: true },
+  });
 }
 
 async function main() {
   await usuario("seed-coordenacao", "Coordenação Geral", "COORDENACAO");
+  await criarCredencialDeTeste("seed-coordenacao");
 
   for (const unidade of UNIDADES) {
     const dadosUnidade = { nome: unidade.nome, agendamentoAberto: unidade.agendamentoAberto };
     await prisma.unidade.upsert({ where: { id: unidade.id }, create: { id: unidade.id, ...dadosUnidade }, update: dadosUnidade });
+    await vincularUnidade("seed-coordenacao", unidade.id);
 
     const periodoId = `${unidade.id}-periodo`;
     const periodo = { unidadeId: unidade.id, inicio: new Date(hoje.getTime() - 30 * UM_DIA_MS), fim: new Date(hoje.getTime() + 120 * UM_DIA_MS) };
@@ -55,7 +107,9 @@ async function main() {
       });
     }
 
-    await usuario(`${unidade.id}-secretaria`, `Secretaria ${unidade.nome}`, "SECRETARIA", { unidadeId: unidade.id });
+    const secretariaId = `${unidade.id}-secretaria`;
+    await usuario(secretariaId, `Secretaria ${unidade.nome}`, "SECRETARIA");
+    await vincularUnidade(secretariaId, unidade.id);
 
     for (const equipe of EQUIPES) {
       const equipeId = `${unidade.id}-${equipe.sufixo}`;
@@ -65,16 +119,31 @@ async function main() {
         create: { id: equipeId, unidadeId: unidade.id, nome: equipe.nome },
         update: { nome: equipe.nome },
       });
-      await usuario(supervisorId, `Supervisor ${equipe.nome} ${unidade.nome}`, "SUPERVISOR", { unidadeId: unidade.id, equipeId });
+      await usuario(supervisorId, `Supervisor ${equipe.nome} ${unidade.nome}`, "SUPERVISOR");
+      await vincularUnidade(supervisorId, unidade.id);
+      await vincularEquipe(supervisorId, equipeId, unidade.id);
       await prisma.equipe.update({ where: { id: equipeId }, data: { supervisorId } });
 
       for (const [indice, horarios] of HORARIOS_POR_ESTAGIARIO.entries()) {
         const estagiarioId = `${equipeId}-estagiario-${indice + 1}`;
-        await usuario(estagiarioId, `Estagiário ${indice + 1} ${equipe.nome} ${unidade.nome}`, "ESTAGIARIO", {
-          unidadeId: unidade.id,
-          equipeId,
-          liberado: true,
-          limitePacientes: 2,
+        await usuario(estagiarioId, `Estagiário ${indice + 1} ${equipe.nome} ${unidade.nome}`, "ESTAGIARIO");
+        await vincularUnidade(estagiarioId, unidade.id);
+        await vincularEquipe(estagiarioId, equipeId, unidade.id);
+        await prisma.configuracaoAtendimentoEstagiario.upsert({
+          where: { estagiarioId_equipeId_periodoLetivoId: { estagiarioId, equipeId, periodoLetivoId: periodoId } },
+          create: {
+            estagiarioId,
+            equipeId,
+            unidadeId: unidade.id,
+            periodoLetivoId: periodoId,
+            liberado: true,
+            limitePacientes: 2,
+          },
+          update: {
+            unidadeId: unidade.id,
+            liberado: true,
+            limitePacientes: 2,
+          },
         });
         for (const horario of horarios) {
           await prisma.horarioDisponivel.upsert({

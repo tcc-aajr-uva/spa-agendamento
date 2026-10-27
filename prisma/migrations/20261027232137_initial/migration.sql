@@ -20,6 +20,112 @@ CREATE TYPE "StatusListaEspera" AS ENUM ('AGUARDANDO', 'CHAMADO', 'REMOVIDO');
 CREATE TYPE "TipoToken" AS ENUM ('CANCELAMENTO');
 
 -- CreateTable
+CREATE TABLE "Usuario" (
+    "id" TEXT NOT NULL,
+    "nome" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "emailVerificado" BOOLEAN NOT NULL DEFAULT false,
+    "imagem" TEXT,
+    "perfil" "Perfil" NOT NULL,
+    "ativo" BOOLEAN NOT NULL DEFAULT true,
+    "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "atualizadoEm" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Usuario_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "UsuarioUnidade" (
+    "usuarioId" TEXT NOT NULL,
+    "unidadeId" TEXT NOT NULL,
+    "ativo" BOOLEAN NOT NULL DEFAULT true,
+    "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "atualizadoEm" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "UsuarioUnidade_pkey" PRIMARY KEY ("usuarioId","unidadeId")
+);
+
+-- CreateTable
+CREATE TABLE "UsuarioEquipe" (
+    "usuarioId" TEXT NOT NULL,
+    "equipeId" TEXT NOT NULL,
+    "unidadeId" TEXT NOT NULL,
+    "ativo" BOOLEAN NOT NULL DEFAULT true,
+    "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "atualizadoEm" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "UsuarioEquipe_pkey" PRIMARY KEY ("usuarioId","equipeId")
+);
+
+-- CreateTable
+CREATE TABLE "Convite" (
+    "id" TEXT NOT NULL,
+    "usuarioId" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "expiraEm" TIMESTAMP(3) NOT NULL,
+    "usadoEm" TIMESTAMP(3),
+    "revogadoEm" TIMESTAMP(3),
+    "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Convite_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SessaoAutenticacao" (
+    "id" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "token" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
+    "userId" TEXT NOT NULL,
+
+    CONSTRAINT "SessaoAutenticacao_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ContaAutenticacao" (
+    "id" TEXT NOT NULL,
+    "accountId" TEXT NOT NULL,
+    "providerId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "accessToken" TEXT,
+    "refreshToken" TEXT,
+    "idToken" TEXT,
+    "accessTokenExpiresAt" TIMESTAMP(3),
+    "refreshTokenExpiresAt" TIMESTAMP(3),
+    "scope" TEXT,
+    "password" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ContaAutenticacao_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "VerificacaoAutenticacao" (
+    "id" TEXT NOT NULL,
+    "identifier" TEXT NOT NULL,
+    "value" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "VerificacaoAutenticacao_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "LimiteRequisicao" (
+    "id" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "count" INTEGER NOT NULL,
+    "lastRequest" BIGINT NOT NULL,
+
+    CONSTRAINT "LimiteRequisicao_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Unidade" (
     "id" TEXT NOT NULL,
     "nome" TEXT NOT NULL,
@@ -59,32 +165,17 @@ CREATE TABLE "PeriodoLetivo" (
 );
 
 -- CreateTable
-CREATE TABLE "Usuario" (
-    "id" TEXT NOT NULL,
-    "nome" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
-    "senhaHash" TEXT,
-    "perfil" "Perfil" NOT NULL,
-    "unidadeId" TEXT,
-    "equipeId" TEXT,
+CREATE TABLE "ConfiguracaoAtendimentoEstagiario" (
+    "estagiarioId" TEXT NOT NULL,
+    "equipeId" TEXT NOT NULL,
+    "unidadeId" TEXT NOT NULL,
+    "periodoLetivoId" TEXT NOT NULL,
     "liberado" BOOLEAN NOT NULL DEFAULT false,
     "limitePacientes" INTEGER NOT NULL DEFAULT 0,
-    "ativo" BOOLEAN NOT NULL DEFAULT true,
     "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "atualizadoEm" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "Usuario_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Convite" (
-    "id" TEXT NOT NULL,
-    "usuarioId" TEXT NOT NULL,
-    "tokenHash" TEXT NOT NULL,
-    "expiraEm" TIMESTAMP(3) NOT NULL,
-    "usadoEm" TIMESTAMP(3),
-    "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "Convite_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "ConfiguracaoAtendimentoEstagiario_pkey" PRIMARY KEY ("estagiarioId","equipeId","periodoLetivoId")
 );
 
 -- CreateTable
@@ -207,25 +298,67 @@ CREATE TABLE "TokenAcesso" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Equipe_unidadeId_nome_key" ON "Equipe"("unidadeId", "nome");
-
--- CreateIndex
-CREATE INDEX "PeriodoLetivo_unidadeId_inicio_fim_idx" ON "PeriodoLetivo"("unidadeId", "inicio", "fim");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Usuario_email_key" ON "Usuario"("email");
 
 -- CreateIndex
-CREATE INDEX "Usuario_unidadeId_perfil_idx" ON "Usuario"("unidadeId", "perfil");
+CREATE INDEX "Usuario_perfil_ativo_idx" ON "Usuario"("perfil", "ativo");
 
 -- CreateIndex
-CREATE INDEX "Usuario_equipeId_perfil_idx" ON "Usuario"("equipeId", "perfil");
+CREATE INDEX "UsuarioUnidade_unidadeId_ativo_idx" ON "UsuarioUnidade"("unidadeId", "ativo");
+
+-- CreateIndex
+CREATE INDEX "UsuarioEquipe_equipeId_ativo_idx" ON "UsuarioEquipe"("equipeId", "ativo");
+
+-- CreateIndex
+CREATE INDEX "UsuarioEquipe_unidadeId_ativo_idx" ON "UsuarioEquipe"("unidadeId", "ativo");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "UsuarioEquipe_usuarioId_equipeId_unidadeId_key" ON "UsuarioEquipe"("usuarioId", "equipeId", "unidadeId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Convite_tokenHash_key" ON "Convite"("tokenHash");
 
 -- CreateIndex
 CREATE INDEX "Convite_usuarioId_idx" ON "Convite"("usuarioId");
+
+-- CreateIndex
+CREATE INDEX "Convite_expiraEm_idx" ON "Convite"("expiraEm");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SessaoAutenticacao_token_key" ON "SessaoAutenticacao"("token");
+
+-- CreateIndex
+CREATE INDEX "SessaoAutenticacao_userId_idx" ON "SessaoAutenticacao"("userId");
+
+-- CreateIndex
+CREATE INDEX "ContaAutenticacao_userId_idx" ON "ContaAutenticacao"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ContaAutenticacao_providerId_accountId_key" ON "ContaAutenticacao"("providerId", "accountId");
+
+-- CreateIndex
+CREATE INDEX "VerificacaoAutenticacao_identifier_idx" ON "VerificacaoAutenticacao"("identifier");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "LimiteRequisicao_key_key" ON "LimiteRequisicao"("key");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Equipe_unidadeId_nome_key" ON "Equipe"("unidadeId", "nome");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Equipe_id_unidadeId_key" ON "Equipe"("id", "unidadeId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Equipe_supervisorId_id_unidadeId_key" ON "Equipe"("supervisorId", "id", "unidadeId");
+
+-- CreateIndex
+CREATE INDEX "PeriodoLetivo_unidadeId_inicio_fim_idx" ON "PeriodoLetivo"("unidadeId", "inicio", "fim");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PeriodoLetivo_id_unidadeId_key" ON "PeriodoLetivo"("id", "unidadeId");
+
+-- CreateIndex
+CREATE INDEX "ConfiguracaoAtendimentoEstagiario_equipeId_periodoLetivoId__idx" ON "ConfiguracaoAtendimentoEstagiario"("equipeId", "periodoLetivoId", "liberado");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Sala_unidadeId_nome_key" ON "Sala"("unidadeId", "nome");
@@ -282,22 +415,52 @@ CREATE UNIQUE INDEX "TokenAcesso_tokenHash_key" ON "TokenAcesso"("tokenHash");
 CREATE INDEX "TokenAcesso_agendamentoId_idx" ON "TokenAcesso"("agendamentoId");
 
 -- AddForeignKey
+ALTER TABLE "UsuarioUnidade" ADD CONSTRAINT "UsuarioUnidade_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UsuarioUnidade" ADD CONSTRAINT "UsuarioUnidade_unidadeId_fkey" FOREIGN KEY ("unidadeId") REFERENCES "Unidade"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UsuarioEquipe" ADD CONSTRAINT "UsuarioEquipe_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UsuarioEquipe" ADD CONSTRAINT "UsuarioEquipe_usuarioId_unidadeId_fkey" FOREIGN KEY ("usuarioId", "unidadeId") REFERENCES "UsuarioUnidade"("usuarioId", "unidadeId") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UsuarioEquipe" ADD CONSTRAINT "UsuarioEquipe_equipeId_unidadeId_fkey" FOREIGN KEY ("equipeId", "unidadeId") REFERENCES "Equipe"("id", "unidadeId") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Convite" ADD CONSTRAINT "Convite_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SessaoAutenticacao" ADD CONSTRAINT "SessaoAutenticacao_userId_fkey" FOREIGN KEY ("userId") REFERENCES "Usuario"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ContaAutenticacao" ADD CONSTRAINT "ContaAutenticacao_userId_fkey" FOREIGN KEY ("userId") REFERENCES "Usuario"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Equipe" ADD CONSTRAINT "Equipe_unidadeId_fkey" FOREIGN KEY ("unidadeId") REFERENCES "Unidade"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Equipe" ADD CONSTRAINT "Equipe_supervisorId_fkey" FOREIGN KEY ("supervisorId") REFERENCES "Usuario"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Equipe" ADD CONSTRAINT "Equipe_supervisorId_id_unidadeId_fkey" FOREIGN KEY ("supervisorId", "id", "unidadeId") REFERENCES "UsuarioEquipe"("usuarioId", "equipeId", "unidadeId") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
 ALTER TABLE "PeriodoLetivo" ADD CONSTRAINT "PeriodoLetivo_unidadeId_fkey" FOREIGN KEY ("unidadeId") REFERENCES "Unidade"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Usuario" ADD CONSTRAINT "Usuario_unidadeId_fkey" FOREIGN KEY ("unidadeId") REFERENCES "Unidade"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "ConfiguracaoAtendimentoEstagiario" ADD CONSTRAINT "ConfiguracaoAtendimentoEstagiario_estagiarioId_fkey" FOREIGN KEY ("estagiarioId") REFERENCES "Usuario"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Usuario" ADD CONSTRAINT "Usuario_equipeId_fkey" FOREIGN KEY ("equipeId") REFERENCES "Equipe"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "ConfiguracaoAtendimentoEstagiario" ADD CONSTRAINT "ConfiguracaoAtendimentoEstagiario_equipeId_unidadeId_fkey" FOREIGN KEY ("equipeId", "unidadeId") REFERENCES "Equipe"("id", "unidadeId") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Convite" ADD CONSTRAINT "Convite_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ConfiguracaoAtendimentoEstagiario" ADD CONSTRAINT "ConfiguracaoAtendimentoEstagiario_estagiarioId_equipeId_un_fkey" FOREIGN KEY ("estagiarioId", "equipeId", "unidadeId") REFERENCES "UsuarioEquipe"("usuarioId", "equipeId", "unidadeId") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ConfiguracaoAtendimentoEstagiario" ADD CONSTRAINT "ConfiguracaoAtendimentoEstagiario_periodoLetivoId_unidadeI_fkey" FOREIGN KEY ("periodoLetivoId", "unidadeId") REFERENCES "PeriodoLetivo"("id", "unidadeId") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Sala" ADD CONSTRAINT "Sala_unidadeId_fkey" FOREIGN KEY ("unidadeId") REFERENCES "Unidade"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
