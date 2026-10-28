@@ -153,7 +153,7 @@ async function escolherHorario(
   return escolhido;
 }
 
-async function escolherSala(tx: Transacao, unidadeId: string, diaSemana: number, horaInicio: number): Promise<string> {
+export async function escolherSala(tx: Transacao, unidadeId: string, diaSemana: number, horaInicio: number): Promise<string> {
   const salas = await tx.sala.findMany({
     where: { unidadeId, ativa: true },
     orderBy: { nome: "asc" },
