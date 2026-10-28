@@ -7,7 +7,16 @@ export type HorarioLivre = {
   horaInicio: number;
 };
 
-export async function listarHorariosLivres(unidadeId: string, equipeId: string, agora = new Date()): Promise<HorarioLivre[]> {
+export type FiltroHorarios = {
+  estagiarioId?: string;
+};
+
+export async function listarHorariosLivres(
+  unidadeId: string,
+  equipeId: string,
+  filtro: FiltroHorarios = {},
+  agora = new Date(),
+): Promise<HorarioLivre[]> {
   const [unidade, horarios, ativos] = await Promise.all([
     prisma.unidade.findFirst({
       where: { id: unidadeId, ativa: true, periodos: { some: { fim: { gte: hojeNoBrasil(agora) } } } },
@@ -16,6 +25,7 @@ export async function listarHorariosLivres(unidadeId: string, equipeId: string, 
     prisma.horarioDisponivel.findMany({
       where: {
         ativo: true,
+        ...(filtro.estagiarioId ? { estagiarioId: filtro.estagiarioId } : {}),
         estagiario: { perfil: "ESTAGIARIO", ativo: true, liberado: true, unidadeId, equipeId },
       },
       select: { id: true, diaSemana: true, horaInicio: true, estagiarioId: true, estagiario: { select: { limitePacientes: true } } },
