@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { formatarData, formatarDataHora } from "../../formatar";
 import { PaginaModulo } from "../../pagina-modulo";
 import { perfisDaRota } from "../../menu";
+import { FormSessao } from "./form-sessao";
 
 type Parametros = PageProps<"/pacientes/[id]">["params"];
 
@@ -106,6 +107,14 @@ async function Atendimento({ parametros }: { parametros: Parametros }) {
       {ativo && (
         <section className="flex flex-col gap-3">
           <h2 className="font-semibold">Ações</h2>
+          <FormSessao
+            agendamentoId={agendamento.id}
+            status={agendamento.status}
+            diaSemana={agendamento.diaSemana}
+            dataInicio={agendamento.dataInicio}
+            dataFim={agendamento.dataFim}
+            termoAssinado={agendamento.termoAssinadoEm !== null}
+          />
         </section>
       )}
 
