@@ -1,45 +1,68 @@
-import { exigirUsuario, filtroDeUnidade } from "@/lib/auth/permissao";
-import { prisma } from "@/lib/prisma";
+import Link from "next/link";
+import { exigirUsuario } from "@/lib/auth/permissao";
+import { listarListaEspera } from "@/lib/lista-espera/listar-lista-espera";
+import { formatarData } from "../formatar";
+import { FormularioAcao } from "../formulario-acao";
 import { PaginaModulo } from "../pagina-modulo";
+import { Paginacao } from "../paginacao";
+import { montarHref, numeroDaPagina, primeiro, TAMANHO_DA_PAGINA } from "../parametros";
 import { perfisDaRota } from "../menu";
+import { remover } from "./actions";
 
-export default function ListaEsperaPage() {
+type Busca = PageProps<"/lista-espera">["searchParams"];
+
+export default function ListaEsperaPage({ searchParams }: PageProps<"/lista-espera">) {
   return (
-    <PaginaModulo
-      titulo="Lista de espera"
-      card="#3"
-      pendente="paginação e ação chamar o 1º da lista (criarAgendamento com listaEsperaId)."
-    >
-      <Lista />
+    <PaginaModulo titulo="Lista de espera" card="#3" pendente="design definitivo, a combinar com o time.">
+      <Lista busca={searchParams} />
     </PaginaModulo>
   );
 }
 
-async function Lista() {
+async function Lista({ busca }: { busca: Busca }) {
   const usuario = await exigirUsuario(perfisDaRota("/lista-espera"));
-  const escopo = usuario.perfil === "ESTAGIARIO" ? { equipeId: usuario.equipeId ?? "" } : filtroDeUnidade(usuario);
-  const inscricoes = await prisma.listaEspera.findMany({
-    where: { ...escopo, status: "AGUARDANDO" },
-    orderBy: [{ equipeId: "asc" }, { inscritoEm: "asc" }],
-    take: 50,
-    select: {
-      id: true,
-      inscritoEm: true,
-      equipe: { select: { nome: true, unidade: { select: { nome: true } } } },
-      paciente: { select: { nome: true, telefone: true } },
-    },
+  const parametros = await busca;
+  const pagina = numeroDaPagina(primeiro(parametros.pagina));
+  const { equipes, equipe, inscricoes, total } = await listarListaEspera(usuario, {
+    equipeId: primeiro(parametros.equipe),
+    pagina,
+    tamanho: TAMANHO_DA_PAGINA,
   });
 
-  if (inscricoes.length === 0) return <p>Lista de espera vazia.</p>;
+  if (!equipe) return <p>Nenhuma equipe disponível.</p>;
 
   return (
-    <ol className="list-decimal pl-6">
-      {inscricoes.map((inscricao) => (
-        <li key={inscricao.id}>
-          {inscricao.equipe.unidade.nome} / {inscricao.equipe.nome} — {inscricao.paciente.nome} — {inscricao.paciente.telefone} — desde{" "}
-          {inscricao.inscritoEm.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
-        </li>
-      ))}
-    </ol>
+    <div className="flex flex-col gap-4">
+      {equipes.length > 1 && (
+        <nav className="flex flex-wrap gap-3 text-sm">
+          {equipes.map((opcao) => (
+            <Link key={opcao.id} href={montarHref("/lista-espera", { equipe: opcao.id })} className={opcao.id === equipe.id ? "font-bold" : "underline"}>
+              {opcao.unidade.nome} / {opcao.nome}
+            </Link>
+          ))}
+        </nav>
+      )}
+      <h2 className="font-semibold">
+        {equipe.unidade.nome} / {equipe.nome} — {total} aguardando
+      </h2>
+      {inscricoes.length === 0 ? (
+        <p>Lista de espera vazia.</p>
+      ) : (
+        <ol className="flex flex-col gap-2">
+          {inscricoes.map((inscricao) => (
+            <li key={inscricao.id} className="flex flex-wrap items-center gap-3 rounded border p-2">
+              <span className={inscricao.posicao === 1 ? "font-bold" : ""}>
+                {inscricao.posicao}º — {inscricao.paciente.nome} — {inscricao.paciente.telefone} — desde {formatarData(inscricao.inscritoEm)}
+              </span>
+              <Link className="underline" href={`/lista-espera/${inscricao.id}/chamar`}>
+                {inscricao.posicao === 1 ? "Chamar o 1º da lista" : "Chamar"}
+              </Link>
+              <FormularioAcao acao={remover.bind(null, inscricao.id)} rotulo="Remover" confirmacao="Remover este paciente da lista de espera?" />
+            </li>
+          ))}
+        </ol>
+      )}
+      <Paginacao pagina={pagina} total={total} tamanho={TAMANHO_DA_PAGINA} href={(novaPagina) => montarHref("/lista-espera", { equipe: equipe.id, pagina: novaPagina })} />
+    </div>
   );
 }
