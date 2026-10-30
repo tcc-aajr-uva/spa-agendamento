@@ -1,4 +1,4 @@
-import { exigirUsuario, filtroDeUnidade } from "@/lib/auth/permissao";
+import { exigirUsuario, filtroDeEscopo } from "@/lib/auth/autorizacao";
 import { prisma } from "@/lib/prisma";
 import { PaginaModulo } from "../pagina-modulo";
 import { perfisDaRota } from "../menu";
@@ -17,7 +17,7 @@ export default function PainelPage() {
 
 async function Resumo() {
   const usuario = await exigirUsuario(perfisDaRota("/painel"));
-  const escopo = filtroDeUnidade(usuario);
+  const escopo = filtroDeEscopo(usuario);
   const [porStatus, naLista] = await Promise.all([
     prisma.agendamento.groupBy({ by: ["status"], where: escopo, _count: { _all: true } }),
     prisma.listaEspera.count({ where: { ...escopo, status: "AGUARDANDO" } }),

@@ -1,4 +1,4 @@
-import { exigirUsuario, filtroDeUnidade } from "@/lib/auth/permissao";
+import { exigirUsuario, filtroDeIdsDasUnidades } from "@/lib/auth/autorizacao";
 import { prisma } from "@/lib/prisma";
 import { PaginaModulo } from "../pagina-modulo";
 import { perfisDaRota } from "../menu";
@@ -18,13 +18,20 @@ export default function CadastrosPage() {
 async function Unidades() {
   const usuario = await exigirUsuario(perfisDaRota("/cadastros"));
   const unidades = await prisma.unidade.findMany({
-    where: { id: filtroDeUnidade(usuario).unidadeId },
+    where: filtroDeIdsDasUnidades(usuario),
     orderBy: { nome: "asc" },
     select: {
       id: true,
       nome: true,
       agendamentoAberto: true,
-      equipes: { orderBy: { nome: "asc" }, select: { id: true, nome: true, supervisor: { select: { nome: true } } } },
+      equipes: {
+        orderBy: { nome: "asc" },
+        select: {
+          id: true,
+          nome: true,
+          supervisor: { select: { nome: true } },
+        },
+      },
       periodos: { orderBy: { inicio: "desc" }, take: 1, select: { inicio: true, fim: true } },
     },
   });
