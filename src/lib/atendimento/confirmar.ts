@@ -1,11 +1,11 @@
 import "server-only";
-import type { UsuarioAtual } from "@/lib/auth/usuario-atual";
+import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { executarEmTransacao } from "@/lib/transacao";
 import { carregarAgendamentoAtivo } from "@/lib/atendimento/acesso";
 import { liberarAgendamento } from "@/lib/agendamento/liberar-agendamento";
 
-export async function confirmarAgendamento(agendamentoId: string, usuario: UsuarioAtual, agora = new Date()): Promise<void> {
+export async function confirmarAgendamento(agendamentoId: string, usuario: ContextoAutorizacao, agora = new Date()): Promise<void> {
   const venceu = await executarEmTransacao(async (tx) => {
     const agendamento = await carregarAgendamentoAtivo(tx, agendamentoId, usuario);
     if (agendamento.status !== "PENDENTE") {

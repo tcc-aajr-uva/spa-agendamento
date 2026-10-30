@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import type { StatusAgendamento } from "@/generated/prisma/client";
-import type { UsuarioAtual } from "@/lib/auth/usuario-atual";
+import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { executarEmTransacao } from "@/lib/transacao";
 import { carregarAgendamentoAtivo } from "@/lib/atendimento/acesso";
@@ -35,7 +35,7 @@ export function motivosDeEncerramento(status: StatusAgendamento): readonly Motiv
   return MOTIVOS_POR_STATUS[status] ?? [];
 }
 
-export async function encerrarAtendimento(agendamentoId: string, entrada: Encerramento, usuario: UsuarioAtual): Promise<void> {
+export async function encerrarAtendimento(agendamentoId: string, entrada: Encerramento, usuario: ContextoAutorizacao): Promise<void> {
   const dados = encerramentoSchema.safeParse(entrada);
   if (!dados.success) throw new ErroDeRegra("DADOS_INVALIDOS", dados.error.issues[0]?.message ?? "Dados inválidos.");
   const { motivo, observacao } = dados.data;
