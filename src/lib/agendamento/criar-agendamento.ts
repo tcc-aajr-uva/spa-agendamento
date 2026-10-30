@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import type { UsuarioAtual } from "@/lib/auth/usuario-atual";
+import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { dadosPacienteSchema } from "@/lib/paciente/dados-paciente";
 import { salvarPaciente } from "@/lib/paciente/salvar-paciente";
@@ -30,7 +30,7 @@ export type AgendamentoCriado = {
   horaInicio: number;
 };
 
-export async function criarAgendamento(entrada: NovoAgendamento, usuario: UsuarioAtual | null, agora = new Date()): Promise<AgendamentoCriado> {
+export async function criarAgendamento(entrada: NovoAgendamento, usuario: ContextoAutorizacao | null, agora = new Date()): Promise<AgendamentoCriado> {
   const dados = novoAgendamentoSchema.safeParse(entrada);
   if (!dados.success) throw new ErroDeRegra("DADOS_INVALIDOS", dados.error.issues[0]?.message ?? "Dados inválidos.");
 
@@ -50,7 +50,7 @@ export async function criarAgendamento(entrada: NovoAgendamento, usuario: Usuari
 async function criarNaTransacao(
   tx: Transacao,
   dados: z.output<typeof novoAgendamentoSchema>,
-  usuario: UsuarioAtual | null,
+  usuario: ContextoAutorizacao | null,
   agora: Date,
 ): Promise<AgendamentoCriado> {
   const { unidadeId, equipeId, diaSemana, horaInicio, listaEsperaId } = dados;
@@ -63,7 +63,11 @@ async function criarNaTransacao(
   await liberarPendentesVencidos(tx, { OR: [{ unidadeId }, { paciente: { cpf: dados.paciente.cpf } }] }, agora);
   await garantirPacienteSemVinculoAtivo(tx, dados.paciente.cpf, listaEsperaId);
 
-  const horario = await escolherHorario(tx, { unidadeId, equipeId, diaSemana, horaInicio }, usuario);
+  const horario = await escolherHorario(
+    tx,
+    { unidadeId, equipeId, periodoLetivoId: periodo.id, diaSemana, horaInicio },
+    usuario,
+  );
   const salaId = await escolherSala(tx, unidadeId, diaSemana, horaInicio);
   const paciente = await salvarPaciente(tx, dados.paciente);
 
@@ -116,8 +120,8 @@ async function criarNaTransacao(
 
 async function escolherHorario(
   tx: Transacao,
-  alvo: { unidadeId: string; equipeId: string; diaSemana: number; horaInicio: number },
-  usuario: UsuarioAtual | null,
+  alvo: { unidadeId: string; equipeId: string; periodoLetivoId: string; diaSemana: number; horaInicio: number },
+  usuario: ContextoAutorizacao | null,
 ) {
   const candidatos = await tx.horarioDisponivel.findMany({
     where: {
@@ -128,13 +132,36 @@ async function escolherHorario(
       estagiario: {
         perfil: "ESTAGIARIO",
         ativo: true,
-        liberado: true,
-        unidadeId: alvo.unidadeId,
-        equipeId: alvo.equipeId,
+        configuracoesAtendimento: {
+          some: {
+            unidadeId: alvo.unidadeId,
+            equipeId: alvo.equipeId,
+            periodoLetivoId: alvo.periodoLetivoId,
+            liberado: true,
+            vinculoEquipe: { ativo: true },
+          },
+        },
         ...(usuario?.perfil === "ESTAGIARIO" ? { id: usuario.id } : {}),
       },
     },
-    select: { id: true, estagiarioId: true, estagiario: { select: { limitePacientes: true } } },
+    select: {
+      id: true,
+      estagiarioId: true,
+      estagiario: {
+        select: {
+          configuracoesAtendimento: {
+            where: {
+              unidadeId: alvo.unidadeId,
+              equipeId: alvo.equipeId,
+              periodoLetivoId: alvo.periodoLetivoId,
+              liberado: true,
+            },
+            take: 1,
+            select: { limitePacientes: true },
+          },
+        },
+      },
+    },
   });
   if (candidatos.length === 0) throw new ErroDeRegra("HORARIO_OCUPADO", "Este horário não está mais disponível. Escolha outro.");
 
@@ -147,7 +174,7 @@ async function escolherHorario(
 
   const escolhido = candidatos
     .map((candidato) => ({ ...candidato, ativos: ativosPorEstagiario.get(candidato.estagiarioId) ?? 0 }))
-    .filter((candidato) => candidato.ativos < candidato.estagiario.limitePacientes)
+    .filter((candidato) => candidato.ativos < (candidato.estagiario.configuracoesAtendimento[0]?.limitePacientes ?? 0))
     .sort((a, b) => a.ativos - b.ativos)[0];
   if (!escolhido) throw new ErroDeRegra("HORARIO_OCUPADO", "Este horário não está mais disponível. Escolha outro.");
   return escolhido;

@@ -1,4 +1,4 @@
-import { exigirUsuario, filtroDeUnidade } from "@/lib/auth/permissao";
+import { exigirUsuario, filtroDeUnidades } from "@/lib/auth/autorizacao";
 import { prisma } from "@/lib/prisma";
 import { PaginaModulo } from "../pagina-modulo";
 import { perfisDaRota } from "../menu";
@@ -14,7 +14,7 @@ export default function SalasPage() {
 async function Salas() {
   const usuario = await exigirUsuario(perfisDaRota("/salas"));
   const salas = await prisma.sala.findMany({
-    where: filtroDeUnidade(usuario),
+    where: filtroDeUnidades(usuario),
     orderBy: [{ unidade: { nome: "asc" } }, { nome: "asc" }],
     take: 100,
     select: { id: true, nome: true, ativa: true, unidade: { select: { nome: true } } },
