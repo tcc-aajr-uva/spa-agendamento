@@ -1,7 +1,7 @@
 "use server";
 
 import { gerarNovoLinkDeCancelamento } from "@/lib/atendimento/link-cancelamento";
-import { exigirUsuario } from "@/lib/auth/permissao";
+import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { executarAcao, montarLinkDeCancelamento, type EstadoAcao } from "../../acao";
 import { perfisDaRota } from "../../menu";
 

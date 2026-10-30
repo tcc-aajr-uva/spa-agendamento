@@ -1,5 +1,5 @@
 import "server-only";
-import type { UsuarioAtual } from "@/lib/auth/usuario-atual";
+import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { gerarCodigo, gerarToken, hashToken } from "@/lib/token";
 import { executarEmTransacao } from "@/lib/transacao";
 import { carregarAgendamentoAtivo } from "@/lib/atendimento/acesso";
@@ -11,7 +11,7 @@ export type LinkDeCancelamento = {
   token: string;
 };
 
-export async function gerarNovoLinkDeCancelamento(agendamentoId: string, usuario: UsuarioAtual): Promise<LinkDeCancelamento> {
+export async function gerarNovoLinkDeCancelamento(agendamentoId: string, usuario: ContextoAutorizacao): Promise<LinkDeCancelamento> {
   return executarEmTransacao(async (tx) => {
     const agendamento = await carregarAgendamentoAtivo(tx, agendamentoId, usuario);
     const atual = await tx.tokenAcesso.findFirst({
