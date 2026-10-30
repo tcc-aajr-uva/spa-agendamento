@@ -22,6 +22,8 @@ export async function exigirUsuario(perfis?: Perfil[]): Promise<ContextoAutoriza
 }
 
 export function podeAcessar(usuario: ContextoAutorizacao, escopo: Escopo): boolean {
+  if (usuario.perfil === "ADMINISTRADOR") return true;
+
   if (!usuario.unidades.includes(escopo.unidadeId)) return false;
 
   if (usuario.perfil === "COORDENACAO" || usuario.perfil === "SECRETARIA") {
@@ -39,18 +41,22 @@ export function podeAcessar(usuario: ContextoAutorizacao, escopo: Escopo): boole
   return true;
 }
 
-export function filtroDeUnidades(usuario: ContextoAutorizacao): { unidadeId: { in: string[] } } {
+export function filtroDeUnidades(usuario: ContextoAutorizacao): { unidadeId?: { in: string[] } } {
+  if (usuario.perfil === "ADMINISTRADOR") return {};
   return { unidadeId: { in: usuario.unidades } };
 }
 
-export function filtroDeIdsDasUnidades(usuario: ContextoAutorizacao): { id: { in: string[] } } {
+export function filtroDeIdsDasUnidades(usuario: ContextoAutorizacao): { id?: { in: string[] } } {
+  if (usuario.perfil === "ADMINISTRADOR") return {};
   return { id: { in: usuario.unidades } };
 }
 
 export function filtroDeEscopo(usuario: ContextoAutorizacao): {
-  unidadeId: { in: string[] };
+  unidadeId?: { in: string[] };
   equipeId?: { in: string[] };
 } {
+  if (usuario.perfil === "ADMINISTRADOR") return {};
+
   const unidadeId = { in: usuario.unidades };
 
   if (usuario.perfil === "SUPERVISOR" || usuario.perfil === "ESTAGIARIO") {

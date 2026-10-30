@@ -37,7 +37,7 @@ export const auth = betterAuth({
 
     additionalFields: {
       perfil: {
-        type: ["COORDENACAO", "SECRETARIA", "SUPERVISOR", "ESTAGIARIO"],
+        type: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "SUPERVISOR", "ESTAGIARIO"],
         required: true,
         defaultValue: "ESTAGIARIO",
         input: false,
