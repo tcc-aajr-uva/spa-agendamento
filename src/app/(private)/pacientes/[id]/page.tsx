@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { formatarData, formatarDataHora } from "../../formatar";
 import { PaginaModulo } from "../../pagina-modulo";
 import { perfisDaRota } from "../../menu";
+import { LinkCancelamento } from "./link-cancelamento";
 
 type Parametros = PageProps<"/pacientes/[id]">["params"];
 
@@ -38,6 +39,7 @@ async function Atendimento({ parametros }: { parametros: Parametros }) {
       motivoEncerramento: true,
       encerradoEm: true,
       horarioAtivoId: true,
+      tokens: { where: { tipo: "CANCELAMENTO" }, orderBy: { criadoEm: "desc" }, take: 1, select: { codigo: true } },
       paciente: {
         select: { nome: true, cpf: true, dataNascimento: true, telefone: true, email: true, responsavelNome: true, responsavelCpf: true },
       },
@@ -106,6 +108,7 @@ async function Atendimento({ parametros }: { parametros: Parametros }) {
       {ativo && (
         <section className="flex flex-col gap-3">
           <h2 className="font-semibold">Ações</h2>
+          <LinkCancelamento agendamentoId={agendamento.id} codigo={agendamento.tokens[0]?.codigo} />
         </section>
       )}
 
