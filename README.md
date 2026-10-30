@@ -12,7 +12,7 @@ Sistema de agendamento do Serviço de Psicologia Aplicada (SPA) da Universidade 
 
 ## Primeiros passos
 
-1. Suba um banco e copie `.env.example` para `.env`:
+1. Suba um banco, copie `.env.example` para `.env` e preencha as variáveis conforme [Configuração do ambiente](#configuração-do-ambiente):
    - **Local (Docker):** veja [Banco local com Docker](#banco-local-com-docker).
    - **Neon:** crie a sua branch. `DATABASE_URL` é a connection string **com pool** (host com `-pooler`), usada pelo app; `DIRECT_URL` é a **direta**, usada pelo CLI do Prisma.
 2. Instale as dependências (o `postinstall` já gera o client do Prisma em `src/generated/prisma`):
@@ -21,22 +21,77 @@ Sistema de agendamento do Serviço de Psicologia Aplicada (SPA) da Universidade 
    npm install
    ```
 
-3. Crie as tabelas aplicando as migrations de `prisma/migrations` e carregue os dados de teste:
+3. Crie as tabelas aplicando as migrations de `prisma/migrations`, carregue os dados de teste e, apenas na primeira configuração, crie o administrador:
 
    ```bash
    npx prisma migrate dev
    npm run db:seed
+   npm run db:bootstrap-admin
    ```
 
    Mudou o `schema.prisma`? Gere uma migration nova com nome descritivo (`npx prisma migrate dev --name tabela-sessao`) e leve a pasta gerada no PR. Nunca apague nem edite uma migration que já foi aplicada; em produção as migrations rodam com `npx prisma migrate deploy`.
 
-4. Rode o projeto e entre como qualquer usuário do seed em `/dev/entrar`:
+4. Rode o projeto e acesse `/entrar`:
 
    ```bash
    npm run dev
    ```
 
+   Use o e-mail e a senha definidos em `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD`.
+
 O seed é idempotente: pode rodar de novo para restaurar os dados de teste.
+
+## Configuração do ambiente
+
+Crie o arquivo `.env` na raiz do projeto a partir do exemplo versionado:
+
+```bash
+cp .env.example .env
+```
+
+Gere uma chave aleatória para `BETTER_AUTH_SECRET`:
+
+```bash
+npx auth@1.7 secret
+```
+
+Copie o valor exibido pelo comando para o `BETTER_AUTH_SECRET` do seu `.env`.
+
+Para o PostgreSQL local fornecido pelo projeto, um exemplo completo é:
+
+```env
+DATABASE_URL=postgresql://postgres:B%40nco123@localhost:5432/spa
+DIRECT_URL=postgresql://postgres:B%40nco123@localhost:5432/spa
+BETTER_AUTH_URL=http://localhost:3000
+BETTER_AUTH_SECRET=substitua-por-uma-chave-local-longa-e-aleatoria
+BOOTSTRAP_ADMIN_NAME=Administrador
+BOOTSTRAP_ADMIN_EMAIL=admin@spa.teste
+BOOTSTRAP_ADMIN_PASSWORD=TesteAdmin@1234
+SEED_SENHA=TesteSeed@1234
+```
+
+| Variável | Finalidade |
+| --- | --- |
+| `DATABASE_URL` | Conexão usada pela aplicação e pelo Prisma Client. Em serviços hospedados, use a URL com pool quando o provedor oferecer essa opção. |
+| `DIRECT_URL` | Conexão direta usada pelo CLI do Prisma para migrations. No banco local, pode ser igual à `DATABASE_URL`. |
+| `BETTER_AUTH_URL` | URL base da aplicação. Localmente, use `http://localhost:3000`; no deploy, use a URL HTTPS pública. |
+| `BETTER_AUTH_SECRET` | Chave longa e aleatória usada para proteger a autenticação. Cada ambiente deve possuir seu próprio valor. |
+| `BOOTSTRAP_ADMIN_NAME` | Nome do primeiro administrador criado pelo bootstrap. |
+| `BOOTSTRAP_ADMIN_EMAIL` | E-mail do primeiro administrador criado pelo bootstrap. |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Senha inicial do administrador. Deve possuir ao menos 12 caracteres e no máximo 72 bytes. |
+| `SEED_SENHA` | Só para desenvolvimento e opcional. Com ela, `npm run db:seed` cria o login de cada usuário de teste (e-mail `<id>@spa.teste`), para testar com cada perfil. Nunca configure em produção. |
+
+O arquivo `.env` não deve ser commitado. Em produção, configure as variáveis diretamente no provedor de deploy e remova as três variáveis `BOOTSTRAP_ADMIN_*` depois que o primeiro administrador for criado.
+
+### Primeiro administrador
+
+Depois de aplicar as migrations, configure temporariamente as três variáveis `BOOTSTRAP_ADMIN_*` e execute:
+
+```bash
+npm run db:bootstrap-admin
+```
+
+O comando cria o primeiro administrador e falha se já existir outro usuário com esse perfil ou se o e-mail estiver em uso. Após a execução, remova as três variáveis do ambiente. O bootstrap não redefine a senha de uma conta existente.
 
 ## Banco local com Docker
 
@@ -73,11 +128,12 @@ A senha deste arquivo é só para o banco local de desenvolvimento. Nunca use no
 
 ```
 prisma/
-  schema.prisma          todas as tabelas dos 4 cards
+  schema.prisma          modelos de domínio
+  auth.prisma            usuários, vínculos, convites e modelos do Better Auth
   seed.ts                2 unidades, 2 equipes cada, 3 salas, usuários de todos os perfis, agendamentos e lista de espera
 prisma.config.ts         configuração do CLI (DIRECT_URL, seed)
 docker/docker-compose.yaml  PostgreSQL local para desenvolvimento
-src/app/(public)/        páginas sem login: início, agendar, cancelar, dev/entrar
+src/app/(public)/        páginas sem login: início, entrar, agendar e cancelar
 src/app/(private)/       páginas com login: inicio, cadastros, salas, agenda, reservas, pacientes, lista-espera, painel
 src/lib/                 regras e acesso a dados compartilhados (só servidor)
 ```
@@ -93,8 +149,9 @@ Com Cache Components, qualquer leitura de cookie, banco ou `searchParams` fica d
 | `prisma.ts` | instância única do Prisma Client | todos |
 | `transacao.ts` | `executarEmTransacao` (Serializable, repete em conflito) e `violouUnicidade` | todos |
 | `erros.ts` | `ErroDeRegra` com código; as actions mostram `erro.message` | todos |
-| `auth/usuario-atual.ts` | `obterUsuarioAtual()` → `{ id, nome, perfil, unidadeId, equipeId }` ou `null` | todos |
-| `auth/permissao.ts` | `exigirUsuario(perfis?)`, `podeAcessar(usuario, escopo)`, `filtroDeUnidade(usuario)` | todos |
+| `auth/config.ts` | configuração do Better Auth, bcrypt, sessão e limite de requisições | autenticação |
+| `auth/sessao.ts` | carrega a sessão e os vínculos ativos do usuário com unidades e equipes | todos |
+| `auth/autorizacao.ts` | `exigirUsuario(perfis?)`, `podeAcessar(usuario, escopo)` e filtros de escopo | todos |
 | `token.ts` | `gerarToken`, `hashToken` (sha256), `gerarCodigo` | #1 convite, #4 cancelamento |
 | `paciente/dados-paciente.ts` | schema Zod da inscrição (CPF, menor exige responsável) | #4 |
 | `agendamento/regras.ts` | prazo de 48 h, 3 faltas, `filtroAgendamentoAtivo`, `estaOcupando`, `pendenteVencendo`, `horarioNaGrade`, datas | #2, #3, #4 |
@@ -103,9 +160,9 @@ Com Cache Components, qualquer leitura de cookie, banco ou `searchParams` fica d
 | `agendamento/liberar-agendamento.ts` | `liberarAgendamento(id, { status, motivo, usuarioId })`: a função única que libera horário e sala | #2, #3, #4 |
 | `lista-espera/adicionar-lista-espera.ts` | `adicionarListaEspera(entrada, usuario)` | #4, #3 |
 
-### Login provisório
+### Autenticação
 
-O login real (e-mail, senha, convite) é do card #1. Até lá, `obterUsuarioAtual()` lê o cookie `dev_usuario` gravado por `/dev/entrar`, **só com `NODE_ENV=development`**. Em produção ele devolve `null` e `/dev/entrar` responde 404. O #1 troca só o miolo de `obterUsuarioAtual()`; quem chama não muda.
+O login em `/entrar` usa e-mail e senha pelo Better Auth. A sessão é mantida em cookie seguro e validada no servidor. Não existe auto-cadastro: o primeiro administrador é criado exclusivamente pelo bootstrap e os demais usuários serão criados pelo fluxo administrativo, definindo a senha por convite. O perfil `ADMINISTRADOR` possui acesso global e não depende de vínculo com unidade ou equipe. O seed não cria credenciais de acesso.
 
 ### Concorrência
 
@@ -120,6 +177,16 @@ Dois cliques ao mesmo tempo no mesmo horário: um grava e o outro recebe `HORARI
 ### Pendente vencido
 
 Não existe tarefa agendada. Quem lê usa `filtroAgendamentoAtivo(agora)` ou `estaOcupando()`, para os quais o pendente com mais de 48 h não ocupa. Quem grava chama `liberarPendentesVencidos()` dentro da transação, como `criarAgendamento` já faz.
+
+## Revisão automática de PR
+
+O workflow `.github/workflows/revisao-pr.yml` usa o Claude para revisar cada PR e publica um comentário com contagem de achados, veredito, o que muda e o que não foi coberto.
+
+- Roda ao abrir, reabrir ou tirar o PR de rascunho, se o workflow existir na branch do PR ou na base dele.
+- Para pedir uma revisão em qualquer PR, comente `/revisar` ou `/review`. O bot reage com 👀 e responde em cerca de 1 minuto. Esse comando usa o workflow e as regras da `main`, então funciona mesmo em branches antigas.
+- O que o bot olha fica em `.github/revisao/regras.md`, e o modelo do comentário em `.github/revisao/formato.md`.
+- O veredito é uma orientação: não bloqueia o merge e não substitui a revisão de outra pessoa, o `npm run lint` nem o `npm run build`.
+- Precisa do secret `CLAUDE_CODE_OAUTH_TOKEN` no repositório, gerado com `claude setup-token`.
 
 ## Regras para mexer no esqueleto
 

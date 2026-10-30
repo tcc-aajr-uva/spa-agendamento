@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { filtroDosAtendimentos } from "@/lib/atendimento/acesso";
-import { exigirUsuario, filtroDeUnidade } from "@/lib/auth/permissao";
-import type { UsuarioAtual } from "@/lib/auth/usuario-atual";
+import { exigirUsuario, filtroDeUnidades } from "@/lib/auth/autorizacao";
+import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { DIAS_DA_SEMANA, filtroAgendamentoAtivo, formatarHora, pendenteVencendo } from "@/lib/agendamento/regras";
 import { prisma } from "@/lib/prisma";
 import { formatarDataHora } from "../formatar";
@@ -84,8 +84,8 @@ async function Pacientes({ busca }: { busca: Busca }) {
   );
 }
 
-async function Filtros({ usuario, equipeId, estagiarioId }: { usuario: UsuarioAtual; equipeId?: string; estagiarioId?: string }) {
-  const escopo = filtroDeUnidade(usuario);
+async function Filtros({ usuario, equipeId, estagiarioId }: { usuario: ContextoAutorizacao; equipeId?: string; estagiarioId?: string }) {
+  const escopo = filtroDeUnidades(usuario);
   const [equipes, estagiarios] = await Promise.all([
     prisma.equipe.findMany({
       where: { ...escopo, ativa: true },
@@ -93,7 +93,7 @@ async function Filtros({ usuario, equipeId, estagiarioId }: { usuario: UsuarioAt
       select: { id: true, nome: true, unidade: { select: { nome: true } } },
     }),
     prisma.usuario.findMany({
-      where: { ...escopo, perfil: "ESTAGIARIO", ativo: true, ...(equipeId ? { equipeId } : {}) },
+      where: { perfil: "ESTAGIARIO", ativo: true, equipes: { some: { ...escopo, ...(equipeId ? { equipeId } : {}), ativo: true } } },
       orderBy: { nome: "asc" },
       select: { id: true, nome: true },
     }),
