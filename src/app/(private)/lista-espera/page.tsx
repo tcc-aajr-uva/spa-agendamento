@@ -1,4 +1,4 @@
-import { exigirUsuario, filtroDeUnidade } from "@/lib/auth/permissao";
+import { exigirUsuario, filtroDeEscopo } from "@/lib/auth/autorizacao";
 import { prisma } from "@/lib/prisma";
 import { PaginaModulo } from "../pagina-modulo";
 import { perfisDaRota } from "../menu";
@@ -17,7 +17,7 @@ export default function ListaEsperaPage() {
 
 async function Lista() {
   const usuario = await exigirUsuario(perfisDaRota("/lista-espera"));
-  const escopo = usuario.perfil === "ESTAGIARIO" ? { equipeId: usuario.equipeId ?? "" } : filtroDeUnidade(usuario);
+  const escopo = filtroDeEscopo(usuario);
   const inscricoes = await prisma.listaEspera.findMany({
     where: { ...escopo, status: "AGUARDANDO" },
     orderBy: [{ equipeId: "asc" }, { inscritoEm: "asc" }],
