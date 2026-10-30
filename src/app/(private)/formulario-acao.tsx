@@ -2,6 +2,7 @@
 
 import { useActionState, type FormEvent, type ReactNode } from "react";
 import type { EstadoAcao } from "./acao";
+import { AvisoAoSair } from "./aviso-ao-sair";
 
 type Props = {
   acao: (estado: EstadoAcao, formData: FormData) => Promise<EstadoAcao>;
@@ -33,6 +34,7 @@ export function FormularioAcao({ acao, rotulo, confirmacao, children }: Props) {
           {estado.mensagem}
         </p>
       )}
+      {estado.avisarAoSair && <AvisoAoSair />}
     </form>
   );
 }

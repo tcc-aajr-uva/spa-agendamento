@@ -1,0 +1,141 @@
+enum Perfil {
+  ADMINISTRADOR
+  COORDENACAO
+  SECRETARIA
+  SUPERVISOR
+  ESTAGIARIO
+}
+
+model Usuario {
+  id              String   @id @default(cuid())
+  nome            String
+  email           String   @unique
+  emailVerificado Boolean  @default(false)
+  imagem          String?
+  perfil          Perfil
+  ativo           Boolean  @default(true)
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  unidades UsuarioUnidade[]
+  equipes  UsuarioEquipe[]
+  convites Convite[]
+
+  horarios                 HorarioDisponivel[]
+  configuracoesAtendimento ConfiguracaoAtendimentoEstagiario[] @relation("ConfiguracoesDoEstagiario")
+  agendamentos             Agendamento[]                       @relation("EstagiarioDoAgendamento")
+  equipesSupervisionadas   Equipe[]                            @relation("SupervisorDaEquipe")
+
+  agendamentosCriados Agendamento[]       @relation("CriadorDoAgendamento")
+  sessoesRegistradas  Sessao[]
+  eventos             EventoAgendamento[]
+
+  accounts ContaAutenticacao[]
+  sessions SessaoAutenticacao[]
+
+  @@index([perfil, ativo])
+}
+
+model UsuarioUnidade {
+  usuarioId    String
+  unidadeId    String
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  usuario Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  unidade Unidade         @relation(fields: [unidadeId], references: [id], onDelete: Cascade)
+  equipes UsuarioEquipe[]
+
+  @@id([usuarioId, unidadeId])
+  @@index([unidadeId, ativo])
+}
+
+model UsuarioEquipe {
+  usuarioId    String
+  equipeId     String
+  unidadeId    String
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  usuario                  Usuario                             @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  vinculoUnidade           UsuarioUnidade                      @relation(fields: [usuarioId, unidadeId], references: [usuarioId, unidadeId], onDelete: Cascade)
+  equipe                   Equipe                              @relation("MembrosDaEquipe", fields: [equipeId, unidadeId], references: [id, unidadeId], onDelete: Cascade)
+  equipeSupervisionada     Equipe?                             @relation("SupervisorResponsavel")
+  configuracoesAtendimento ConfiguracaoAtendimentoEstagiario[]
+
+  @@id([usuarioId, equipeId])
+  @@unique([usuarioId, equipeId, unidadeId])
+  @@index([equipeId, ativo])
+  @@index([unidadeId, ativo])
+}
+
+model Convite {
+  id         String    @id @default(cuid())
+  usuarioId  String
+  tokenHash  String    @unique
+  expiraEm   DateTime
+  usadoEm    DateTime?
+  revogadoEm DateTime?
+  criadoEm   DateTime  @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([expiraEm])
+}
+
+model SessaoAutenticacao {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+
+  user Usuario @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ContaAutenticacao {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user Usuario @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model VerificacaoAutenticacao {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+model LimiteRequisicao {
+  id          String @id @default(cuid())
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+}
