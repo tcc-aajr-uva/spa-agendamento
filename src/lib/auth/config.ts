@@ -1,8 +1,14 @@
+import "server-only";
+
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { betterAuth } from "better-auth";
 
 import { prisma } from "@/lib/prisma";
-import { gerarHashDaSenha, verificarSenha } from "@/lib/auth/password";
+import {
+  gerarHashDaSenha,
+  LIMITE_SENHA_BCRYPT_BYTES,
+  verificarSenha,
+} from "@/lib/auth/password";
 
 const baseURL = process.env.BETTER_AUTH_URL;
 const secret = process.env.BETTER_AUTH_SECRET;
@@ -37,7 +43,13 @@ export const auth = betterAuth({
 
     additionalFields: {
       perfil: {
-        type: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "SUPERVISOR", "ESTAGIARIO"],
+        type: [
+          "ADMINISTRADOR",
+          "COORDENACAO",
+          "SECRETARIA",
+          "SUPERVISOR",
+          "ESTAGIARIO",
+        ],
         required: true,
         defaultValue: "ESTAGIARIO",
         input: false,
@@ -71,7 +83,7 @@ export const auth = betterAuth({
     disableSignUp: true,
     requireEmailVerification: false,
     minPasswordLength: 8,
-    maxPasswordLength: 128,
+    maxPasswordLength: LIMITE_SENHA_BCRYPT_BYTES,
 
     password: {
       hash: gerarHashDaSenha,

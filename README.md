@@ -77,7 +77,7 @@ BOOTSTRAP_ADMIN_PASSWORD=TesteAdmin@1234
 | `BETTER_AUTH_SECRET` | Chave longa e aleatória usada para proteger a autenticação. Cada ambiente deve possuir seu próprio valor. |
 | `BOOTSTRAP_ADMIN_NAME` | Nome do primeiro administrador criado pelo bootstrap. |
 | `BOOTSTRAP_ADMIN_EMAIL` | E-mail do primeiro administrador criado pelo bootstrap. |
-| `BOOTSTRAP_ADMIN_PASSWORD` | Senha inicial do administrador. Deve possuir entre 12 e 128 caracteres. |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Senha inicial do administrador. Deve possuir ao menos 12 caracteres e no máximo 72 bytes. |
 
 O arquivo `.env` não deve ser commitado. Em produção, configure as variáveis diretamente no provedor de deploy e remova as três variáveis `BOOTSTRAP_ADMIN_*` depois que o primeiro administrador for criado.
 

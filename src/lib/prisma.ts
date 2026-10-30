@@ -1,3 +1,5 @@
+import "server-only";
+
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "@/generated/prisma/client";
@@ -22,9 +24,7 @@ function criarPrisma(): PrismaClient {
   });
 }
 
-export const prisma =
-  globalForPrisma.prisma ??
-  criarPrisma();
+export const prisma = globalForPrisma.prisma ?? criarPrisma();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;

@@ -4,7 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { z } from "zod";
 
 import { Prisma, PrismaClient } from "../src/generated/prisma/client";
-import { gerarHashDaSenha } from "../src/lib/auth/password";
+import { gerarHashDaSenha, senhaExcedeLimiteBcrypt } from "../src/lib/auth/password";
 
 const variaveisSchema = z.object({
   DATABASE_URL: z.url("DATABASE_URL deve ser uma URL válida."),
@@ -13,7 +13,7 @@ const variaveisSchema = z.object({
   BOOTSTRAP_ADMIN_PASSWORD: z
     .string()
     .min(12, "BOOTSTRAP_ADMIN_PASSWORD deve possuir ao menos 12 caracteres.")
-    .max(128, "BOOTSTRAP_ADMIN_PASSWORD deve possuir no máximo 128 caracteres."),
+    .refine((senha) => !senhaExcedeLimiteBcrypt(senha), "BOOTSTRAP_ADMIN_PASSWORD deve possuir no máximo 72 bytes."),
 });
 
 const resultado = variaveisSchema.safeParse(process.env);

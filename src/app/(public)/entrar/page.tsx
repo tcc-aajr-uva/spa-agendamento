@@ -6,7 +6,7 @@ export default function EntrarPage() {
       <section className="w-full space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Entrar</h1>
-          <p className="text-sm text-gray-600">Use o e-mail e a senha definidos pelo convite.</p>
+          <p className="text-sm text-gray-600">Use seu e-mail e sua senha para entrar.</p>
         </div>
         <FormularioLogin />
       </section>
