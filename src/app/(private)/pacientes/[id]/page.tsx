@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { exigirUsuario, podeAcessar } from "@/lib/auth/permissao";
+import { exigirUsuario, podeAcessar } from "@/lib/auth/autorizacao";
 import { DIAS_DA_SEMANA, estaOcupando, formatarHora } from "@/lib/agendamento/regras";
 import { prisma } from "@/lib/prisma";
 import { formatarData, formatarDataHora } from "../../formatar";

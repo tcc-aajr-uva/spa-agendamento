@@ -1,6 +1,6 @@
 import "server-only";
-import { podeAcessar } from "@/lib/auth/permissao";
-import type { UsuarioAtual } from "@/lib/auth/usuario-atual";
+import { podeAcessar } from "@/lib/auth/autorizacao";
+import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import type { Transacao } from "@/lib/transacao";
 import { hojeNoBrasil } from "@/lib/agendamento/regras";
@@ -15,7 +15,7 @@ type ConfiguracaoUnidade = {
 export function autorizarAgendamento(
   unidade: ConfiguracaoUnidade & { id: string },
   equipeId: string,
-  usuario: UsuarioAtual | null,
+  usuario: ContextoAutorizacao | null,
   vindoDaListaDeEspera = false,
 ): void {
   if (!usuario) {
@@ -26,7 +26,7 @@ export function autorizarAgendamento(
   }
 
   if (usuario.perfil === "ESTAGIARIO") {
-    if (!unidade.permiteEstagiario || usuario.equipeId !== equipeId) {
+    if (!unidade.permiteEstagiario || !usuario.equipes.includes(equipeId)) {
       throw new ErroDeRegra("SEM_PERMISSAO", "Você não pode agendar para esta equipe.");
     }
     if (!unidade.agendamentoAberto && !vindoDaListaDeEspera) {
@@ -54,7 +54,7 @@ export async function carregarUnidadeParaAgendar(tx: Transacao, unidadeId: strin
         where: { fim: { gte: hojeNoBrasil(agora) } },
         orderBy: { inicio: "asc" },
         take: 1,
-        select: { inicio: true, fim: true },
+        select: { id: true, inicio: true, fim: true },
       },
     },
   });
