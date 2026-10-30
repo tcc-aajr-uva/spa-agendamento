@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
-import { filtroDeUnidade, podeAcessar } from "@/lib/auth/permissao";
-import type { UsuarioAtual } from "@/lib/auth/usuario-atual";
+import { filtroDeUnidades, podeAcessar } from "@/lib/auth/autorizacao";
+import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { executarEmTransacao } from "@/lib/transacao";
 import { PERFIS_DA_SECRETARIA } from "@/lib/atendimento/acesso";
@@ -11,10 +11,10 @@ export function filtroPeriodoEncerrado(agora: Date): Prisma.AgendamentoWhereInpu
   return { horarioAtivoId: { not: null }, dataFim: { lt: hojeNoBrasil(agora) } };
 }
 
-export async function contarPeriodoEncerrado(tx: Prisma.TransactionClient, usuario: UsuarioAtual, agora = new Date()) {
+export async function contarPeriodoEncerrado(tx: Prisma.TransactionClient, usuario: ContextoAutorizacao, agora = new Date()) {
   const porUnidade = await tx.agendamento.groupBy({
     by: ["unidadeId"],
-    where: { ...filtroDeUnidade(usuario), ...filtroPeriodoEncerrado(agora) },
+    where: { ...filtroDeUnidades(usuario), ...filtroPeriodoEncerrado(agora) },
     _count: { _all: true },
   });
   if (porUnidade.length === 0) return [];
@@ -28,7 +28,7 @@ export async function contarPeriodoEncerrado(tx: Prisma.TransactionClient, usuar
   return unidades.map((unidade) => ({ ...unidade, quantidade: quantidade.get(unidade.id) ?? 0 }));
 }
 
-export async function encerrarPeriodo(unidadeId: string, usuario: UsuarioAtual, agora = new Date()): Promise<number> {
+export async function encerrarPeriodo(unidadeId: string, usuario: ContextoAutorizacao, agora = new Date()): Promise<number> {
   if (!PERFIS_DA_SECRETARIA.includes(usuario.perfil) || !podeAcessar(usuario, { unidadeId })) {
     throw new ErroDeRegra("SEM_PERMISSAO", "Você não pode encerrar o período desta unidade.");
   }

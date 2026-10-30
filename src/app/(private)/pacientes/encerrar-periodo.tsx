@@ -1,11 +1,11 @@
 import { PERFIS_DA_SECRETARIA } from "@/lib/atendimento/acesso";
 import { contarPeriodoEncerrado } from "@/lib/atendimento/encerrar-periodo";
-import type { UsuarioAtual } from "@/lib/auth/usuario-atual";
+import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { prisma } from "@/lib/prisma";
 import { FormularioAcao } from "../formulario-acao";
 import { encerrar } from "./actions-periodo";
 
-export async function EncerrarPeriodo({ usuario }: { usuario: UsuarioAtual }) {
+export async function EncerrarPeriodo({ usuario }: { usuario: ContextoAutorizacao }) {
   if (!PERFIS_DA_SECRETARIA.includes(usuario.perfil)) return null;
 
   const unidades = await contarPeriodoEncerrado(prisma, usuario);

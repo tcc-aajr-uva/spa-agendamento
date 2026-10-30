@@ -1,7 +1,7 @@
 "use server";
 
 import { encerrarPeriodo } from "@/lib/atendimento/encerrar-periodo";
-import { exigirUsuario } from "@/lib/auth/permissao";
+import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { executarAcao, type EstadoAcao } from "../acao";
 import { perfisDaRota } from "../menu";
 
