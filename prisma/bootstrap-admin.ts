@@ -29,15 +29,15 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: DATA
 async function main() {
   const senhaHash = await gerarHashDaSenha(BOOTSTRAP_ADMIN_PASSWORD);
 
-  const usuario = await prisma.$transaction(
+  await prisma.$transaction(
     async (tx) => {
       const administradorExistente = await tx.usuario.findFirst({
         where: { perfil: "ADMINISTRADOR" },
-        select: { email: true },
+        select: { id: true },
       });
 
       if (administradorExistente) {
-        throw new Error(`Já existe um administrador cadastrado: ${administradorExistente.email}`);
+        throw new Error("Já existe um administrador cadastrado.");
       }
 
       const emailEmUso = await tx.usuario.findUnique({
@@ -56,7 +56,7 @@ async function main() {
           emailVerificado: true,
           perfil: "ADMINISTRADOR",
         },
-        select: { id: true, email: true },
+        select: { id: true },
       });
 
       await tx.contaAutenticacao.create({
@@ -67,13 +67,11 @@ async function main() {
           password: senhaHash,
         },
       });
-
-      return administrador;
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );
 
-  console.info(`Administrador criado com sucesso: ${usuario.email}`);
+  console.info("Administrador criado com sucesso.");
 }
 
 main()
