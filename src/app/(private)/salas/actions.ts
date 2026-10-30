@@ -3,7 +3,7 @@
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { filtroAgendamentoAtivo } from "@/lib/agendamento/regras";
-import { exigirUsuario, podeAcessar } from "@/lib/auth/permissao";
+import { exigirUsuario, podeAcessar } from "@/lib/auth/autorizacao";
 import { prisma } from "@/lib/prisma";
 import { executarEmTransacao, violouUnicidade } from "@/lib/transacao";
 import { perfisDaRota } from "../menu";
@@ -18,7 +18,8 @@ const novaSalaSchema = z.object({
 export async function criarSala(_estado: EstadoSala, formData: FormData): Promise<EstadoSala> {
   const usuario = await exigirUsuario(perfisDaRota("/salas"));
   const dados = novaSalaSchema.safeParse({
-    unidadeId: usuario.unidadeId ?? texto(formData, "unidadeId"),
+    // Com uma unidade só, o formulário não mostra a escolha; podeAcessar confere o resto.
+    unidadeId: texto(formData, "unidadeId") || (usuario.unidades.length === 1 ? usuario.unidades[0] : ""),
     nome: texto(formData, "nome"),
   });
   if (!dados.success) return { erro: dados.error.issues[0].message };

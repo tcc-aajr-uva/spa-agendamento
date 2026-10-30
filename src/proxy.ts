@@ -1,0 +1,24 @@
+import { getSessionCookie } from "better-auth/cookies";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+
+export function proxy(request: NextRequest) {
+  if (!getSessionCookie(request)) {
+    return NextResponse.redirect(new URL("/entrar", request.url));
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: [
+    "/inicio/:path*",
+    "/cadastros/:path*",
+    "/salas/:path*",
+    "/agenda/:path*",
+    "/reservas/:path*",
+    "/pacientes/:path*",
+    "/lista-espera/:path*",
+    "/painel/:path*",
+  ],
+};

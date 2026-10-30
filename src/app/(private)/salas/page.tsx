@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { exigirUsuario, filtroDeUnidade } from "@/lib/auth/permissao";
+import { exigirUsuario, filtroDeIdsDasUnidades, filtroDeUnidades } from "@/lib/auth/autorizacao";
 import { prisma } from "@/lib/prisma";
 import { PaginaModulo } from "../pagina-modulo";
 import { perfisDaRota } from "../menu";
@@ -25,22 +25,21 @@ async function Salas({ searchParams }: { searchParams: Parametros }) {
 
   const [salasDaPagina, unidades] = await Promise.all([
     prisma.sala.findMany({
-      where: filtroDeUnidade(usuario),
+      where: filtroDeUnidades(usuario),
       orderBy: [{ unidade: { nome: "asc" } }, { nome: "asc" }],
       skip: (pagina - 1) * SALAS_POR_PAGINA,
       // Uma a mais só para saber se existe próxima página, sem um count separado.
       take: SALAS_POR_PAGINA + 1,
       select: { id: true, nome: true, ativa: true, unidade: { select: { nome: true } } },
     }),
-    // Só a coordenação geral (sem unidade) escolhe a unidade da sala nova.
-    usuario.unidadeId === null
-      ? prisma.unidade.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } })
-      : null,
+    prisma.unidade.findMany({ where: filtroDeIdsDasUnidades(usuario), orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
   ]);
   const salas = salasDaPagina.slice(0, SALAS_POR_PAGINA);
   const temProxima = salasDaPagina.length > SALAS_POR_PAGINA;
 
-  const unidadeOcupacao = usuario.unidadeId ?? escolherUnidade(parametros.unidade, unidades);
+  // Só quem tem mais de uma unidade (ou o administrador) escolhe a unidade.
+  const unidadesParaEscolher = unidades.length > 1 ? unidades : null;
+  const unidadeOcupacao = escolherUnidade(parametros.unidade, unidades);
   const dia = numeroDaUrl(parametros.dia, 1, 1, 6);
   const link = (mudanca: Record<string, number | string>) => {
     const novos = new URLSearchParams({ pagina: String(pagina), dia: String(dia), unidade: unidadeOcupacao ?? "" });
@@ -73,17 +72,17 @@ async function Salas({ searchParams }: { searchParams: Parametros }) {
       )}
       <section className="flex max-w-md flex-col gap-2">
         <h2 className="text-lg font-bold">Nova sala</h2>
-        <FormularioNovaSala unidades={unidades} />
+        <FormularioNovaSala unidades={unidadesParaEscolher} />
       </section>
       {unidadeOcupacao && (
-        <OcupacaoSalas unidadeId={unidadeOcupacao} dia={dia} unidades={unidades} link={link} />
+        <OcupacaoSalas unidadeId={unidadeOcupacao} dia={dia} unidades={unidadesParaEscolher} link={link} />
       )}
     </div>
   );
 }
 
-function escolherUnidade(valor: unknown, unidades: { id: string }[] | null): string | null {
-  return unidades?.find((unidade) => unidade.id === valor)?.id ?? unidades?.[0]?.id ?? null;
+function escolherUnidade(valor: unknown, unidades: { id: string }[]): string | null {
+  return unidades.find((unidade) => unidade.id === valor)?.id ?? unidades[0]?.id ?? null;
 }
 
 function numeroDaUrl(valor: unknown, padrao: number, minimo: number, maximo: number): number {

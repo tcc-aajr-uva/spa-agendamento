@@ -7,13 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Perfil {
-  COORDENACAO
-  SECRETARIA
-  SUPERVISOR
-  ESTAGIARIO
-}
-
 enum StatusAgendamento {
   PENDENTE
   CONFIRMADO
@@ -77,7 +70,7 @@ model Unidade {
 
   equipes      Equipe[]
   periodos     PeriodoLetivo[]
-  usuarios     Usuario[]
+  usuarios     UsuarioUnidade[]
   salas        Sala[]
   agendamentos Agendamento[]
   listaEspera  ListaEspera[]
@@ -91,13 +84,17 @@ model Equipe {
   ativa        Boolean  @default(true)
   criadoEm     DateTime @default(now())
 
-  unidade      Unidade       @relation(fields: [unidadeId], references: [id])
-  supervisor   Usuario?      @relation("SupervisorDaEquipe", fields: [supervisorId], references: [id])
-  membros      Usuario[]     @relation("MembrosDaEquipe")
-  agendamentos Agendamento[]
-  listaEspera  ListaEspera[]
+  unidade                  Unidade                             @relation(fields: [unidadeId], references: [id])
+  supervisor               Usuario?                            @relation("SupervisorDaEquipe", fields: [supervisorId], references: [id])
+  vinculoSupervisor        UsuarioEquipe?                      @relation("SupervisorResponsavel", fields: [supervisorId, id, unidadeId], references: [usuarioId, equipeId, unidadeId], onDelete: NoAction, onUpdate: NoAction)
+  membros                  UsuarioEquipe[]                     @relation("MembrosDaEquipe")
+  configuracoesAtendimento ConfiguracaoAtendimentoEstagiario[]
+  agendamentos             Agendamento[]
+  listaEspera              ListaEspera[]
 
   @@unique([unidadeId, nome])
+  @@unique([id, unidadeId])
+  @@unique([supervisorId, id, unidadeId])
 }
 
 model PeriodoLetivo {
@@ -106,49 +103,32 @@ model PeriodoLetivo {
   inicio    DateTime @db.Date
   fim       DateTime @db.Date
 
-  unidade Unidade @relation(fields: [unidadeId], references: [id])
+  unidade                  Unidade                             @relation(fields: [unidadeId], references: [id])
+  configuracoesAtendimento ConfiguracaoAtendimentoEstagiario[]
 
+  @@unique([id, unidadeId])
   @@index([unidadeId, inicio, fim])
 }
 
-model Usuario {
-  id              String   @id @default(cuid())
-  nome            String
-  email           String   @unique
-  senhaHash       String?
-  perfil          Perfil
-  unidadeId       String?
-  equipeId        String?
+model ConfiguracaoAtendimentoEstagiario {
+  estagiarioId    String
+  equipeId        String
+  unidadeId       String
+  periodoLetivoId String
+
   liberado        Boolean  @default(false)
   limitePacientes Int      @default(0)
-  ativo           Boolean  @default(true)
   criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
 
-  unidade                Unidade?            @relation(fields: [unidadeId], references: [id])
-  equipe                 Equipe?             @relation("MembrosDaEquipe", fields: [equipeId], references: [id])
-  equipesSupervisionadas Equipe[]            @relation("SupervisorDaEquipe")
-  convites               Convite[]
-  horarios               HorarioDisponivel[]
-  agendamentos           Agendamento[]       @relation("EstagiarioDoAgendamento")
-  agendamentosCriados    Agendamento[]       @relation("CriadorDoAgendamento")
-  sessoesRegistradas     Sessao[]
-  eventos                EventoAgendamento[]
+  estagiario Usuario @relation("ConfiguracoesDoEstagiario", fields: [estagiarioId], references: [id], onDelete: Cascade)
+  equipe     Equipe  @relation(fields: [equipeId, unidadeId], references: [id, unidadeId], onDelete: Cascade)
 
-  @@index([unidadeId, perfil])
-  @@index([equipeId, perfil])
-}
+  vinculoEquipe UsuarioEquipe @relation(fields: [estagiarioId, equipeId, unidadeId], references: [usuarioId, equipeId, unidadeId], onDelete: Cascade)
+  periodoLetivo PeriodoLetivo @relation(fields: [periodoLetivoId, unidadeId], references: [id, unidadeId], onDelete: Cascade)
 
-model Convite {
-  id        String    @id @default(cuid())
-  usuarioId String
-  tokenHash String    @unique
-  expiraEm  DateTime
-  usadoEm   DateTime?
-  criadoEm  DateTime  @default(now())
-
-  usuario Usuario @relation(fields: [usuarioId], references: [id])
-
-  @@index([usuarioId])
+  @@id([estagiarioId, equipeId, periodoLetivoId])
+  @@index([equipeId, periodoLetivoId, liberado])
 }
 
 model Sala {
