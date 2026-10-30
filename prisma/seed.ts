@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type Perfil } from "../src/generated/prisma/client";
+import { gerarHashDaSenha } from "../src/lib/auth/password";
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
@@ -30,9 +31,20 @@ const HORARIOS_POR_ESTAGIARIO = [
   ],
 ];
 
+const senhaDeTeste = process.env.SEED_SENHA ? gerarHashDaSenha(process.env.SEED_SENHA) : null;
+
 async function usuario(id: string, nome: string, perfil: Perfil) {
-  const dados = { nome, email: `${id}@spa.teste`, perfil };
+  const dados = { nome, email: `${id}@spa.teste`, emailVerificado: true, perfil };
   await prisma.usuario.upsert({ where: { id }, create: { id, ...dados }, update: dados });
+
+  const password = await senhaDeTeste;
+  if (!password) return;
+
+  await prisma.contaAutenticacao.upsert({
+    where: { providerId_accountId: { providerId: "credential", accountId: id } },
+    create: { accountId: id, providerId: "credential", userId: id, password },
+    update: { password },
+  });
 }
 
 async function vincularUnidade(usuarioId: string, unidadeId: string) {

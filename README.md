@@ -67,6 +67,7 @@ BETTER_AUTH_SECRET=substitua-por-uma-chave-local-longa-e-aleatoria
 BOOTSTRAP_ADMIN_NAME=Administrador
 BOOTSTRAP_ADMIN_EMAIL=admin@spa.teste
 BOOTSTRAP_ADMIN_PASSWORD=TesteAdmin@1234
+SEED_SENHA=TesteSeed@1234
 ```
 
 | Variável | Finalidade |
@@ -78,6 +79,7 @@ BOOTSTRAP_ADMIN_PASSWORD=TesteAdmin@1234
 | `BOOTSTRAP_ADMIN_NAME` | Nome do primeiro administrador criado pelo bootstrap. |
 | `BOOTSTRAP_ADMIN_EMAIL` | E-mail do primeiro administrador criado pelo bootstrap. |
 | `BOOTSTRAP_ADMIN_PASSWORD` | Senha inicial do administrador. Deve possuir ao menos 12 caracteres e no máximo 72 bytes. |
+| `SEED_SENHA` | Só para desenvolvimento e opcional. Com ela, `npm run db:seed` cria o login de cada usuário de teste (e-mail `<id>@spa.teste`), para testar com cada perfil. Nunca configure em produção. |
 
 O arquivo `.env` não deve ser commitado. Em produção, configure as variáveis diretamente no provedor de deploy e remova as três variáveis `BOOTSTRAP_ADMIN_*` depois que o primeiro administrador for criado.
 
