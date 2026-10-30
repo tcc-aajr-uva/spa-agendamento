@@ -21,11 +21,12 @@ Sistema de agendamento do Serviço de Psicologia Aplicada (SPA) da Universidade 
    npm install
    ```
 
-3. Crie as tabelas aplicando as migrations de `prisma/migrations` e carregue os dados de teste:
+3. Crie as tabelas aplicando as migrations de `prisma/migrations`, carregue os dados de teste e, apenas na primeira configuração, crie o administrador:
 
    ```bash
    npx prisma migrate dev
    npm run db:seed
+   npm run db:bootstrap-admin
    ```
 
    Mudou o `schema.prisma`? Gere uma migration nova com nome descritivo (`npx prisma migrate dev --name tabela-sessao`) e leve a pasta gerada no PR. Nunca apague nem edite uma migration que já foi aplicada; em produção as migrations rodam com `npx prisma migrate deploy`.
@@ -36,7 +37,7 @@ Sistema de agendamento do Serviço de Psicologia Aplicada (SPA) da Universidade 
    npm run dev
    ```
 
-   Quando a credencial local do seed estiver habilitada, use o e-mail `seed-coordenacao@spa.teste` e a senha definida em `SEED_PASSWORD`.
+   Use o e-mail e a senha definidos em `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD`.
 
 O seed é idempotente: pode rodar de novo para restaurar os dados de teste.
 
@@ -63,8 +64,9 @@ DATABASE_URL=postgresql://postgres:B%40nco123@localhost:5432/spa
 DIRECT_URL=postgresql://postgres:B%40nco123@localhost:5432/spa
 BETTER_AUTH_URL=http://localhost:3000
 BETTER_AUTH_SECRET=substitua-por-uma-chave-local-longa-e-aleatoria
-SEED_AUTH_ENABLED=true
-SEED_PASSWORD=Teste@1234
+BOOTSTRAP_ADMIN_NAME=Administrador
+BOOTSTRAP_ADMIN_EMAIL=admin@spa.teste
+BOOTSTRAP_ADMIN_PASSWORD=TesteAdmin@1234
 ```
 
 | Variável | Finalidade |
@@ -73,10 +75,21 @@ SEED_PASSWORD=Teste@1234
 | `DIRECT_URL` | Conexão direta usada pelo CLI do Prisma para migrations. No banco local, pode ser igual à `DATABASE_URL`. |
 | `BETTER_AUTH_URL` | URL base da aplicação. Localmente, use `http://localhost:3000`; no deploy, use a URL HTTPS pública. |
 | `BETTER_AUTH_SECRET` | Chave longa e aleatória usada para proteger a autenticação. Cada ambiente deve possuir seu próprio valor. |
-| `SEED_AUTH_ENABLED` | Quando `true`, permite que o seed crie ou atualize a credencial local da coordenação. Mantenha `false` em produção. |
-| `SEED_PASSWORD` | Senha da conta `seed-coordenacao@spa.teste`, usada somente quando `SEED_AUTH_ENABLED=true`. Deve possuir entre 8 e 128 caracteres. |
+| `BOOTSTRAP_ADMIN_NAME` | Nome do primeiro administrador criado pelo bootstrap. |
+| `BOOTSTRAP_ADMIN_EMAIL` | E-mail do primeiro administrador criado pelo bootstrap. |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Senha inicial do administrador. Deve possuir entre 12 e 128 caracteres. |
 
-O arquivo `.env` não deve ser commitado. Em produção, configure as variáveis diretamente no provedor de deploy, mantenha `SEED_AUTH_ENABLED=false` e não defina `SEED_PASSWORD`.
+O arquivo `.env` não deve ser commitado. Em produção, configure as variáveis diretamente no provedor de deploy e remova as três variáveis `BOOTSTRAP_ADMIN_*` depois que o primeiro administrador for criado.
+
+### Primeiro administrador
+
+Depois de aplicar as migrations, configure temporariamente as três variáveis `BOOTSTRAP_ADMIN_*` e execute:
+
+```bash
+npm run db:bootstrap-admin
+```
+
+O comando cria o primeiro administrador e falha se já existir outro usuário com esse perfil ou se o e-mail estiver em uso. Após a execução, remova as três variáveis do ambiente. O bootstrap não redefine a senha de uma conta existente.
 
 ## Banco local com Docker
 
@@ -147,7 +160,7 @@ Com Cache Components, qualquer leitura de cookie, banco ou `searchParams` fica d
 
 ### Autenticação
 
-O login em `/entrar` usa e-mail e senha pelo Better Auth. A sessão é mantida em cookie seguro e validada no servidor. Não existe auto-cadastro: os usuários serão criados pelo fluxo administrativo e definirão a senha por convite. A credencial criada pelo seed existe somente para desenvolvimento local e depende de `SEED_AUTH_ENABLED=true`.
+O login em `/entrar` usa e-mail e senha pelo Better Auth. A sessão é mantida em cookie seguro e validada no servidor. Não existe auto-cadastro: o primeiro administrador é criado exclusivamente pelo bootstrap e os demais usuários serão criados pelo fluxo administrativo, definindo a senha por convite. O perfil `ADMINISTRADOR` possui acesso global e não depende de vínculo com unidade ou equipe. O seed não cria credenciais de acesso.
 
 ### Concorrência
 

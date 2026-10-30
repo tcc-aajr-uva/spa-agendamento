@@ -1,7 +1,6 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type Perfil } from "../src/generated/prisma/client";
-import { gerarHashDaSenha } from "../src/lib/auth/password";
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
@@ -36,39 +35,6 @@ async function usuario(id: string, nome: string, perfil: Perfil) {
   await prisma.usuario.upsert({ where: { id }, create: { id, ...dados }, update: dados });
 }
 
-async function criarCredencialDeTeste(usuarioId: string) {
-  if (process.env.SEED_AUTH_ENABLED !== "true") {
-    return;
-  }
-
-  const senha = process.env.SEED_PASSWORD;
-
-  if (!senha || senha.length < 8 || senha.length > 128) {
-    throw new Error("SEED_PASSWORD deve possuir entre 8 e 128 caracteres.");
-  }
-
-  const senhaHash = await gerarHashDaSenha(senha);
-
-  await prisma.contaAutenticacao.upsert({
-    where: {
-      providerId_accountId: {
-        providerId: "credential",
-        accountId: usuarioId,
-      },
-    },
-    create: {
-      providerId: "credential",
-      accountId: usuarioId,
-      userId: usuarioId,
-      password: senhaHash,
-    },
-    update: {
-      userId: usuarioId,
-      password: senhaHash,
-    },
-  });
-}
-
 async function vincularUnidade(usuarioId: string, unidadeId: string) {
   await prisma.usuarioUnidade.upsert({
     where: { usuarioId_unidadeId: { usuarioId, unidadeId } },
@@ -86,13 +52,9 @@ async function vincularEquipe(usuarioId: string, equipeId: string, unidadeId: st
 }
 
 async function main() {
-  await usuario("seed-coordenacao", "Coordenação Geral", "COORDENACAO");
-  await criarCredencialDeTeste("seed-coordenacao");
-
   for (const unidade of UNIDADES) {
     const dadosUnidade = { nome: unidade.nome, agendamentoAberto: unidade.agendamentoAberto };
     await prisma.unidade.upsert({ where: { id: unidade.id }, create: { id: unidade.id, ...dadosUnidade }, update: dadosUnidade });
-    await vincularUnidade("seed-coordenacao", unidade.id);
 
     const periodoId = `${unidade.id}-periodo`;
     const periodo = { unidadeId: unidade.id, inicio: new Date(hoje.getTime() - 30 * UM_DIA_MS), fim: new Date(hoje.getTime() + 120 * UM_DIA_MS) };
