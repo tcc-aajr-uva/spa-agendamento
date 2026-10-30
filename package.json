@@ -8,12 +8,16 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
+    "db:bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
     "db:seed": "prisma db seed"
   },
   "dependencies": {
+    "@better-auth/prisma-adapter": "1.7",
     "@hookform/resolvers": "^5.9.2",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "bcryptjs": "^3.0.3",
+    "better-auth": "1.7",
     "next": "16.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",

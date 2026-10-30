@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { listarHorariosLivres } from "@/lib/agendamento/horarios-livres";
 import { DIAS_DA_SEMANA, formatarHora } from "@/lib/agendamento/regras";
-import { exigirUsuario, podeAcessar } from "@/lib/auth/permissao";
+import { exigirUsuario, podeAcessar } from "@/lib/auth/autorizacao";
 import { prisma } from "@/lib/prisma";
 import { formatarData } from "../../../formatar";
 import { FormularioAcao } from "../../../formulario-acao";

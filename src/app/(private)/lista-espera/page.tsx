@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { exigirUsuario } from "@/lib/auth/permissao";
+import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { listarListaEspera } from "@/lib/lista-espera/listar-lista-espera";
 import { formatarData } from "../formatar";
 import { FormularioAcao } from "../formulario-acao";

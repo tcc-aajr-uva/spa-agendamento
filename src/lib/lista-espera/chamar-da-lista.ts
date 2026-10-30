@@ -1,5 +1,5 @@
 import "server-only";
-import type { UsuarioAtual } from "@/lib/auth/usuario-atual";
+import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { prisma } from "@/lib/prisma";
 import { criarAgendamento, type AgendamentoCriado } from "@/lib/agendamento/criar-agendamento";
 import { carregarInscricaoAguardando } from "@/lib/lista-espera/inscricao";
@@ -12,7 +12,7 @@ export type HorarioEscolhido = {
 export async function chamarDaLista(
   listaEsperaId: string,
   horario: HorarioEscolhido,
-  usuario: UsuarioAtual,
+  usuario: ContextoAutorizacao,
   agora = new Date(),
 ): Promise<AgendamentoCriado> {
   const { unidadeId, equipeId, paciente } = await carregarInscricaoAguardando(prisma, listaEsperaId, usuario);

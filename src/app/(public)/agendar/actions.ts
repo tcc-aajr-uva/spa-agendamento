@@ -2,7 +2,7 @@
 
 import { criarAgendamento } from "@/lib/agendamento/criar-agendamento";
 import { DIAS_DA_SEMANA, formatarHora } from "@/lib/agendamento/regras";
-import { obterUsuarioAtual } from "@/lib/auth/usuario-atual";
+import { obterUsuarioAtual } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { adicionarListaEspera } from "@/lib/lista-espera/adicionar-lista-espera";
 

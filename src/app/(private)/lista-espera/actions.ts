@@ -1,7 +1,7 @@
 "use server";
 
 import { DIAS_DA_SEMANA, formatarHora } from "@/lib/agendamento/regras";
-import { exigirUsuario } from "@/lib/auth/permissao";
+import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { ErroDeRegra } from "@/lib/erros";
 import { chamarDaLista } from "@/lib/lista-espera/chamar-da-lista";
 import { removerDaLista } from "@/lib/lista-espera/remover-da-lista";

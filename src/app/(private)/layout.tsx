@@ -1,7 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
-import { exigirUsuario } from "@/lib/auth/permissao";
-import { sair } from "@/app/(public)/dev/entrar/actions";
+import { exigirUsuario } from "@/lib/auth/autorizacao";
+import { BotaoSair } from "./botao-sair";
 import { MENU } from "./menu";
 
 export default function PrivateLayout({ children }: { children: ReactNode }) {
@@ -29,9 +29,7 @@ async function Navegacao() {
       <span className="ml-auto text-sm">
         {usuario.nome} ({usuario.perfil})
       </span>
-      <form action={sair}>
-        <button className="rounded border px-2 py-1 text-sm">Sair</button>
-      </form>
+      <BotaoSair />
     </nav>
   );
 }

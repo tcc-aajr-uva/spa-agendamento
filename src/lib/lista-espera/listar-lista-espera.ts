@@ -1,6 +1,6 @@
 import "server-only";
-import { filtroDeUnidade } from "@/lib/auth/permissao";
-import type { UsuarioAtual } from "@/lib/auth/usuario-atual";
+import { filtroDeUnidades } from "@/lib/auth/autorizacao";
+import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { prisma } from "@/lib/prisma";
 
 export type ConsultaListaEspera = {
@@ -9,9 +9,9 @@ export type ConsultaListaEspera = {
   tamanho: number;
 };
 
-export async function listarListaEspera(usuario: UsuarioAtual, { equipeId, pagina, tamanho }: ConsultaListaEspera) {
+export async function listarListaEspera(usuario: ContextoAutorizacao, { equipeId, pagina, tamanho }: ConsultaListaEspera) {
   const equipes = await prisma.equipe.findMany({
-    where: usuario.perfil === "ESTAGIARIO" ? { id: usuario.equipeId ?? "" } : { ...filtroDeUnidade(usuario), ativa: true },
+    where: usuario.perfil === "ESTAGIARIO" ? { id: { in: usuario.equipes }, ativa: true } : { ...filtroDeUnidades(usuario), ativa: true },
     orderBy: [{ unidade: { nome: "asc" } }, { nome: "asc" }],
     select: { id: true, nome: true, unidade: { select: { nome: true } } },
   });
