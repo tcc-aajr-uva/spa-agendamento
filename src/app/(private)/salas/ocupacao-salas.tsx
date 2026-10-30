@@ -10,7 +10,15 @@ type Props = {
 };
 
 // shortcut: segunda a sábado fixos, até o SPA confirmar os dias de atendimento.
-const DIAS_EXIBIDOS = [1, 2, 3, 4, 5, 6];
+export const DIAS_EXIBIDOS = [1, 2, 3, 4, 5, 6];
+
+export function horariosDaGrade(unidade: { horaAbertura: number; horaFechamento: number; duracaoBlocoMin: number }): number[] {
+  const horarios: number[] = [];
+  for (let hora = unidade.horaAbertura; hora < unidade.horaFechamento; hora += unidade.duracaoBlocoMin) {
+    if (horarioNaGrade(unidade, hora)) horarios.push(hora);
+  }
+  return horarios;
+}
 
 export async function OcupacaoSalas({ unidadeId, dia, unidades, link }: Props) {
   const agora = new Date();
@@ -30,10 +38,7 @@ export async function OcupacaoSalas({ unidadeId, dia, unidades, link }: Props) {
   });
   if (!unidade) return null;
 
-  const horarios: number[] = [];
-  for (let hora = unidade.horaAbertura; hora < unidade.horaFechamento; hora += unidade.duracaoBlocoMin) {
-    if (horarioNaGrade(unidade, hora)) horarios.push(hora);
-  }
+  const horarios = horariosDaGrade(unidade);
   const ocupacao = new Map(
     unidade.agendamentos
       .filter((agendamento) => estaOcupando(agendamento, agora))
