@@ -32,7 +32,7 @@ jobs:
       REMOCOES: ${{ github.event.pull_request.deletions }}
     steps:
       - name: Baixar o código
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           fetch-depth: 0
 
@@ -59,7 +59,7 @@ jobs:
           EOF
 
       - name: Revisar com o Claude
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@6d5ae526d25ce88daa2200be073e1a373167f064
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}

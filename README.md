@@ -126,7 +126,7 @@ Não existe tarefa agendada. Quem lê usa `filtroAgendamentoAtivo(agora)` ou `es
 O workflow `.github/workflows/revisao-pr.yml` usa o Claude para revisar cada PR e publica um comentário com contagem de achados, veredito, o que muda e o que não foi coberto.
 
 - Roda ao abrir, reabrir ou tirar o PR de rascunho. Para revisar de novo, coloque a label `revisar`.
-- Só roda se o workflow estiver na base do PR. Uma branch que veio antes dele precisa receber a `main`.
+- Só roda se o workflow existir na branch do PR ou na base dele. Se nenhuma das duas tiver o arquivo, leve a `main` para a base.
 - O que o bot olha fica em `.github/revisao/regras.md`, e o modelo do comentário em `.github/revisao/formato.md`.
 - O veredito é uma orientação: não bloqueia o merge e não substitui a revisão de outra pessoa, o `npm run lint` nem o `npm run build`.
 - Precisa do secret `CLAUDE_CODE_OAUTH_TOKEN` no repositório, gerado com `claude setup-token`.
