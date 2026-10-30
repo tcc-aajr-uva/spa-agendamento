@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import type { UsuarioAtual } from "@/lib/auth/usuario-atual";
+import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { executarEmTransacao, violouUnicidade, type Transacao } from "@/lib/transacao";
 import { carregarAgendamentoAtivo } from "@/lib/atendimento/acesso";
@@ -41,7 +41,7 @@ export function ultimaDataDeSessao(periodo: Periodo, agora: Date): Date | null {
 export async function registrarSessao(
   agendamentoId: string,
   entrada: NovaSessao,
-  usuario: UsuarioAtual,
+  usuario: ContextoAutorizacao,
   agora = new Date(),
 ): Promise<ResultadoSessao> {
   const dados = sessaoSchema.safeParse(entrada);
@@ -59,7 +59,7 @@ async function registrarNaTransacao(
   tx: Transacao,
   agendamentoId: string,
   sessao: z.output<typeof sessaoSchema>,
-  usuario: UsuarioAtual,
+  usuario: ContextoAutorizacao,
   agora: Date,
 ): Promise<ResultadoSessao> {
   const agendamento = await carregarAgendamentoAtivo(tx, agendamentoId, usuario);
