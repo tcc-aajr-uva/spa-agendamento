@@ -1,7 +1,7 @@
 "use server";
 
 import { transferirAgendamento } from "@/lib/atendimento/transferir";
-import { exigirUsuario } from "@/lib/auth/permissao";
+import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { executarAcao, texto, type EstadoAcao } from "../../acao";
 import { perfisDaRota } from "../../menu";
 

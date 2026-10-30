@@ -1,7 +1,7 @@
 import type { StatusAgendamento } from "@/generated/prisma/client";
 import { PERFIS_DA_SECRETARIA } from "@/lib/atendimento/acesso";
 import { listarHorariosParaTransferencia } from "@/lib/atendimento/transferir";
-import type { UsuarioAtual } from "@/lib/auth/usuario-atual";
+import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { DIAS_DA_SEMANA, formatarHora } from "@/lib/agendamento/regras";
 import { FormularioAcao } from "../../formulario-acao";
 import { transferir } from "./actions-transferencia";
@@ -9,7 +9,7 @@ import { transferir } from "./actions-transferencia";
 type Props = {
   agendamentoId: string;
   status: StatusAgendamento;
-  usuario: UsuarioAtual;
+  usuario: ContextoAutorizacao;
 };
 
 export async function FormTransferencia({ agendamentoId, status, usuario }: Props) {
