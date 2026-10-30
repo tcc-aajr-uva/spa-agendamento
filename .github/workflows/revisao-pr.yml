@@ -2,18 +2,23 @@ name: Revisão de PR
 
 on:
   pull_request:
-    types: [opened, reopened, ready_for_review, labeled]
+    types: [opened, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
 
 jobs:
   revisar:
     if: >-
+      (github.event_name == 'pull_request' &&
       github.event.pull_request.draft == false &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      (github.event.action != 'labeled' || github.event.label.name == 'revisar')
+      github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      (startsWith(github.event.comment.body, '/revisar') || startsWith(github.event.comment.body, '/review')))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
-      group: revisao-pr-${{ github.event.pull_request.number }}
+      group: revisao-pr-${{ github.event.pull_request.number || github.event.issue.number }}
       cancel-in-progress: true
     permissions:
       contents: read
@@ -21,42 +26,40 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      PR: ${{ github.event.pull_request.number }}
-      TITULO: ${{ github.event.pull_request.title }}
-      BASE_REF: ${{ github.event.pull_request.base.ref }}
-      HEAD_REF: ${{ github.event.pull_request.head.ref }}
-      BASE_SHA: ${{ github.event.pull_request.base.sha }}
-      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      ARQUIVOS: ${{ github.event.pull_request.changed_files }}
-      ADICOES: ${{ github.event.pull_request.additions }}
-      REMOCOES: ${{ github.event.pull_request.deletions }}
+      PR: ${{ github.event.pull_request.number || github.event.issue.number }}
+      BRANCH_PADRAO: ${{ github.event.repository.default_branch }}
+      COMENTARIO_ID: ${{ github.event.comment.id }}
     steps:
+      - name: Avisar que começou
+        if: github.event_name == 'issue_comment'
+        continue-on-error: true
+        run: gh api -X POST "repos/$GH_REPO/issues/comments/$COMENTARIO_ID/reactions" -f content=eyes
+
       - name: Baixar o código
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
+          ref: refs/pull/${{ env.PR }}/merge
           fetch-depth: 0
+
+      - name: Usar as regras da branch padrão
+        if: github.event_name == 'issue_comment'
+        run: git checkout "origin/$BRANCH_PADRAO" -- .github/revisao
 
       - name: Preparar o contexto
         run: |
           set -euo pipefail
           mkdir -p .revisao
-          git diff "$BASE_SHA...$HEAD_SHA" > .revisao/diff.patch
-          gh pr view "$PR" --json comments \
-            --jq '[.comments[] | select(.author.login == "github-actions" and (.body | startswith("## 🔍 Review")))]' \
-            > .revisao/reviews.json
-          PASSAGEM=$(( $(jq length .revisao/reviews.json) + 1 ))
+          git diff "HEAD^1...HEAD^2" > .revisao/diff.patch
+          gh pr view "$PR" --json title,headRefName,baseRefName,changedFiles,additions,deletions,comments > .revisao/pr.json
+          jq '[.comments[] | select(.author.login == "github-actions" and (.body | startswith("## 🔍 Review")))]' \
+            .revisao/pr.json > .revisao/reviews.json
           jq -r 'last.body // empty' .revisao/reviews.json > .revisao/anterior.md
-          cat > .revisao/contexto.md <<EOF
-          PR: #$PR
-          Título: $TITULO
-          Branch: $HEAD_REF
-          Base: $BASE_REF
-          Commit: ${HEAD_SHA:0:7}
-          Passagem: $PASSAGEM
-          Arquivos: $ARQUIVOS
-          Adições: $ADICOES
-          Remoções: $REMOCOES
-          EOF
+          {
+            jq -r '"Título: \(.title)\nBranch: \(.headRefName)\nBase: \(.baseRefName)\nArquivos: \(.changedFiles)\nAdições: \(.additions)\nRemoções: \(.deletions)"' .revisao/pr.json
+            echo "PR: #$PR"
+            echo "Commit: $(git rev-parse --short=7 HEAD^2)"
+            echo "Passagem: $(( $(jq length .revisao/reviews.json) + 1 ))"
+          } > .revisao/contexto.md
 
       - name: Revisar com o Claude
         uses: anthropics/claude-code-action@6d5ae526d25ce88daa2200be073e1a373167f064
@@ -79,6 +82,8 @@ jobs:
 
             Depois leia o que precisar do código para confirmar cada achado.
 
+            Antes de gravar, confirme a linha de cada achado com Grep no arquivo real. Os números de linha de .revisao/diff.patch não valem.
+
             Grave o resultado em .revisao/comentario.md, em português do Brasil, seguindo formato.md.
             Esse arquivo é a sua única entrega. Não altere nenhum outro arquivo.
 
@@ -89,11 +94,7 @@ jobs:
             printf '%s\n' \
               '## ⚠️ Review não executado' \
               '' \
-              'O bot não conseguiu gerar o review. Veja o log na aba Actions e, para tentar de novo, coloque a label `revisar`.' \
+              'O bot não conseguiu gerar o review. Veja o log na aba Actions e, para tentar de novo, comente `/revisar` no PR.' \
               > .revisao/comentario.md
           fi
           gh pr comment "$PR" --body-file .revisao/comentario.md
-
-      - name: Remover a label
-        if: ${{ !cancelled() && github.event.label.name == 'revisar' }}
-        run: gh api -X DELETE "repos/$GH_REPO/issues/$PR/labels/revisar"

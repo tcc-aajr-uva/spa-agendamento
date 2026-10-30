@@ -10,7 +10,7 @@ Todo achado Blocker, Major ou Minor tem os três campos: Achado, Impacto e Suges
 
 Numere os achados em ordem de importância: `[1]`, `[2]`, `[3]`.
 
-Em `arquivo:linha`, use a linha do arquivo real, nunca a posição em `.revisao/diff.patch`. Confira abrindo o arquivo.
+Em `arquivo:linha`, use a linha do arquivo real, nunca a posição em `.revisao/diff.patch`. Antes de gravar, confirme cada linha com Grep no arquivo.
 
 Se `.revisao/anterior.md` tiver conteúdo, inclua "Desde a passagem anterior", dizendo se cada achado foi resolvido ou persiste. Nesse caso, continue a numeração anterior nos achados novos.
 
