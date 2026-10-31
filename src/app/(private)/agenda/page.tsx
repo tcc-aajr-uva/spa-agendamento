@@ -1,6 +1,6 @@
-import { unidadeDaAgenda } from "@/lib/agenda/horarios";
+import { descreverHorario, unidadeDaAgenda } from "@/lib/agenda/horarios";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
-import { DIAS_DA_SEMANA, estaOcupando, formatarHora } from "@/lib/agendamento/regras";
+import { estaOcupando } from "@/lib/agendamento/regras";
 import { prisma } from "@/lib/prisma";
 import { PaginaModulo } from "../pagina-modulo";
 import { perfisDaRota } from "../menu";
@@ -42,7 +42,7 @@ async function MeusHorarios({ searchParams }: { searchParams: PageProps<"/agenda
       ) : (
         <ul className="flex flex-col gap-2">
           {horarios.map((horario) => {
-            const descricao = `${DIAS_DA_SEMANA[horario.diaSemana]} ${formatarHora(horario.horaInicio)}`;
+            const descricao = descreverHorario(horario.diaSemana, horario.horaInicio);
             const comPaciente = horario.ocupadoPor !== null && estaOcupando(horario.ocupadoPor, agora);
             return (
               <li key={horario.id} className="flex flex-wrap items-center gap-2">

@@ -1,10 +1,14 @@
 import "server-only";
-import { filtroAgendamentoAtivo, horarioNaGrade } from "@/lib/agendamento/regras";
+import { DIAS_DA_SEMANA, filtroAgendamentoAtivo, formatarHora, horarioNaGrade } from "@/lib/agendamento/regras";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { executarEmTransacao, type Transacao } from "@/lib/transacao";
 
 type NovoHorario = { unidadeId: string; diaSemana: number; horaInicio: number };
+
+export function descreverHorario(diaSemana: number, horaInicio: number): string {
+  return `${DIAS_DA_SEMANA[diaSemana]} ${formatarHora(horaInicio)}`;
+}
 
 export function unidadeDaAgenda(usuario: ContextoAutorizacao): string | null {
   return usuario.unidades[0] ?? null;

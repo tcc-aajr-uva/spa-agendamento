@@ -4,11 +4,11 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import {
   adicionarHorarioDoEstagiario,
+  descreverHorario,
   removerHorarioDoEstagiario,
   trocarHorarioDoEstagiario,
   unidadeDaAgenda,
 } from "@/lib/agenda/horarios";
-import { DIAS_DA_SEMANA, formatarHora } from "@/lib/agendamento/regras";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
@@ -23,6 +23,7 @@ const novoHorarioSchema = z.object({
   diaSemana: inteiro.refine((dia) => DIAS_EXIBIDOS.includes(dia), ERRO_GRADE),
   horaInicio: inteiro,
 });
+const horarioIdSchema = z.string().min(1, "Horário não encontrado.");
 
 export async function adicionarHorario(_estado: EstadoAgenda, formData: FormData): Promise<EstadoAgenda> {
   const usuario = await exigirUsuario(perfisDaRota("/agenda"));
@@ -31,25 +32,29 @@ export async function adicionarHorario(_estado: EstadoAgenda, formData: FormData
 
   return tratarErros(async () => {
     await adicionarHorarioDoEstagiario(usuario, novo);
-    return { mensagem: `${descrever(novo)} adicionado.` };
+    return { mensagem: `${descreverHorario(novo.diaSemana, novo.horaInicio)} adicionado.` };
   });
 }
 
 export async function trocarHorario(_estado: EstadoAgenda, formData: FormData): Promise<EstadoAgenda> {
   const usuario = await exigirUsuario(perfisDaRota("/agenda"));
+  const horarioId = horarioIdSchema.safeParse(String(formData.get("horarioId") ?? ""));
+  if (!horarioId.success) return { erro: horarioId.error.issues[0].message };
   const novo = lerNovoHorario(usuario, formData);
   if ("erro" in novo) return novo;
 
   return tratarErros(async () => {
-    await trocarHorarioDoEstagiario(usuario, String(formData.get("horarioId") ?? ""), novo);
-    return { mensagem: `Trocado para ${descrever(novo)}.` };
+    await trocarHorarioDoEstagiario(usuario, horarioId.data, novo);
+    return { mensagem: `Trocado para ${descreverHorario(novo.diaSemana, novo.horaInicio)}.` };
   });
 }
 
 export async function removerHorario(_estado: EstadoAgenda, formData: FormData): Promise<EstadoAgenda> {
   const usuario = await exigirUsuario(perfisDaRota("/agenda"));
+  const horarioId = horarioIdSchema.safeParse(String(formData.get("horarioId") ?? ""));
+  if (!horarioId.success) return { erro: horarioId.error.issues[0].message };
   return tratarErros(async () => {
-    await removerHorarioDoEstagiario(usuario, String(formData.get("horarioId") ?? ""));
+    await removerHorarioDoEstagiario(usuario, horarioId.data);
     return {};
   });
 }
@@ -74,8 +79,4 @@ function lerNovoHorario(usuario: ContextoAutorizacao, formData: FormData) {
   });
   if (!dados.success) return { erro: dados.error.issues[0].message };
   return { unidadeId, ...dados.data };
-}
-
-function descrever({ diaSemana, horaInicio }: { diaSemana: number; horaInicio: number }): string {
-  return `${DIAS_DA_SEMANA[diaSemana]} ${formatarHora(horaInicio)}`;
 }

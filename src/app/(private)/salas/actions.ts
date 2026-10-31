@@ -15,6 +15,10 @@ const novaSalaSchema = z.object({
   unidadeId: z.string().min(1, "Escolha a unidade."),
   nome: z.string().trim().min(1, "Informe o nome da sala.").max(60, "Use no máximo 60 caracteres."),
 });
+const situacaoSchema = z.object({
+  salaId: z.string().min(1, "Sala não encontrada."),
+  ativar: z.enum(["true", "false"], "Situação inválida.").transform((valor) => valor === "true"),
+});
 
 export async function criarSala(_estado: EstadoSala, formData: FormData): Promise<EstadoSala> {
   const usuario = await exigirUsuario(perfisDaRota("/salas"));
@@ -37,8 +41,10 @@ export async function criarSala(_estado: EstadoSala, formData: FormData): Promis
 
 export async function alterarSituacaoSala(_estado: EstadoSala, formData: FormData): Promise<EstadoSala> {
   const usuario = await exigirUsuario(perfisDaRota("/salas"));
+  const dados = situacaoSchema.safeParse({ salaId: texto(formData, "salaId"), ativar: texto(formData, "ativar") });
+  if (!dados.success) return { erro: dados.error.issues[0].message };
   try {
-    await alterarSituacaoDaSala(usuario, texto(formData, "salaId"), texto(formData, "ativar") === "true");
+    await alterarSituacaoDaSala(usuario, dados.data.salaId, dados.data.ativar);
   } catch (erro) {
     if (erro instanceof ErroDeRegra) return { erro: erro.message };
     throw erro;

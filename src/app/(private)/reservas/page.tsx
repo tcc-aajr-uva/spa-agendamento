@@ -1,5 +1,6 @@
+import { descreverHorario } from "@/lib/agenda/horarios";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
-import { DIAS_DA_SEMANA, estaOcupando, formatarHora } from "@/lib/agendamento/regras";
+import { estaOcupando } from "@/lib/agendamento/regras";
 import { prisma } from "@/lib/prisma";
 import { PaginaModulo } from "../pagina-modulo";
 import { perfisDaRota } from "../menu";
@@ -43,12 +44,12 @@ async function MinhasReservas() {
 
   const horariosLivres = horarios
     .filter((horario) => horario.ocupadoPor === null || !estaOcupando(horario.ocupadoPor, agora))
-    .map((horario) => ({ id: horario.id, descricao: descrever(horario.diaSemana, horario.horaInicio) }));
+    .map((horario) => ({ id: horario.id, descricao: descreverHorario(horario.diaSemana, horario.horaInicio) }));
 
   return (
     <ul className="flex flex-col gap-2">
       {reservas.map((reserva) => {
-        const descricao = descrever(reserva.diaSemana, reserva.horaInicio);
+        const descricao = descreverHorario(reserva.diaSemana, reserva.horaInicio);
         return (
           <li key={reserva.id} className="flex flex-wrap items-center gap-2">
             <span>
@@ -61,8 +62,4 @@ async function MinhasReservas() {
       })}
     </ul>
   );
-}
-
-function descrever(diaSemana: number, horaInicio: number): string {
-  return `${DIAS_DA_SEMANA[diaSemana]} ${formatarHora(horaInicio)}`;
 }

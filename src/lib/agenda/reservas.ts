@@ -1,7 +1,8 @@
 import "server-only";
+import { descreverHorario } from "@/lib/agenda/horarios";
 import { escolherSala } from "@/lib/agendamento/criar-agendamento";
 import { liberarAgendamento, liberarPendentesVencidos } from "@/lib/agendamento/liberar-agendamento";
-import { chaveSala, DIAS_DA_SEMANA, filtroAgendamentoAtivo, formatarHora, hojeNoBrasil, primeiraDataNoDia } from "@/lib/agendamento/regras";
+import { chaveSala, filtroAgendamentoAtivo, hojeNoBrasil, primeiraDataNoDia } from "@/lib/agendamento/regras";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { executarEmTransacao, violouUnicidade, type Transacao } from "@/lib/transacao";
@@ -66,7 +67,7 @@ async function remarcarNaTransacao(tx: Transacao, usuario: ContextoAutorizacao, 
         create: {
           tipo: "REMARCADO",
           usuarioId: usuario.id,
-          observacao: `${descrever(reserva.diaSemana, reserva.horaInicio)} → ${descrever(diaSemana, horaInicio)}, todas as semanas`,
+          observacao: `${descreverHorario(reserva.diaSemana, reserva.horaInicio)} → ${descreverHorario(diaSemana, horaInicio)}, todas as semanas`,
         },
       },
     },
@@ -94,8 +95,4 @@ async function novaDataDeInicio(
   const dataInicio = primeiraDataNoDia(diaSemana, aPartirDe);
   if (dataInicio > reserva.dataFim) throw new ErroDeRegra("SEM_PERIODO_LETIVO", "Não há mais datas neste período letivo.");
   return dataInicio;
-}
-
-function descrever(diaSemana: number, horaInicio: number): string {
-  return `${DIAS_DA_SEMANA[diaSemana]} ${formatarHora(horaInicio)}`;
 }
