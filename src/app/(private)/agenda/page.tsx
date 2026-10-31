@@ -1,3 +1,4 @@
+import { unidadeDaAgenda } from "@/lib/agenda/horarios";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { DIAS_DA_SEMANA, estaOcupando, formatarHora } from "@/lib/agendamento/regras";
 import { prisma } from "@/lib/prisma";
@@ -16,7 +17,7 @@ export default function AgendaPage({ searchParams }: PageProps<"/agenda">) {
 
 async function MeusHorarios({ searchParams }: { searchParams: PageProps<"/agenda">["searchParams"] }) {
   const usuario = await exigirUsuario(perfisDaRota("/agenda"));
-  const unidadeId = usuario.unidades[0];
+  const unidadeId = unidadeDaAgenda(usuario);
   if (!unidadeId) return <p>Seu cadastro não tem unidade. Fale com a secretaria.</p>;
   const { dia: diaDaUrl } = await searchParams;
   const dia = DIAS_EXIBIDOS.includes(Number(diaDaUrl)) ? Number(diaDaUrl) : 1;

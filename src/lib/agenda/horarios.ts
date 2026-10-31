@@ -5,6 +5,10 @@ import { ErroDeRegra } from "@/lib/erros";
 import { prisma } from "@/lib/prisma";
 import { executarEmTransacao } from "@/lib/transacao";
 
+export function unidadeDaAgenda(usuario: ContextoAutorizacao): string | null {
+  return usuario.unidades[0] ?? null;
+}
+
 export async function adicionarHorarioDoEstagiario(
   usuario: ContextoAutorizacao,
   unidadeId: string,
