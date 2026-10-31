@@ -16,7 +16,6 @@ export default function AgendaPage({ searchParams }: PageProps<"/agenda">) {
 
 async function MeusHorarios({ searchParams }: { searchParams: PageProps<"/agenda">["searchParams"] }) {
   const usuario = await exigirUsuario(perfisDaRota("/agenda"));
-  // shortcut: usa a primeira unidade do estagiário; trocar por uma escolha se algum atender em duas.
   const unidadeId = usuario.unidades[0];
   if (!unidadeId) return <p>Seu cadastro não tem unidade. Fale com a secretaria.</p>;
   const { dia: diaDaUrl } = await searchParams;
