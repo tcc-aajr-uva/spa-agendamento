@@ -158,7 +158,7 @@ Com Cache Components, qualquer leitura de cookie, banco ou `searchParams` fica d
 | `agendamento/liberar-agendamento.ts` | `liberarAgendamento(id, { status, motivo, usuarioId })`: a função única que libera horário e sala | #2, #3, #4 |
 | `lista-espera/adicionar-lista-espera.ts` | `adicionarListaEspera(entrada, usuario)` | #4, #3 |
 | `salas/situacao-sala.ts` | `alterarSituacaoDaSala(usuario, salaId, ativar)`: não desativa sala com agendamento ativo | #2 |
-| `agenda/horarios.ts` | `adicionarHorarioDoEstagiario` (só dentro da grade da unidade) e `removerHorarioDoEstagiario` (recusa horário com paciente) | #2 |
+| `agenda/horarios.ts` | `adicionarHorarioDoEstagiario` (só dentro da grade da unidade), `removerHorarioDoEstagiario` e `trocarHorarioDoEstagiario` (recusam horário com paciente) | #2 |
 | `agenda/reservas.ts` | `cancelarReservaDoEstagiario(usuario, agendamentoId)`: só a reserva do próprio estagiário, liberando horário e sala | #2 |
 
 ### Autenticação

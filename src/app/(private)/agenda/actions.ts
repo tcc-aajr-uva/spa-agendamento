@@ -2,9 +2,15 @@
 
 import { refresh } from "next/cache";
 import { z } from "zod";
-import { adicionarHorarioDoEstagiario, removerHorarioDoEstagiario, unidadeDaAgenda } from "@/lib/agenda/horarios";
+import {
+  adicionarHorarioDoEstagiario,
+  removerHorarioDoEstagiario,
+  trocarHorarioDoEstagiario,
+  unidadeDaAgenda,
+} from "@/lib/agenda/horarios";
 import { DIAS_DA_SEMANA, formatarHora } from "@/lib/agendamento/regras";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
+import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { DIAS_EXIBIDOS } from "../salas/ocupacao-salas";
 import { perfisDaRota } from "../menu";
@@ -20,18 +26,23 @@ const novoHorarioSchema = z.object({
 
 export async function adicionarHorario(_estado: EstadoAgenda, formData: FormData): Promise<EstadoAgenda> {
   const usuario = await exigirUsuario(perfisDaRota("/agenda"));
-  const unidadeId = unidadeDaAgenda(usuario);
-  if (!unidadeId) return { erro: "Seu cadastro não tem unidade." };
-  const dados = novoHorarioSchema.safeParse({
-    diaSemana: String(formData.get("diaSemana") ?? ""),
-    horaInicio: String(formData.get("horaInicio") ?? ""),
-  });
-  if (!dados.success) return { erro: dados.error.issues[0].message };
-  const { diaSemana, horaInicio } = dados.data;
+  const novo = lerNovoHorario(usuario, formData);
+  if ("erro" in novo) return novo;
 
   return tratarErros(async () => {
-    await adicionarHorarioDoEstagiario(usuario, unidadeId, diaSemana, horaInicio);
-    return { mensagem: `${DIAS_DA_SEMANA[diaSemana]} ${formatarHora(horaInicio)} adicionado.` };
+    await adicionarHorarioDoEstagiario(usuario, novo);
+    return { mensagem: `${descrever(novo)} adicionado.` };
+  });
+}
+
+export async function trocarHorario(_estado: EstadoAgenda, formData: FormData): Promise<EstadoAgenda> {
+  const usuario = await exigirUsuario(perfisDaRota("/agenda"));
+  const novo = lerNovoHorario(usuario, formData);
+  if ("erro" in novo) return novo;
+
+  return tratarErros(async () => {
+    await trocarHorarioDoEstagiario(usuario, String(formData.get("horarioId") ?? ""), novo);
+    return { mensagem: `Trocado para ${descrever(novo)}.` };
   });
 }
 
@@ -52,4 +63,19 @@ async function tratarErros(operacao: () => Promise<EstadoAgenda>): Promise<Estad
     if (erro instanceof ErroDeRegra) return { erro: erro.message };
     throw erro;
   }
+}
+
+function lerNovoHorario(usuario: ContextoAutorizacao, formData: FormData) {
+  const unidadeId = unidadeDaAgenda(usuario);
+  if (!unidadeId) return { erro: "Seu cadastro não tem unidade." };
+  const dados = novoHorarioSchema.safeParse({
+    diaSemana: String(formData.get("diaSemana") ?? ""),
+    horaInicio: String(formData.get("horaInicio") ?? ""),
+  });
+  if (!dados.success) return { erro: dados.error.issues[0].message };
+  return { unidadeId, ...dados.data };
+}
+
+function descrever({ diaSemana, horaInicio }: { diaSemana: number; horaInicio: number }): string {
+  return `${DIAS_DA_SEMANA[diaSemana]} ${formatarHora(horaInicio)}`;
 }
