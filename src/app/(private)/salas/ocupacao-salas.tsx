@@ -9,7 +9,7 @@ type Props = {
   link: (mudanca: Record<string, number | string>) => string;
 };
 
-const DIAS_EXIBIDOS = [1, 2, 3, 4, 5, 6];
+export const DIAS_EXIBIDOS = [1, 2, 3, 4, 5, 6];
 
 export async function OcupacaoSalas({ unidadeId, dia, unidades, link }: Props) {
   const agora = new Date();

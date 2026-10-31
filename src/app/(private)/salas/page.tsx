@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PaginaModulo } from "../pagina-modulo";
 import { perfisDaRota } from "../menu";
 import { BotaoSituacaoSala, FormularioNovaSala } from "./formularios-sala";
-import { OcupacaoSalas } from "./ocupacao-salas";
+import { DIAS_EXIBIDOS, OcupacaoSalas } from "./ocupacao-salas";
 
 const SALAS_POR_PAGINA = 10;
 
@@ -38,7 +38,7 @@ async function Salas({ searchParams }: { searchParams: Parametros }) {
 
   const unidadesParaEscolher = unidades.length > 1 ? unidades : null;
   const unidadeOcupacao = escolherUnidade(parametros.unidade, unidades);
-  const dia = numeroDaUrl(parametros.dia, 1, 1, 6);
+  const dia = DIAS_EXIBIDOS.includes(Number(parametros.dia)) ? Number(parametros.dia) : DIAS_EXIBIDOS[0];
   const link = (mudanca: Record<string, number | string>) => {
     const novos = new URLSearchParams({ pagina: String(pagina), dia: String(dia), unidade: unidadeOcupacao ?? "" });
     for (const [chave, valor] of Object.entries(mudanca)) novos.set(chave, String(valor));
