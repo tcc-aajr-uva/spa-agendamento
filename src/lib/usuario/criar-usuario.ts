@@ -1,20 +1,14 @@
 import "server-only";
 
-import type { Perfil } from "@/generated/prisma/client";
+import type { Perfil, Prisma } from "@/generated/prisma/client";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { gerarToken, hashToken } from "@/lib/token";
 import { executarEmTransacao, type Transacao, violouUnicidade } from "@/lib/transacao";
 import { novoUsuarioSchema, type NovoUsuario } from "@/lib/usuario/dados-usuario";
+import { perfisCriadosPor } from "@/lib/usuario/hierarquia";
 
 const DURACAO_CONVITE_MS = 24 * 60 * 60 * 1000;
-
-const PERFIL_CRIADO_POR: Partial<Record<Perfil, Perfil>> = {
-  ADMINISTRADOR: "COORDENACAO",
-  COORDENACAO: "SECRETARIA",
-  SECRETARIA: "SUPERVISOR",
-  SUPERVISOR: "ESTAGIARIO",
-};
 
 export type UsuarioComConviteCriado = {
   usuarioId: string;
@@ -33,7 +27,7 @@ export async function criarUsuarioComConvite(
   }
 
   const dados = resultado.data;
-  if (PERFIL_CRIADO_POR[autor.perfil] !== dados.perfil) {
+  if (!perfisCriadosPor(autor.perfil).includes(dados.perfil)) {
     throw new ErroDeRegra("SEM_PERMISSAO", "Seu perfil não pode criar este tipo de usuário.");
   }
 
@@ -122,7 +116,7 @@ async function resolverVinculos(
   autor: ContextoAutorizacao,
 ) {
   if (perfil === "COORDENACAO" || perfil === "SECRETARIA") {
-    if (perfil === "SECRETARIA" && unidadeIds.some((id) => !autor.unidades.includes(id))) {
+    if (autor.perfil !== "ADMINISTRADOR" && unidadeIds.some((id) => !autor.unidades.includes(id))) {
       throw new ErroDeRegra("SEM_PERMISSAO", "Você não pode vincular usuários fora das suas unidades.");
     }
 
@@ -136,12 +130,15 @@ async function resolverVinculos(
     return { unidadeIds, equipes: [] as { id: string; unidadeId: string }[] };
   }
 
-  if (perfil === "ESTAGIARIO" && equipeIds.some((id) => !autor.equipes.includes(id))) {
-    throw new ErroDeRegra("SEM_PERMISSAO", "Uma das equipes não pertence ao seu escopo.");
-  }
+  const whereDeEscopo: Prisma.EquipeWhereInput =
+    autor.perfil === "ADMINISTRADOR"
+      ? {}
+      : autor.perfil === "COORDENACAO" || autor.perfil === "SECRETARIA"
+        ? { unidadeId: { in: autor.unidades } }
+        : { id: { in: autor.equipes }, supervisorId: autor.id };
 
-  const whereDeEscopo =
-    perfil === "SUPERVISOR" ? { unidadeId: { in: autor.unidades } } : { supervisorId: autor.id };
+  const exigeSupervisorResponsavel =
+    perfil === "ESTAGIARIO" && (autor.perfil === "ADMINISTRADOR" || autor.perfil === "COORDENACAO");
 
   const equipes = await tx.equipe.findMany({
     where: {
@@ -149,6 +146,7 @@ async function resolverVinculos(
       ativa: true,
       unidade: { ativa: true },
       ...whereDeEscopo,
+      ...(exigeSupervisorResponsavel ? { supervisorId: { not: null } } : {}),
     },
     select: { id: true, unidadeId: true, supervisorId: true },
   });
