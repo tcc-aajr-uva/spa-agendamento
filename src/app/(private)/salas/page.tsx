@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PaginaModulo } from "../pagina-modulo";
 import { perfisDaRota } from "../menu";
 import { BotaoSituacaoSala, FormularioNovaSala } from "./formularios-sala";
-import { OcupacaoSalas } from "./ocupacao-salas";
+import { DIAS_EXIBIDOS, OcupacaoSalas } from "./ocupacao-salas";
 
 const SALAS_POR_PAGINA = 10;
 
@@ -28,7 +28,6 @@ async function Salas({ searchParams }: { searchParams: Parametros }) {
       where: filtroDeUnidades(usuario),
       orderBy: [{ unidade: { nome: "asc" } }, { nome: "asc" }],
       skip: (pagina - 1) * SALAS_POR_PAGINA,
-      // Uma a mais só para saber se existe próxima página, sem um count separado.
       take: SALAS_POR_PAGINA + 1,
       select: { id: true, nome: true, ativa: true, unidade: { select: { nome: true } } },
     }),
@@ -37,10 +36,9 @@ async function Salas({ searchParams }: { searchParams: Parametros }) {
   const salas = salasDaPagina.slice(0, SALAS_POR_PAGINA);
   const temProxima = salasDaPagina.length > SALAS_POR_PAGINA;
 
-  // Só quem tem mais de uma unidade (ou o administrador) escolhe a unidade.
   const unidadesParaEscolher = unidades.length > 1 ? unidades : null;
   const unidadeOcupacao = escolherUnidade(parametros.unidade, unidades);
-  const dia = numeroDaUrl(parametros.dia, 1, 1, 6);
+  const dia = DIAS_EXIBIDOS.includes(Number(parametros.dia)) ? Number(parametros.dia) : DIAS_EXIBIDOS[0];
   const link = (mudanca: Record<string, number | string>) => {
     const novos = new URLSearchParams({ pagina: String(pagina), dia: String(dia), unidade: unidadeOcupacao ?? "" });
     for (const [chave, valor] of Object.entries(mudanca)) novos.set(chave, String(valor));
@@ -72,7 +70,7 @@ async function Salas({ searchParams }: { searchParams: Parametros }) {
       )}
       <section className="flex max-w-md flex-col gap-2">
         <h2 className="text-lg font-bold">Nova sala</h2>
-        <FormularioNovaSala unidades={unidadesParaEscolher} />
+        <FormularioNovaSala unidades={unidades} />
       </section>
       {unidadeOcupacao && (
         <OcupacaoSalas unidadeId={unidadeOcupacao} dia={dia} unidades={unidadesParaEscolher} link={link} />

@@ -2,10 +2,11 @@
 
 import { refresh } from "next/cache";
 import { z } from "zod";
-import { filtroAgendamentoAtivo } from "@/lib/agendamento/regras";
 import { exigirUsuario, podeAcessar } from "@/lib/auth/autorizacao";
 import { prisma } from "@/lib/prisma";
-import { executarEmTransacao, violouUnicidade } from "@/lib/transacao";
+import { ErroDeRegra } from "@/lib/erros";
+import { alterarSituacaoDaSala } from "@/lib/salas/situacao-sala";
+import { violouUnicidade } from "@/lib/transacao";
 import { perfisDaRota } from "../menu";
 
 export type EstadoSala = { erro?: string; mensagem?: string };
@@ -18,8 +19,7 @@ const novaSalaSchema = z.object({
 export async function criarSala(_estado: EstadoSala, formData: FormData): Promise<EstadoSala> {
   const usuario = await exigirUsuario(perfisDaRota("/salas"));
   const dados = novaSalaSchema.safeParse({
-    // Com uma unidade só, o formulário não mostra a escolha; podeAcessar confere o resto.
-    unidadeId: texto(formData, "unidadeId") || (usuario.unidades.length === 1 ? usuario.unidades[0] : ""),
+    unidadeId: texto(formData, "unidadeId"),
     nome: texto(formData, "nome"),
   });
   if (!dados.success) return { erro: dados.error.issues[0].message };
@@ -37,23 +37,12 @@ export async function criarSala(_estado: EstadoSala, formData: FormData): Promis
 
 export async function alterarSituacaoSala(_estado: EstadoSala, formData: FormData): Promise<EstadoSala> {
   const usuario = await exigirUsuario(perfisDaRota("/salas"));
-  // O formulário manda o estado desejado, para dois cliques simultâneos não se anularem.
-  const ativar = texto(formData, "ativar") === "true";
-
-  const erro = await executarEmTransacao(async (tx) => {
-    const sala = await tx.sala.findUnique({ where: { id: texto(formData, "salaId") }, select: { id: true, nome: true, unidadeId: true } });
-    if (!sala || !podeAcessar(usuario, { unidadeId: sala.unidadeId })) return "Sala não encontrada.";
-
-    if (!ativar) {
-      // Na mesma transação Serializable do criarAgendamento: um agendamento novo nesta sala não escapa da contagem.
-      const ativos = await tx.agendamento.count({ where: { salaId: sala.id, ...filtroAgendamentoAtivo(new Date()) } });
-      if (ativos > 0) return `A ${sala.nome} tem ${ativos} agendamento(s) ativo(s). Cancele ou encerre antes de desativar.`;
-    }
-    await tx.sala.update({ where: { id: sala.id }, data: { ativa: ativar } });
-    return null;
-  });
-
-  if (erro) return { erro };
+  try {
+    await alterarSituacaoDaSala(usuario, texto(formData, "salaId"), texto(formData, "ativar") === "true");
+  } catch (erro) {
+    if (erro instanceof ErroDeRegra) return { erro: erro.message };
+    throw erro;
+  }
   refresh();
   return {};
 }

@@ -7,6 +7,7 @@ export type CodigoErro =
   | "SEM_SALA_LIVRE"
   | "PACIENTE_JA_ATIVO"
   | "NAO_ENCONTRADO"
+  | "SALA_EM_USO"
   | "CONFLITO_CONCORRENTE";
 
 export class ErroDeRegra extends Error {
