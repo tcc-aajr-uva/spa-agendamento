@@ -18,8 +18,7 @@ const novaSalaSchema = z.object({
 export async function criarSala(_estado: EstadoSala, formData: FormData): Promise<EstadoSala> {
   const usuario = await exigirUsuario(perfisDaRota("/salas"));
   const dados = novaSalaSchema.safeParse({
-    // Com uma unidade só, o formulário não mostra a escolha; podeAcessar confere o resto.
-    unidadeId: texto(formData, "unidadeId") || (usuario.unidades.length === 1 ? usuario.unidades[0] : ""),
+    unidadeId: texto(formData, "unidadeId"),
     nome: texto(formData, "nome"),
   });
   if (!dados.success) return { erro: dados.error.issues[0].message };
@@ -37,7 +36,6 @@ export async function criarSala(_estado: EstadoSala, formData: FormData): Promis
 
 export async function alterarSituacaoSala(_estado: EstadoSala, formData: FormData): Promise<EstadoSala> {
   const usuario = await exigirUsuario(perfisDaRota("/salas"));
-  // O formulário manda o estado desejado, para dois cliques simultâneos não se anularem.
   const ativar = texto(formData, "ativar") === "true";
 
   const erro = await executarEmTransacao(async (tx) => {
@@ -45,7 +43,6 @@ export async function alterarSituacaoSala(_estado: EstadoSala, formData: FormDat
     if (!sala || !podeAcessar(usuario, { unidadeId: sala.unidadeId })) return "Sala não encontrada.";
 
     if (!ativar) {
-      // Na mesma transação Serializable do criarAgendamento: um agendamento novo nesta sala não escapa da contagem.
       const ativos = await tx.agendamento.count({ where: { salaId: sala.id, ...filtroAgendamentoAtivo(new Date()) } });
       if (ativos > 0) return `A ${sala.nome} tem ${ativos} agendamento(s) ativo(s). Cancele ou encerre antes de desativar.`;
     }

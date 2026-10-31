@@ -5,12 +5,14 @@ import { alterarSituacaoSala, criarSala } from "./actions";
 
 type Unidade = { id: string; nome: string };
 
-export function FormularioNovaSala({ unidades }: { unidades: Unidade[] | null }) {
+export function FormularioNovaSala({ unidades }: { unidades: Unidade[] }) {
   const [estado, enviar, enviando] = useActionState(criarSala, {});
 
   return (
     <form action={enviar} className="flex flex-col gap-3">
-      {unidades && (
+      {unidades.length === 1 ? (
+        <input type="hidden" name="unidadeId" value={unidades[0].id} />
+      ) : (
         <label className="flex flex-col gap-1">
           Unidade
           <select name="unidadeId" required className="rounded border bg-transparent px-2 py-1">

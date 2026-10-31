@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { DIAS_DA_SEMANA, estaOcupando, formatarHora, horarioNaGrade } from "@/lib/agendamento/regras";
+import { chaveSala, DIAS_DA_SEMANA, estaOcupando, formatarHora, horarioNaGrade } from "@/lib/agendamento/regras";
 import { prisma } from "@/lib/prisma";
 
 type Props = {
@@ -9,7 +9,6 @@ type Props = {
   link: (mudanca: Record<string, number | string>) => string;
 };
 
-// shortcut: segunda a sábado fixos, até o SPA confirmar os dias de atendimento.
 const DIAS_EXIBIDOS = [1, 2, 3, 4, 5, 6];
 
 export async function OcupacaoSalas({ unidadeId, dia, unidades, link }: Props) {
@@ -22,7 +21,6 @@ export async function OcupacaoSalas({ unidadeId, dia, unidades, link }: Props) {
       duracaoBlocoMin: true,
       salas: { where: { ativa: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } },
       agendamentos: {
-        // Mesmo critério de "ativo" da criação de agendamento; pendente vencido não ocupa.
         where: { diaSemana: dia, horarioAtivoId: { not: null }, sala: { ativa: true } },
         select: { salaId: true, horaInicio: true, status: true, prazoConfirmacao: true, horarioAtivoId: true },
       },
@@ -37,7 +35,7 @@ export async function OcupacaoSalas({ unidadeId, dia, unidades, link }: Props) {
   const ocupacao = new Map(
     unidade.agendamentos
       .filter((agendamento) => estaOcupando(agendamento, agora))
-      .map((agendamento) => [`${agendamento.salaId}:${agendamento.horaInicio}`, agendamento.status]),
+      .map((agendamento) => [chaveSala(agendamento.salaId, dia, agendamento.horaInicio), agendamento.status]),
   );
 
   return (
@@ -88,7 +86,7 @@ export async function OcupacaoSalas({ unidadeId, dia, unidades, link }: Props) {
                 <tr key={hora}>
                   <th scope="row" className="border px-2 py-1">{formatarHora(hora)}</th>
                   {unidade.salas.map((sala) => {
-                    const status = ocupacao.get(`${sala.id}:${hora}`);
+                    const status = ocupacao.get(chaveSala(sala.id, dia, hora));
                     const texto = !status ? "Livre" : status === "PENDENTE" ? "Pendente" : "Ocupada";
                     return (
                       <td key={sala.id} className={`border px-2 py-1 text-center ${status ? "font-bold" : "opacity-70"}`}>
