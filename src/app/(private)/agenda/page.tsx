@@ -20,7 +20,7 @@ async function MeusHorarios({ searchParams }: { searchParams: PageProps<"/agenda
   const unidadeId = unidadeDaAgenda(usuario);
   if (!unidadeId) return <p>Seu cadastro não tem unidade. Fale com a secretaria.</p>;
   const { dia: diaDaUrl } = await searchParams;
-  const dia = DIAS_EXIBIDOS.includes(Number(diaDaUrl)) ? Number(diaDaUrl) : 1;
+  const dia = DIAS_EXIBIDOS.includes(Number(diaDaUrl)) ? Number(diaDaUrl) : DIAS_EXIBIDOS[0];
 
   const agora = new Date();
   const [horarios, unidade] = await Promise.all([
