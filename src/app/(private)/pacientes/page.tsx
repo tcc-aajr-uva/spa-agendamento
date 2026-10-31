@@ -1,4 +1,4 @@
-import { exigirUsuario } from "@/lib/auth/permissao";
+import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { DIAS_DA_SEMANA, estaOcupando, formatarHora } from "@/lib/agendamento/regras";
 import { prisma } from "@/lib/prisma";
 import { PaginaModulo } from "../pagina-modulo";

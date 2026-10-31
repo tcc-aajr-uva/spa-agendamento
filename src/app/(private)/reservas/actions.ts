@@ -2,7 +2,7 @@
 
 import { refresh } from "next/cache";
 import { liberarAgendamento } from "@/lib/agendamento/liberar-agendamento";
-import { exigirUsuario } from "@/lib/auth/permissao";
+import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { ErroDeRegra } from "@/lib/erros";
 import { executarEmTransacao } from "@/lib/transacao";
 import { perfisDaRota } from "../menu";

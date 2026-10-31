@@ -1,4 +1,4 @@
-import { exigirUsuario } from "@/lib/auth/permissao";
+import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { DIAS_DA_SEMANA, estaOcupando, formatarHora } from "@/lib/agendamento/regras";
 import { prisma } from "@/lib/prisma";
 import { PaginaModulo } from "../pagina-modulo";
@@ -16,7 +16,9 @@ export default function AgendaPage({ searchParams }: PageProps<"/agenda">) {
 
 async function MeusHorarios({ searchParams }: { searchParams: PageProps<"/agenda">["searchParams"] }) {
   const usuario = await exigirUsuario(perfisDaRota("/agenda"));
-  if (!usuario.unidadeId) return <p>Seu cadastro não tem unidade. Fale com a secretaria.</p>;
+  // shortcut: usa a primeira unidade do estagiário; trocar por uma escolha se algum atender em duas.
+  const unidadeId = usuario.unidades[0];
+  if (!unidadeId) return <p>Seu cadastro não tem unidade. Fale com a secretaria.</p>;
   const { dia: diaDaUrl } = await searchParams;
   const dia = DIAS_EXIBIDOS.includes(Number(diaDaUrl)) ? Number(diaDaUrl) : 1;
 
@@ -28,7 +30,7 @@ async function MeusHorarios({ searchParams }: { searchParams: PageProps<"/agenda
       select: { id: true, diaSemana: true, horaInicio: true, ocupadoPor: { select: { status: true, prazoConfirmacao: true, horarioAtivoId: true } } },
     }),
     prisma.unidade.findUnique({
-      where: { id: usuario.unidadeId },
+      where: { id: unidadeId },
       select: { horaAbertura: true, horaFechamento: true, duracaoBlocoMin: true },
     }),
   ]);
@@ -59,7 +61,7 @@ async function MeusHorarios({ searchParams }: { searchParams: PageProps<"/agenda
         </section>
       )}
       <OcupacaoSalas
-        unidadeId={usuario.unidadeId}
+        unidadeId={unidadeId}
         dia={dia}
         unidades={null}
         link={({ dia: novoDia }) => `/agenda?dia=${novoDia}`}

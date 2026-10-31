@@ -7,7 +7,7 @@ export default function Home() {
       <p>Agendamento do Serviço de Psicologia Aplicada.</p>
       <nav className="flex flex-col gap-2 underline">
         <Link href="/agendar">Quero agendar um atendimento</Link>
-        <Link href="/dev/entrar">Área interna (entrar)</Link>
+        <Link href="/entrar">Área interna (entrar)</Link>
       </nav>
     </main>
   );

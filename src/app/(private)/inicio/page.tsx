@@ -1,4 +1,4 @@
-import { exigirUsuario } from "@/lib/auth/permissao";
+import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { PaginaModulo } from "../pagina-modulo";
 
 export default function InicioPage() {

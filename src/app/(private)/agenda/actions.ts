@@ -2,7 +2,7 @@
 
 import { refresh } from "next/cache";
 import { DIAS_DA_SEMANA, filtroAgendamentoAtivo, formatarHora, horarioNaGrade } from "@/lib/agendamento/regras";
-import { exigirUsuario } from "@/lib/auth/permissao";
+import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { ErroDeRegra } from "@/lib/erros";
 import { prisma } from "@/lib/prisma";
 import { executarEmTransacao } from "@/lib/transacao";
@@ -12,12 +12,14 @@ export type EstadoAgenda = { erro?: string; mensagem?: string };
 
 export async function adicionarHorario(_estado: EstadoAgenda, formData: FormData): Promise<EstadoAgenda> {
   const usuario = await exigirUsuario(perfisDaRota("/agenda"));
-  if (!usuario.unidadeId) return { erro: "Seu cadastro não tem unidade." };
+  // shortcut: mesma regra da página, primeira unidade do estagiário.
+  const unidadeId = usuario.unidades[0];
+  if (!unidadeId) return { erro: "Seu cadastro não tem unidade." };
   const diaSemana = Number(formData.get("diaSemana"));
   const horaInicio = Number(formData.get("horaInicio"));
 
   const unidade = await prisma.unidade.findUnique({
-    where: { id: usuario.unidadeId },
+    where: { id: unidadeId },
     select: { horaAbertura: true, horaFechamento: true, duracaoBlocoMin: true },
   });
   if (!unidade || !Number.isInteger(diaSemana) || diaSemana < 1 || diaSemana > 6 || !horarioNaGrade(unidade, horaInicio)) {
