@@ -1,8 +1,23 @@
-export default function CancelarPage() {
+import { Suspense } from "react";
+import { FormularioCancelamento } from "./formulario-cancelamento";
+
+type Props = { searchParams: Promise<{ token?: string | string[] }> };
+
+export default function CancelarPage({ searchParams }: Props) {
   return (
     <main className="mx-auto max-w-xl p-6">
       <h1 className="text-2xl font-bold">Cancelar agendamento</h1>
-      <p>Em construção (card #4): pedir o código, validar o token pelo hash e chamar liberarAgendamento.</p>
+      <Suspense fallback={<p className="mt-4">Carregando…</p>}>
+        <ConteudoCancelamento searchParams={searchParams} />
+      </Suspense>
     </main>
   );
+}
+
+async function ConteudoCancelamento({ searchParams }: Props) {
+  const { token } = await searchParams;
+  if (typeof token !== "string" || token.length !== 43) {
+    return <p className="mt-4">Link de cancelamento inválido. Use o link exibido ao final do seu agendamento.</p>;
+  }
+  return <FormularioCancelamento token={token} />;
 }
