@@ -4,12 +4,16 @@ import { z } from "zod";
 
 import { gerarHashDaSenha, senhaExcedeLimiteBcrypt } from "@/lib/auth/password";
 import { ErroDeRegra } from "@/lib/erros";
-import { hashToken } from "@/lib/token";
+import { prisma } from "@/lib/prisma";
+import { hashToken, tokenTemFormatoValido } from "@/lib/token";
 import { executarEmTransacao, violouUnicidade } from "@/lib/transacao";
 
 const aceiteConviteSchema = z
   .object({
-    token: z.string().trim().min(1),
+    token: z
+      .string()
+      .trim()
+      .refine(tokenTemFormatoValido, "Este convite é inválido ou não está mais disponível."),
     senha: z
       .string()
       .min(8, "A senha deve possuir ao menos 8 caracteres.")
@@ -23,7 +27,7 @@ const aceiteConviteSchema = z
 
 export async function aceitarConvite(
   entrada: { token: string; senha: string; confirmacaoSenha: string },
-  agora = new Date(),
+  agora?: Date,
 ): Promise<void> {
   const resultado = aceiteConviteSchema.safeParse(entrada);
   if (!resultado.success) {
@@ -31,7 +35,28 @@ export async function aceitarConvite(
   }
 
   const tokenHash = hashToken(resultado.data.token);
+  const instanteConsulta = agora ?? new Date();
+  const conviteDisponivel = await prisma.convite.findUnique({
+    where: { tokenHash },
+    select: {
+      expiraEm: true,
+      usadoEm: true,
+      revogadoEm: true,
+      usuario: { select: { ativo: true } },
+    },
+  });
+  if (
+    !conviteDisponivel ||
+    !conviteDisponivel.usuario.ativo ||
+    conviteDisponivel.usadoEm !== null ||
+    conviteDisponivel.revogadoEm !== null ||
+    conviteDisponivel.expiraEm <= instanteConsulta
+  ) {
+    conviteInvalido();
+  }
+
   const senhaHash = await gerarHashDaSenha(resultado.data.senha);
+  const instanteConsumo = agora ?? new Date();
 
   try {
     await executarEmTransacao(async (tx) => {
@@ -51,7 +76,7 @@ export async function aceitarConvite(
         !convite.usuario.ativo ||
         convite.usadoEm !== null ||
         convite.revogadoEm !== null ||
-        convite.expiraEm <= agora
+        convite.expiraEm <= instanteConsumo
       ) {
         conviteInvalido();
       }
@@ -72,9 +97,9 @@ export async function aceitarConvite(
           id: convite.id,
           usadoEm: null,
           revogadoEm: null,
-          expiraEm: { gt: agora },
+          expiraEm: { gt: instanteConsumo },
         },
-        data: { usadoEm: agora },
+        data: { usadoEm: instanteConsumo },
       });
       if (uso.count !== 1) conviteInvalido();
 
