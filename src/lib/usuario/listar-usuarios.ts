@@ -35,9 +35,9 @@ export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAu
       : {}),
   };
 
-  const { total, usuarios } = await prisma.$transaction(async (tx) => {
-    const total = await tx.usuario.count({ where });
-    const usuarios = await tx.usuario.findMany({
+  const [total, usuarios] = await Promise.all([
+    prisma.usuario.count({ where }),
+    prisma.usuario.findMany({
       where,
       orderBy: [{ nome: "asc" }, { id: "asc" }],
       skip: (filtros.pagina - 1) * ITENS_POR_PAGINA,
@@ -69,9 +69,8 @@ export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAu
           select: { equipe: { select: { nome: true, supervisorId: true } } },
         },
       },
-    });
-    return { total, usuarios };
-  });
+    }),
+  ]);
   const perfisGerenciados = perfisCriadosPor(autor.perfil);
 
   return {
