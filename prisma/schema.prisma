@@ -56,7 +56,7 @@ enum TipoToken {
 }
 
 model Unidade {
-  id                String   @id @default(cuid())
+  id                String   @id @default(cuid(2))
   nome              String
   ativa             Boolean  @default(true)
   permitePaciente   Boolean  @default(true)
@@ -77,7 +77,7 @@ model Unidade {
 }
 
 model Equipe {
-  id           String   @id @default(cuid())
+  id           String   @id @default(cuid(2))
   unidadeId    String
   nome         String
   supervisorId String?
@@ -98,7 +98,7 @@ model Equipe {
 }
 
 model PeriodoLetivo {
-  id        String   @id @default(cuid())
+  id        String   @id @default(cuid(2))
   unidadeId String
   inicio    DateTime @db.Date
   fim       DateTime @db.Date
@@ -132,7 +132,7 @@ model ConfiguracaoAtendimentoEstagiario {
 }
 
 model Sala {
-  id        String   @id @default(cuid())
+  id        String   @id @default(cuid(2))
   unidadeId String
   nome      String
   ativa     Boolean  @default(true)
@@ -145,7 +145,7 @@ model Sala {
 }
 
 model HorarioDisponivel {
-  id           String   @id @default(cuid())
+  id           String   @id @default(cuid(2))
   estagiarioId String
   diaSemana    Int
   horaInicio   Int
@@ -161,7 +161,7 @@ model HorarioDisponivel {
 }
 
 model Paciente {
-  id              String   @id @default(cuid())
+  id              String   @id @default(cuid(2))
   nome            String
   cpf             String   @unique
   dataNascimento  DateTime @db.Date
@@ -179,7 +179,7 @@ model Paciente {
 }
 
 model Agendamento {
-  id                  String              @id @default(cuid())
+  id                  String              @id @default(cuid(2))
   unidadeId           String
   equipeId            String
   horarioDisponivelId String
@@ -222,7 +222,7 @@ model Agendamento {
 }
 
 model Sessao {
-  id              String   @id @default(cuid())
+  id              String   @id @default(cuid(2))
   agendamentoId   String
   data            DateTime @db.Date
   presenca        Presenca
@@ -236,7 +236,7 @@ model Sessao {
 }
 
 model EventoAgendamento {
-  id            String     @id @default(cuid())
+  id            String     @id @default(cuid(2))
   agendamentoId String
   tipo          TipoEvento
   usuarioId     String?
@@ -250,7 +250,7 @@ model EventoAgendamento {
 }
 
 model ListaEspera {
-  id              String            @id @default(cuid())
+  id              String            @id @default(cuid(2))
   unidadeId       String
   equipeId        String
   pacienteId      String
@@ -269,7 +269,7 @@ model ListaEspera {
 }
 
 model TokenAcesso {
-  id            String    @id @default(cuid())
+  id            String    @id @default(cuid(2))
   agendamentoId String
   tokenHash     String    @unique
   codigo        String
