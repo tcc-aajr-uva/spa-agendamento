@@ -41,3 +41,57 @@ export function filtroDeUsuariosVisiveis(autor: ContextoAutorizacao): Prisma.Usu
   if (autor.perfil === "ADMINISTRADOR") return {};
   return filtroDeUsuariosGerenciaveis(autor);
 }
+
+export function filtroDeVinculosDeUnidadeGerenciaveis(
+  autor: ContextoAutorizacao,
+): Prisma.UsuarioUnidadeWhereInput {
+  if (autor.perfil === "ADMINISTRADOR") return {};
+  return { unidadeId: { in: autor.unidades } };
+}
+
+export function filtroDeVinculosDeEquipeGerenciaveis(
+  autor: ContextoAutorizacao,
+): Prisma.UsuarioEquipeWhereInput {
+  if (autor.perfil === "ADMINISTRADOR") return {};
+  if (autor.perfil === "COORDENACAO" || autor.perfil === "SECRETARIA") {
+    return { unidadeId: { in: autor.unidades } };
+  }
+  if (autor.perfil === "SUPERVISOR") {
+    return {
+      equipeId: { in: autor.equipes },
+      equipe: { supervisorId: autor.id },
+    };
+  }
+  return { equipeId: { in: [] } };
+}
+
+export function podeGerenciarVinculoDeUnidade(
+  autor: ContextoAutorizacao,
+  unidadeId: string,
+): boolean {
+  return autor.perfil === "ADMINISTRADOR" || autor.unidades.includes(unidadeId);
+}
+
+export function podeGerenciarVinculoDeEquipe(
+  autor: ContextoAutorizacao,
+  vinculo: { equipeId: string; unidadeId: string; supervisorId: string | null },
+): boolean {
+  if (autor.perfil === "ADMINISTRADOR") return true;
+  if (autor.perfil === "COORDENACAO" || autor.perfil === "SECRETARIA") {
+    return autor.unidades.includes(vinculo.unidadeId);
+  }
+  return (
+    autor.perfil === "SUPERVISOR" &&
+    autor.equipes.includes(vinculo.equipeId) &&
+    vinculo.supervisorId === autor.id
+  );
+}
+
+export function podeAlterarAcessoDoUsuario(
+  autor: ContextoAutorizacao,
+  unidadesDoUsuario: readonly string[],
+): boolean {
+  if (autor.perfil === "ADMINISTRADOR") return true;
+  if (autor.perfil !== "COORDENACAO") return false;
+  return unidadesDoUsuario.every((unidadeId) => autor.unidades.includes(unidadeId));
+}

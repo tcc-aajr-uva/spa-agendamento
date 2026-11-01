@@ -8,7 +8,11 @@ import {
   perfisCriaveisSchema,
   type AtualizacaoUsuario,
 } from "@/lib/usuario/dados-usuario";
-import { filtroDeUsuariosGerenciaveis } from "@/lib/usuario/escopo-usuario";
+import {
+  filtroDeUsuariosGerenciaveis,
+  filtroDeVinculosDeEquipeGerenciaveis,
+  filtroDeVinculosDeUnidadeGerenciaveis,
+} from "@/lib/usuario/escopo-usuario";
 import {
   atribuirSupervisor,
   resolverVinculos,
@@ -40,7 +44,7 @@ export async function atualizarUsuarioGerenciavel(
     }
 
     const dados = resultado.data;
-    validarFormatoDosVinculos(perfil.data, dados.unidadeIds, dados.equipeIds);
+    validarFormatoDosVinculos(perfil.data, dados.unidadeIds, dados.equipeIds, false);
     const vinculos = await resolverVinculos(
       tx,
       perfil.data,
@@ -51,18 +55,27 @@ export async function atualizarUsuarioGerenciavel(
     );
 
     await tx.usuario.update({ where: { id: usuarioId }, data: { nome: dados.nome } });
-    await sincronizarUnidades(tx, usuarioId, vinculos.unidadeIds);
-    await sincronizarEquipes(tx, usuarioId, perfil.data, usuario.ativo, vinculos.equipes);
+    if (perfil.data === "COORDENACAO" || perfil.data === "SECRETARIA") {
+      await sincronizarUnidadesDiretas(tx, usuarioId, vinculos.unidadeIds, autor);
+    } else {
+      await sincronizarEquipes(tx, usuarioId, perfil.data, usuario.ativo, vinculos.equipes, autor);
+      await sincronizarUnidadesDerivadasDasEquipes(tx, usuarioId);
+      if (perfil.data === "ESTAGIARIO") await validarUnicaUnidadeDoEstagiario(tx, usuarioId);
+    }
   });
 }
 
-async function sincronizarUnidades(
+async function sincronizarUnidadesDiretas(
   tx: Transacao,
   usuarioId: string,
   unidadeIds: string[],
+  autor: ContextoAutorizacao,
 ) {
   await tx.usuarioUnidade.updateMany({
-    where: { usuarioId, unidadeId: { notIn: unidadeIds } },
+    where: {
+      usuarioId,
+      AND: [filtroDeVinculosDeUnidadeGerenciaveis(autor), { unidadeId: { notIn: unidadeIds } }],
+    },
     data: { ativo: false },
   });
   for (const unidadeId of unidadeIds) {
@@ -80,21 +93,36 @@ async function sincronizarEquipes(
   perfil: "COORDENACAO" | "SECRETARIA" | "SUPERVISOR" | "ESTAGIARIO",
   usuarioAtivo: boolean,
   equipes: { id: string; unidadeId: string }[],
+  autor: ContextoAutorizacao,
 ) {
   const equipeIds = equipes.map(({ id }) => id);
-  await tx.usuarioEquipe.updateMany({
-    where: { usuarioId, equipeId: { notIn: equipeIds } },
-    data: { ativo: false },
-  });
+  const filtroDeRemocao = {
+    usuarioId,
+    AND: [filtroDeVinculosDeEquipeGerenciaveis(autor), { equipeId: { notIn: equipeIds } }],
+  };
 
   if (perfil === "SUPERVISOR") {
+    const vinculosRemovidos = await tx.usuarioEquipe.findMany({
+      where: filtroDeRemocao,
+      select: { equipeId: true },
+    });
     await tx.equipe.updateMany({
-      where: { supervisorId: usuarioId, id: { notIn: equipeIds } },
+      where: { supervisorId: usuarioId, id: { in: vinculosRemovidos.map(({ equipeId }) => equipeId) } },
       data: { supervisorId: null },
     });
   }
 
+  await tx.usuarioEquipe.updateMany({
+    where: filtroDeRemocao,
+    data: { ativo: false },
+  });
+
   for (const equipe of equipes) {
+    await tx.usuarioUnidade.upsert({
+      where: { usuarioId_unidadeId: { usuarioId, unidadeId: equipe.unidadeId } },
+      create: { usuarioId, unidadeId: equipe.unidadeId },
+      update: { ativo: true },
+    });
     await tx.usuarioEquipe.upsert({
       where: { usuarioId_equipeId: { usuarioId, equipeId: equipe.id } },
       create: { usuarioId, equipeId: equipe.id, unidadeId: equipe.unidadeId },
@@ -104,5 +132,36 @@ async function sincronizarEquipes(
     if (perfil === "SUPERVISOR" && usuarioAtivo) {
       await atribuirSupervisor(tx, equipe.id, usuarioId);
     }
+  }
+}
+
+async function sincronizarUnidadesDerivadasDasEquipes(tx: Transacao, usuarioId: string) {
+  const vinculos = await tx.usuarioEquipe.findMany({
+    where: {
+      usuarioId,
+      ativo: true,
+      equipe: { ativa: true, unidade: { ativa: true } },
+    },
+    select: { unidadeId: true },
+  });
+  const unidadeIds = [...new Set(vinculos.map(({ unidadeId }) => unidadeId))];
+
+  await tx.usuarioUnidade.updateMany({
+    where: { usuarioId, unidadeId: { notIn: unidadeIds } },
+    data: { ativo: false },
+  });
+  for (const unidadeId of unidadeIds) {
+    await tx.usuarioUnidade.upsert({
+      where: { usuarioId_unidadeId: { usuarioId, unidadeId } },
+      create: { usuarioId, unidadeId },
+      update: { ativo: true },
+    });
+  }
+}
+
+async function validarUnicaUnidadeDoEstagiario(tx: Transacao, usuarioId: string) {
+  const unidades = await tx.usuarioUnidade.count({ where: { usuarioId, ativo: true } });
+  if (unidades > 1) {
+    throw new ErroDeRegra("DADOS_INVALIDOS", "O estagiário deve pertencer a equipes da mesma unidade.");
   }
 }

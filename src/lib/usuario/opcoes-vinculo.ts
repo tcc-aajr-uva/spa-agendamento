@@ -7,6 +7,7 @@ import type { PerfilCriavel } from "@/lib/usuario/hierarquia";
 
 export type OpcaoVinculo = {
   id: string;
+  unidadeId: string;
   nome: string;
   disponivel: boolean;
 };
@@ -25,7 +26,7 @@ export async function listarOpcoesDeVinculo(
       orderBy: { nome: "asc" },
       select: { id: true, nome: true },
     });
-    return unidades.map((unidade) => ({ ...unidade, disponivel: true }));
+    return unidades.map((unidade) => ({ ...unidade, unidadeId: unidade.id, disponivel: true }));
   }
 
   const whereDeEscopo: Prisma.EquipeWhereInput =
@@ -55,13 +56,14 @@ export async function listarOpcoesDeVinculo(
         : {}),
     },
     orderBy: [{ unidade: { nome: "asc" } }, { nome: "asc" }],
-    select: { id: true, nome: true, supervisorId: true, unidade: { select: { nome: true } } },
+    select: { id: true, nome: true, supervisorId: true, unidadeId: true, unidade: { select: { nome: true } } },
   });
 
   return equipes.map((equipe) => {
     const semSupervisor = perfil === "ESTAGIARIO" && equipe.supervisorId === null;
     return {
       id: equipe.id,
+      unidadeId: equipe.unidadeId,
       nome: `${equipe.unidade.nome} — ${equipe.nome}${semSupervisor ? " — Sem supervisor" : ""}`,
       disponivel: !semSupervisor,
     };

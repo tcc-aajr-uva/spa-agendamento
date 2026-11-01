@@ -4,7 +4,10 @@ import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { executarEmTransacao, type Transacao } from "@/lib/transacao";
 import { perfisCriaveisSchema } from "@/lib/usuario/dados-usuario";
-import { filtroDeUsuariosGerenciaveis } from "@/lib/usuario/escopo-usuario";
+import {
+  filtroDeUsuariosGerenciaveis,
+  podeAlterarAcessoDoUsuario,
+} from "@/lib/usuario/escopo-usuario";
 import { atribuirSupervisor } from "@/lib/usuario/vinculos-usuario";
 
 export async function alterarAtivacaoUsuario(
@@ -13,10 +16,21 @@ export async function alterarAtivacaoUsuario(
   autor: ContextoAutorizacao,
   agora = new Date(),
 ): Promise<void> {
+  if (autor.perfil !== "ADMINISTRADOR" && autor.perfil !== "COORDENACAO") {
+    throw new ErroDeRegra("SEM_PERMISSAO", "Seu perfil não pode alterar o acesso global de usuários.");
+  }
+
   await executarEmTransacao(async (tx) => {
     const usuario = await tx.usuario.findFirst({
       where: { id: usuarioId, ...filtroDeUsuariosGerenciaveis(autor) },
-      select: { perfil: true, ativo: true },
+      select: {
+        perfil: true,
+        ativo: true,
+        unidades: {
+          where: { ativo: true, unidade: { ativa: true } },
+          select: { unidadeId: true },
+        },
+      },
     });
     if (!usuario) {
       throw new ErroDeRegra("SEM_PERMISSAO", "Você não pode alterar este usuário.");
@@ -25,6 +39,12 @@ export async function alterarAtivacaoUsuario(
     const perfil = perfisCriaveisSchema.safeParse(usuario.perfil);
     if (!perfil.success) {
       throw new ErroDeRegra("SEM_PERMISSAO", "Este perfil não pode ser ativado ou inativado por esta tela.");
+    }
+    if (!podeAlterarAcessoDoUsuario(autor, usuario.unidades.map(({ unidadeId }) => unidadeId))) {
+      throw new ErroDeRegra(
+        "SEM_PERMISSAO",
+        "Somente uma coordenação responsável por todas as unidades do usuário pode alterar seu acesso.",
+      );
     }
     if (usuario.ativo === ativo) return;
 
@@ -39,7 +59,6 @@ export async function alterarAtivacaoUsuario(
 
       if (perfil.data === "SUPERVISOR") {
         await tx.equipe.updateMany({ where: { supervisorId: usuarioId }, data: { supervisorId: null } });
-        await tx.usuarioEquipe.updateMany({ where: { usuarioId }, data: { ativo: false } });
       }
     }
 

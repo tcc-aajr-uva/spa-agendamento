@@ -30,12 +30,17 @@ export async function atribuirSupervisor(tx: Transacao, equipeId: string, superv
   }
 }
 
-export function validarFormatoDosVinculos(perfil: Perfil, unidadeIds: string[], equipeIds: string[]) {
+export function validarFormatoDosVinculos(
+  perfil: Perfil,
+  unidadeIds: string[],
+  equipeIds: string[],
+  exigeVinculo = true,
+) {
   const perfilPorUnidade = perfil === "COORDENACAO" || perfil === "SECRETARIA";
-  if (perfilPorUnidade && (unidadeIds.length === 0 || equipeIds.length > 0)) {
+  if (perfilPorUnidade && ((exigeVinculo && unidadeIds.length === 0) || equipeIds.length > 0)) {
     throw new ErroDeRegra("DADOS_INVALIDOS", "Informe ao menos uma unidade e nenhuma equipe para este perfil.");
   }
-  if (!perfilPorUnidade && (equipeIds.length === 0 || unidadeIds.length > 0)) {
+  if (!perfilPorUnidade && ((exigeVinculo && equipeIds.length === 0) || unidadeIds.length > 0)) {
     throw new ErroDeRegra("DADOS_INVALIDOS", "Informe ao menos uma equipe; as unidades serão definidas pelas equipes.");
   }
 }
@@ -78,7 +83,7 @@ export async function resolverVinculos(
       id: { in: equipeIds },
       ativa: true,
       unidade: { ativa: true },
-      ...whereDeEscopo,
+      AND: [whereDeEscopo],
       ...(exigeSupervisorResponsavel
         ? {
             OR: [
@@ -101,6 +106,9 @@ export async function resolverVinculos(
     equipes.some(({ supervisorId }) => supervisorId !== null && supervisorId !== usuarioIdAtual)
   ) {
     throw new ErroDeRegra("EQUIPE_COM_SUPERVISOR", "Uma das equipes já possui supervisor responsável.");
+  }
+  if (perfil === "ESTAGIARIO" && new Set(equipes.map(({ unidadeId }) => unidadeId)).size > 1) {
+    throw new ErroDeRegra("DADOS_INVALIDOS", "O estagiário deve pertencer a equipes da mesma unidade.");
   }
 
   return {

@@ -4,7 +4,12 @@ import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { prisma } from "@/lib/prisma";
 import { perfisCriaveisSchema, usuarioIdSchema } from "@/lib/usuario/dados-usuario";
 import { determinarEstadoAcesso } from "@/lib/usuario/estado-acesso";
-import { filtroDeUsuariosGerenciaveis } from "@/lib/usuario/escopo-usuario";
+import {
+  filtroDeUsuariosGerenciaveis,
+  podeAlterarAcessoDoUsuario,
+  podeGerenciarVinculoDeEquipe,
+  podeGerenciarVinculoDeUnidade,
+} from "@/lib/usuario/escopo-usuario";
 
 export async function consultarUsuarioGerenciavel(usuarioId: string, autor: ContextoAutorizacao, agora = new Date()) {
   if (!usuarioIdSchema.safeParse(usuarioId).success) return null;
@@ -33,7 +38,7 @@ export async function consultarUsuarioGerenciavel(usuarioId: string, autor: Cont
       },
       equipes: {
         where: { ativo: true, vinculoUnidade: { ativo: true }, equipe: { ativa: true } },
-        select: { equipeId: true },
+        select: { equipeId: true, unidadeId: true, equipe: { select: { supervisorId: true } } },
       },
     },
   });
@@ -41,6 +46,14 @@ export async function consultarUsuarioGerenciavel(usuarioId: string, autor: Cont
 
   const perfil = perfisCriaveisSchema.safeParse(usuario.perfil);
   if (!perfil.success) return null;
+  const todasAsUnidades = usuario.unidades.map(({ unidadeId }) => unidadeId);
+  const unidadesGerenciaveis = usuario.unidades.filter(({ unidadeId }) =>
+    podeGerenciarVinculoDeUnidade(autor, unidadeId),
+  );
+  const equipesGerenciaveis = usuario.equipes.filter(({ equipeId, unidadeId, equipe }) =>
+    podeGerenciarVinculoDeEquipe(autor, { equipeId, unidadeId, supervisorId: equipe.supervisorId }),
+  );
+  const perfilPorUnidade = perfil.data === "COORDENACAO" || perfil.data === "SECRETARIA";
 
   return {
     id: usuario.id,
@@ -49,7 +62,11 @@ export async function consultarUsuarioGerenciavel(usuarioId: string, autor: Cont
     perfil: perfil.data,
     ativo: usuario.ativo,
     estadoAcesso: determinarEstadoAcesso(usuario, agora),
-    unidadeIds: usuario.unidades.map(({ unidadeId }) => unidadeId),
-    equipeIds: usuario.equipes.map(({ equipeId }) => equipeId),
+    podeAlterarAcesso: podeAlterarAcessoDoUsuario(autor, todasAsUnidades),
+    possuiVinculosForaDoEscopo: perfilPorUnidade
+      ? unidadesGerenciaveis.length < usuario.unidades.length
+      : equipesGerenciaveis.length < usuario.equipes.length,
+    unidadeIds: unidadesGerenciaveis.map(({ unidadeId }) => unidadeId),
+    equipeIds: equipesGerenciaveis.map(({ equipeId }) => equipeId),
   };
 }

@@ -56,14 +56,20 @@ async function ConteudoUsuario({ params }: Props) {
         acao={atualizarUsuario.bind(null, usuario.id)}
         nome={usuario.nome}
         opcoes={opcoes}
+        possuiVinculosForaDoEscopo={usuario.possuiVinculosForaDoEscopo}
+        restringirEquipesAUmaUnidade={usuario.perfil === "ESTAGIARIO"}
         tipoVinculo={tipoVinculo}
         vinculosIniciais={vinculosIniciais}
       />
 
-      <ControleAtivacaoUsuario
-        acao={alterarAtivacao.bind(null, usuario.id)}
-        ativo={usuario.ativo}
-      />
+      {usuario.podeAlterarAcesso ? (
+        <ControleAtivacaoUsuario acao={alterarAtivacao.bind(null, usuario.id)} ativo={usuario.ativo} />
+      ) : (
+        <p className="rounded border p-4 text-sm text-gray-600">
+          O acesso global só pode ser alterado pelo administrador ou por uma coordenação responsável por todas as
+          unidades deste usuário.
+        </p>
+      )}
 
       {usuario.ativo && usuario.estadoAcesso !== "ATIVO" && (
         <Link className="inline-block underline" href={`/cadastros/usuarios/${usuario.id}/convites`}>

@@ -9,7 +9,7 @@ import { rotuloDoPerfil } from "@/lib/usuario/rotulos";
 import type { EstadoCriacaoUsuario } from "./actions";
 import { ResultadoConvite } from "./resultado-convite";
 
-type Opcao = { id: string; nome: string };
+type Opcao = { id: string; unidadeId: string; nome: string };
 
 type ConfiguracaoPerfil = {
   perfil: Perfil;
@@ -56,6 +56,12 @@ function FormularioUsuarioInterno({
   const configuracao = configuracoes.find((candidata) => candidata.perfil === perfil);
   const tipoVinculo = configuracao?.tipoVinculo ?? "unidadeIds";
   const opcoes = configuracao?.opcoes ?? [];
+  const unidadeSelecionada = opcoes.find((opcao) => vinculos.includes(opcao.id))?.unidadeId;
+  const opcoesDisponiveis = opcoes.filter(
+    (opcao) =>
+      !vinculos.includes(opcao.id) &&
+      (perfil !== "ESTAGIARIO" || unidadeSelecionada === undefined || opcao.unidadeId === unidadeSelecionada),
+  );
 
   if (estado.linkConvite && estado.expiraEm) {
     return (
@@ -114,9 +120,7 @@ function FormularioUsuarioInterno({
             }}
           >
             <option value="">Selecione para adicionar</option>
-            {opcoes
-              .filter((opcao) => !vinculos.includes(opcao.id))
-              .map((opcao) => (
+            {opcoesDisponiveis.map((opcao) => (
                 <option key={opcao.id} value={opcao.id}>
                   {opcao.nome}
                 </option>

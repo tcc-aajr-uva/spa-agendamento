@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 
 import type { EstadoEdicaoUsuario } from "./actions";
 
-type Opcao = { id: string; nome: string; disponivel: boolean };
+type Opcao = { id: string; unidadeId: string; nome: string; disponivel: boolean };
 
 type Props = {
   acao: (estado: EstadoEdicaoUsuario, formData: FormData) => Promise<EstadoEdicaoUsuario>;
@@ -12,15 +12,37 @@ type Props = {
   opcoes: Opcao[];
   tipoVinculo: "unidadeIds" | "equipeIds";
   vinculosIniciais: string[];
+  restringirEquipesAUmaUnidade: boolean;
+  possuiVinculosForaDoEscopo: boolean;
 };
 
-export function FormularioEdicaoUsuario({ acao, nome, opcoes, tipoVinculo, vinculosIniciais }: Props) {
+export function FormularioEdicaoUsuario({
+  acao,
+  nome,
+  opcoes,
+  tipoVinculo,
+  vinculosIniciais,
+  restringirEquipesAUmaUnidade,
+  possuiVinculosForaDoEscopo,
+}: Props) {
   const [estado, enviar, enviando] = useActionState(acao, {});
   const [vinculos, setVinculos] = useState(vinculosIniciais);
+  const unidadeSelecionada = opcoes.find((opcao) => vinculos.includes(opcao.id))?.unidadeId;
+  const opcoesDisponiveis = opcoes.filter(
+    (opcao) =>
+      opcao.disponivel &&
+      !vinculos.includes(opcao.id) &&
+      (!restringirEquipesAUmaUnidade || unidadeSelecionada === undefined || opcao.unidadeId === unidadeSelecionada),
+  );
 
   return (
     <form action={enviar} className="space-y-4 rounded border p-4">
-      <h2 className="text-lg font-semibold">Dados e vínculos</h2>
+      <h2 className="text-lg font-semibold">Dados e vínculos no seu escopo</h2>
+      {possuiVinculosForaDoEscopo && (
+        <p className="text-sm text-gray-600">
+          Existem vínculos fora do seu escopo. Eles não são exibidos e serão preservados.
+        </p>
+      )}
 
       <label className="block space-y-1">
         <span>Nome</span>
@@ -46,9 +68,7 @@ export function FormularioEdicaoUsuario({ acao, nome, opcoes, tipoVinculo, vincu
           }}
         >
           <option value="">Selecione para adicionar</option>
-          {opcoes
-            .filter((opcao) => opcao.disponivel && !vinculos.includes(opcao.id))
-            .map((opcao) => (
+          {opcoesDisponiveis.map((opcao) => (
               <option key={opcao.id} value={opcao.id}>
                 {opcao.nome}
               </option>
@@ -75,7 +95,9 @@ export function FormularioEdicaoUsuario({ acao, nome, opcoes, tipoVinculo, vincu
         );
       })}
 
-      {vinculos.length === 0 && <p className="text-sm text-gray-600">Selecione ao menos um vínculo.</p>}
+      {vinculos.length === 0 && (
+        <p className="text-sm text-gray-600">O usuário ficará sem vínculos dentro do seu escopo.</p>
+      )}
       {estado.sucesso && <p className="text-sm text-green-700">{estado.sucesso}</p>}
       {estado.erro && (
         <p className="text-sm text-red-700" aria-live="polite">
@@ -83,7 +105,7 @@ export function FormularioEdicaoUsuario({ acao, nome, opcoes, tipoVinculo, vincu
         </p>
       )}
 
-      <button className="rounded border px-3 py-2" disabled={enviando || vinculos.length === 0} type="submit">
+      <button className="rounded border px-3 py-2" disabled={enviando} type="submit">
         {enviando ? "Salvando…" : "Salvar alterações"}
       </button>
     </form>
