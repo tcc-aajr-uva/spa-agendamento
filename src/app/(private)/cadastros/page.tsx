@@ -14,6 +14,5 @@ export default function CadastrosPage() {
 
 async function RedirecionarParaUsuarios() {
   await exigirUsuario(perfisDaRota("/cadastros"));
-  redirect("/cadastros/usuarios");
-  return null;
+  return redirect("/cadastros/usuarios");
 }

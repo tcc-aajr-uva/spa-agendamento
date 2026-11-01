@@ -5,7 +5,11 @@ import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { prisma } from "@/lib/prisma";
-import { filtroDeUsuariosVisiveis } from "@/lib/usuario/escopo-usuario";
+import {
+  filtroDeUsuariosVisiveis,
+  filtroDeVinculosDeEquipeGerenciaveis,
+  filtroDeVinculosDeUnidadeGerenciaveis,
+} from "@/lib/usuario/escopo-usuario";
 import { determinarEstadoAcesso } from "@/lib/usuario/estado-acesso";
 import { perfisCriadosPor } from "@/lib/usuario/hierarquia";
 
@@ -59,12 +63,21 @@ export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAu
           select: { expiraEm: true, usadoEm: true, revogadoEm: true },
         },
         unidades: {
-          where: { ativo: true, unidade: { ativa: true } },
+          where: {
+            ativo: true,
+            unidade: { ativa: true },
+            AND: [filtroDeVinculosDeUnidadeGerenciaveis(autor)],
+          },
           orderBy: { unidade: { nome: "asc" } },
           select: { unidade: { select: { nome: true } } },
         },
         equipes: {
-          where: { ativo: true, vinculoUnidade: { ativo: true }, equipe: { ativa: true } },
+          where: {
+            ativo: true,
+            vinculoUnidade: { ativo: true },
+            equipe: { ativa: true },
+            AND: [filtroDeVinculosDeEquipeGerenciaveis(autor)],
+          },
           orderBy: { equipe: { nome: "asc" } },
           select: { equipe: { select: { nome: true, supervisorId: true } } },
         },
