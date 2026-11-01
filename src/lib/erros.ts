@@ -11,6 +11,7 @@ export type CodigoErro =
   | "CONVITE_INVALIDO"
   | "LIMITE_REQUISICOES"
   | "NAO_ENCONTRADO"
+  | "SALA_EM_USO"
   | "CONFLITO_CONCORRENTE";
 
 export class ErroDeRegra extends Error {
