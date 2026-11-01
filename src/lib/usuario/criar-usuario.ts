@@ -1,12 +1,16 @@
 import "server-only";
 
-import type { Perfil, Prisma } from "@/generated/prisma/client";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
-import { executarEmTransacao, type Transacao, violouUnicidade } from "@/lib/transacao";
+import { executarEmTransacao, violouUnicidade } from "@/lib/transacao";
 import { gerarDadosConvite } from "@/lib/usuario/dados-convite";
 import { novoUsuarioSchema, type NovoUsuario } from "@/lib/usuario/dados-usuario";
 import { perfisCriadosPor } from "@/lib/usuario/hierarquia";
+import {
+  atribuirSupervisor,
+  resolverVinculos,
+  validarFormatoDosVinculos,
+} from "@/lib/usuario/vinculos-usuario";
 
 export type UsuarioComConviteCriado = {
   usuarioId: string;
@@ -62,13 +66,7 @@ export async function criarUsuarioComConvite(
 
       if (dados.perfil === "SUPERVISOR") {
         for (const equipe of vinculos.equipes) {
-          const atualizacao = await tx.equipe.updateMany({
-            where: { id: equipe.id, supervisorId: null },
-            data: { supervisorId: usuario.id },
-          });
-          if (atualizacao.count !== 1) {
-            throw new ErroDeRegra("EQUIPE_COM_SUPERVISOR", "Uma das equipes já possui supervisor responsável.");
-          }
+          await atribuirSupervisor(tx, equipe.id, usuario.id);
         }
       }
 
@@ -92,70 +90,4 @@ export async function criarUsuarioComConvite(
     }
     throw erro;
   }
-}
-
-function validarFormatoDosVinculos(perfil: Perfil, unidadeIds: string[], equipeIds: string[]) {
-  const perfilPorUnidade = perfil === "COORDENACAO" || perfil === "SECRETARIA";
-  if (perfilPorUnidade && (unidadeIds.length === 0 || equipeIds.length > 0)) {
-    throw new ErroDeRegra("DADOS_INVALIDOS", "Informe ao menos uma unidade e nenhuma equipe para este perfil.");
-  }
-  if (!perfilPorUnidade && (equipeIds.length === 0 || unidadeIds.length > 0)) {
-    throw new ErroDeRegra("DADOS_INVALIDOS", "Informe ao menos uma equipe; as unidades serão definidas pelas equipes.");
-  }
-}
-
-async function resolverVinculos(
-  tx: Transacao,
-  perfil: Perfil,
-  unidadeIds: string[],
-  equipeIds: string[],
-  autor: ContextoAutorizacao,
-) {
-  if (perfil === "COORDENACAO" || perfil === "SECRETARIA") {
-    if (autor.perfil !== "ADMINISTRADOR" && unidadeIds.some((id) => !autor.unidades.includes(id))) {
-      throw new ErroDeRegra("SEM_PERMISSAO", "Você não pode vincular usuários fora das suas unidades.");
-    }
-
-    const unidades = await tx.unidade.findMany({
-      where: { id: { in: unidadeIds }, ativa: true },
-      select: { id: true },
-    });
-    if (unidades.length !== unidadeIds.length) {
-      throw new ErroDeRegra("DADOS_INVALIDOS", "Uma das unidades não existe ou está inativa.");
-    }
-    return { unidadeIds, equipes: [] as { id: string; unidadeId: string }[] };
-  }
-
-  const whereDeEscopo: Prisma.EquipeWhereInput =
-    autor.perfil === "ADMINISTRADOR"
-      ? {}
-      : autor.perfil === "COORDENACAO" || autor.perfil === "SECRETARIA"
-        ? { unidadeId: { in: autor.unidades } }
-        : { id: { in: autor.equipes }, supervisorId: autor.id };
-
-  const exigeSupervisorResponsavel =
-    perfil === "ESTAGIARIO" && (autor.perfil === "ADMINISTRADOR" || autor.perfil === "COORDENACAO");
-
-  const equipes = await tx.equipe.findMany({
-    where: {
-      id: { in: equipeIds },
-      ativa: true,
-      unidade: { ativa: true },
-      ...whereDeEscopo,
-      ...(exigeSupervisorResponsavel ? { supervisorId: { not: null } } : {}),
-    },
-    select: { id: true, unidadeId: true, supervisorId: true },
-  });
-
-  if (equipes.length !== equipeIds.length) {
-    throw new ErroDeRegra("SEM_PERMISSAO", "Uma das equipes não pertence ao seu escopo ou está inativa.");
-  }
-  if (perfil === "SUPERVISOR" && equipes.some(({ supervisorId }) => supervisorId !== null)) {
-    throw new ErroDeRegra("EQUIPE_COM_SUPERVISOR", "Uma das equipes já possui supervisor responsável.");
-  }
-
-  return {
-    unidadeIds: [...new Set(equipes.map(({ unidadeId }) => unidadeId))],
-    equipes: equipes.map(({ id, unidadeId }) => ({ id, unidadeId })),
-  };
 }

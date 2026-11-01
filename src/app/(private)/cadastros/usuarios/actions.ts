@@ -6,12 +6,12 @@ import { z } from "zod";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { ErroDeRegra } from "@/lib/erros";
 import { criarUsuarioComConvite } from "@/lib/usuario/criar-usuario";
-import { perfisCriaveisSchema } from "@/lib/usuario/dados-usuario";
+import { perfisCriaveisSchema, usuarioIdSchema } from "@/lib/usuario/dados-usuario";
 import { gerarNovoConvite, revogarConvite } from "@/lib/usuario/gerenciar-convite";
 
 const PERFIS_AUTORIZADOS = ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "SUPERVISOR"] as const;
 const gerenciarConviteSchema = z.object({
-  usuarioId: z.cuid2(),
+  usuarioId: usuarioIdSchema,
   operacao: z.enum(["GERAR", "REVOGAR"]),
 });
 

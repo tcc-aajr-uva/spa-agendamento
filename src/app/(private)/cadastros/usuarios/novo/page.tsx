@@ -1,11 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
 
-import type { Prisma } from "@/generated/prisma/client";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
-import type { ContextoAutorizacao } from "@/lib/auth/sessao";
-import { prisma } from "@/lib/prisma";
-import { perfisCriadosPor, type PerfilCriavel } from "@/lib/usuario/hierarquia";
+import { perfisCriadosPor } from "@/lib/usuario/hierarquia";
+import { listarOpcoesDeVinculo } from "@/lib/usuario/opcoes-vinculo";
 import { perfisDaRota } from "../../../menu";
 import { criarUsuario } from "../actions";
 import { FormularioUsuario } from "../formulario-usuario";
@@ -42,39 +40,4 @@ async function NovoUsuario() {
   );
 
   return <FormularioUsuario acao={criarUsuario} configuracoes={configuracoes} />;
-}
-
-async function listarOpcoesDeVinculo(autor: ContextoAutorizacao, perfil: PerfilCriavel) {
-  if (perfil === "COORDENACAO" || perfil === "SECRETARIA") {
-    return prisma.unidade.findMany({
-      where: {
-        ativa: true,
-        ...(autor.perfil !== "ADMINISTRADOR" ? { id: { in: autor.unidades } } : {}),
-      },
-      orderBy: { nome: "asc" },
-      select: { id: true, nome: true },
-    });
-  }
-
-  const whereDeEscopo: Prisma.EquipeWhereInput =
-    autor.perfil === "ADMINISTRADOR"
-      ? {}
-      : autor.perfil === "COORDENACAO" || autor.perfil === "SECRETARIA"
-        ? { unidadeId: { in: autor.unidades } }
-        : { id: { in: autor.equipes }, supervisorId: autor.id };
-
-  const equipes = await prisma.equipe.findMany({
-    where: {
-      ativa: true,
-      unidade: { ativa: true },
-      ...whereDeEscopo,
-      ...(perfil === "SUPERVISOR" ? { supervisorId: null } : {}),
-      ...(perfil === "ESTAGIARIO" && (autor.perfil === "ADMINISTRADOR" || autor.perfil === "COORDENACAO")
-        ? { supervisorId: { not: null } }
-        : {}),
-    },
-    orderBy: [{ unidade: { nome: "asc" } }, { nome: "asc" }],
-    select: { id: true, nome: true, unidade: { select: { nome: true } } },
-  });
-  return equipes.map((equipe) => ({ id: equipe.id, nome: `${equipe.unidade.nome} — ${equipe.nome}` }));
 }

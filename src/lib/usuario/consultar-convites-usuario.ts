@@ -1,14 +1,13 @@
 import "server-only";
 
-import { z } from "zod";
-
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { prisma } from "@/lib/prisma";
+import { usuarioIdSchema } from "@/lib/usuario/dados-usuario";
 import { determinarEstadoAcesso } from "@/lib/usuario/estado-acesso";
 import { filtroDeUsuariosGerenciaveis } from "@/lib/usuario/escopo-usuario";
 
 export async function consultarConvitesDoUsuario(usuarioId: string, autor: ContextoAutorizacao, agora = new Date()) {
-  if (!z.cuid2().safeParse(usuarioId).success) return null;
+  if (!usuarioIdSchema.safeParse(usuarioId).success) return null;
 
   const usuario = await prisma.usuario.findFirst({
     where: { id: usuarioId, ...filtroDeUsuariosGerenciaveis(autor) },

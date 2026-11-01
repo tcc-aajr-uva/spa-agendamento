@@ -66,7 +66,7 @@ export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAu
         equipes: {
           where: { ativo: true, vinculoUnidade: { ativo: true }, equipe: { ativa: true } },
           orderBy: { equipe: { nome: "asc" } },
-          select: { equipe: { select: { nome: true } } },
+          select: { equipe: { select: { nome: true, supervisorId: true } } },
         },
       },
     });
@@ -85,9 +85,13 @@ export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAu
       perfil: usuario.perfil,
       ativo: usuario.ativo,
       estadoAcesso: determinarEstadoAcesso(usuario, agora),
-      podeGerenciarConvite: perfisGerenciados.some((perfil) => perfil === usuario.perfil),
+      podeGerenciar: perfisGerenciados.some((perfil) => perfil === usuario.perfil),
       unidades: usuario.unidades.map(({ unidade }) => unidade.nome),
-      equipes: usuario.equipes.map(({ equipe }) => equipe.nome),
+      equipes: usuario.equipes.map(({ equipe }) =>
+        usuario.perfil === "ESTAGIARIO" && equipe.supervisorId === null
+          ? `${equipe.nome} — Sem supervisor`
+          : equipe.nome,
+      ),
     })),
   };
 }

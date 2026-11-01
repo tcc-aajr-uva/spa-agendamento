@@ -69,10 +69,17 @@ async function ListaUsuarios({ searchParams }: Props) {
               {usuario.equipes.length > 0 && (
                 <p className="text-sm text-gray-600">Equipes: {usuario.equipes.join(", ")}</p>
               )}
-              {usuario.ativo && usuario.estadoAcesso !== "ATIVO" && usuario.podeGerenciarConvite && (
-                <Link className="inline-block pt-2 underline" href={`/cadastros/usuarios/${usuario.id}/convites`}>
-                  Gerenciar convite
-                </Link>
+              {usuario.podeGerenciar && (
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <Link className="underline" href={`/cadastros/usuarios/${usuario.id}`}>
+                    Ver detalhes
+                  </Link>
+                  {usuario.ativo && usuario.estadoAcesso !== "ATIVO" && (
+                    <Link className="underline" href={`/cadastros/usuarios/${usuario.id}/convites`}>
+                      Gerenciar convite
+                    </Link>
+                  )}
+                </div>
               )}
             </li>
           ))}
