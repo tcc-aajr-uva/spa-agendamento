@@ -17,28 +17,29 @@ export async function consumirLimiteRequisicoes(opcoes: OpcoesLimite, agora = ne
   const inicioDaJanela = instante - BigInt(opcoes.janelaMs);
 
   await executarEmTransacao(async (tx) => {
-    const registro = await tx.limiteRequisicao.upsert({
+    await tx.limiteRequisicao.upsert({
       where: { key: chave },
       create: { key: chave, count: 0, lastRequest: instante },
       update: {},
-      select: { count: true, lastRequest: true },
+      select: { id: true },
     });
 
-    if (registro.lastRequest <= inicioDaJanela) {
-      await tx.limiteRequisicao.update({
-        where: { key: chave },
-        data: { count: 1, lastRequest: instante },
-      });
-      return;
-    }
+    const reinicio = await tx.limiteRequisicao.updateMany({
+      where: { key: chave, lastRequest: { lte: inicioDaJanela } },
+      data: { count: 1, lastRequest: instante },
+    });
+    if (reinicio.count === 1) return;
 
-    if (registro.count >= opcoes.maximo) {
-      throw new ErroDeRegra("LIMITE_REQUISICOES", "Muitas tentativas. Aguarde um minuto e tente novamente.");
-    }
-
-    await tx.limiteRequisicao.update({
-      where: { key: chave },
+    const consumo = await tx.limiteRequisicao.updateMany({
+      where: {
+        key: chave,
+        lastRequest: { gt: inicioDaJanela },
+        count: { lt: opcoes.maximo },
+      },
       data: { count: { increment: 1 }, lastRequest: instante },
     });
+    if (consumo.count === 1) return;
+
+    throw new ErroDeRegra("LIMITE_REQUISICOES", "Muitas tentativas. Aguarde um minuto e tente novamente.");
   });
 }
