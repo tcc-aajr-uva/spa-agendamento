@@ -3,12 +3,10 @@ import "server-only";
 import type { Perfil, Prisma } from "@/generated/prisma/client";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
-import { gerarToken, hashToken } from "@/lib/token";
 import { executarEmTransacao, type Transacao, violouUnicidade } from "@/lib/transacao";
+import { gerarDadosConvite } from "@/lib/usuario/dados-convite";
 import { novoUsuarioSchema, type NovoUsuario } from "@/lib/usuario/dados-usuario";
 import { perfisCriadosPor } from "@/lib/usuario/hierarquia";
-
-const DURACAO_CONVITE_MS = 24 * 60 * 60 * 1000;
 
 export type UsuarioComConviteCriado = {
   usuarioId: string;
@@ -33,9 +31,7 @@ export async function criarUsuarioComConvite(
 
   validarFormatoDosVinculos(dados.perfil, dados.unidadeIds, dados.equipeIds);
 
-  const token = gerarToken();
-  const tokenHash = hashToken(token);
-  const expiraEm = new Date(agora.getTime() + DURACAO_CONVITE_MS);
+  const dadosConvite = gerarDadosConvite(agora);
 
   try {
     return await executarEmTransacao(async (tx) => {
@@ -79,15 +75,15 @@ export async function criarUsuarioComConvite(
       await tx.convite.create({
         data: {
           usuarioId: usuario.id,
-          tokenHash,
-          expiraEm,
+          tokenHash: dadosConvite.tokenHash,
+          expiraEm: dadosConvite.expiraEm,
         },
       });
 
       return {
         usuarioId: usuario.id,
-        linkConvite: `/convite/${token}`,
-        expiraEm,
+        linkConvite: `/convite/${dadosConvite.token}`,
+        expiraEm: dadosConvite.expiraEm,
       };
     });
   } catch (erro) {

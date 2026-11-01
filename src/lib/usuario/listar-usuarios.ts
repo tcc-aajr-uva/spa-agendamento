@@ -2,9 +2,11 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { Perfil, Prisma } from "@/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { prisma } from "@/lib/prisma";
+import { filtroDeUsuariosVisiveis } from "@/lib/usuario/escopo-usuario";
+import { determinarEstadoAcesso } from "@/lib/usuario/estado-acesso";
 import { perfisCriadosPor } from "@/lib/usuario/hierarquia";
 
 const ITENS_POR_PAGINA = 20;
@@ -17,10 +19,10 @@ const filtrosSchema = z.object({
 
 export type FiltrosUsuarios = z.input<typeof filtrosSchema>;
 
-export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAutorizacao) {
+export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAutorizacao, agora = new Date()) {
   const filtros = filtrosSchema.parse(entrada);
   const where: Prisma.UsuarioWhereInput = {
-    ...filtroDeEscopo(autor),
+    ...filtroDeUsuariosVisiveis(autor),
     ...(filtros.status === "ATIVOS" ? { ativo: true } : {}),
     ...(filtros.status === "INATIVOS" ? { ativo: false } : {}),
     ...(filtros.busca
@@ -33,9 +35,9 @@ export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAu
       : {}),
   };
 
-  const [total, usuarios] = await prisma.$transaction([
-    prisma.usuario.count({ where }),
-    prisma.usuario.findMany({
+  const { total, usuarios } = await prisma.$transaction(async (tx) => {
+    const total = await tx.usuario.count({ where });
+    const usuarios = await tx.usuario.findMany({
       where,
       orderBy: [{ nome: "asc" }, { id: "asc" }],
       skip: (filtros.pagina - 1) * ITENS_POR_PAGINA,
@@ -46,6 +48,16 @@ export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAu
         email: true,
         perfil: true,
         ativo: true,
+        accounts: {
+          where: { providerId: "credential" },
+          take: 1,
+          select: { id: true },
+        },
+        convites: {
+          orderBy: { criadoEm: "desc" },
+          take: 1,
+          select: { expiraEm: true, usadoEm: true, revogadoEm: true },
+        },
         unidades: {
           where: { ativo: true, unidade: { ativa: true } },
           orderBy: { unidade: { nome: "asc" } },
@@ -57,8 +69,10 @@ export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAu
           select: { equipe: { select: { nome: true } } },
         },
       },
-    }),
-  ]);
+    });
+    return { total, usuarios };
+  });
+  const perfisGerenciados = perfisCriadosPor(autor.perfil);
 
   return {
     pagina: filtros.pagina,
@@ -70,40 +84,10 @@ export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAu
       email: usuario.email,
       perfil: usuario.perfil,
       ativo: usuario.ativo,
+      estadoAcesso: determinarEstadoAcesso(usuario, agora),
+      podeGerenciarConvite: perfisGerenciados.some((perfil) => perfil === usuario.perfil),
       unidades: usuario.unidades.map(({ unidade }) => unidade.nome),
       equipes: usuario.equipes.map(({ equipe }) => equipe.nome),
     })),
-  };
-}
-
-function filtroDeEscopo(autor: ContextoAutorizacao): Prisma.UsuarioWhereInput {
-  if (autor.perfil === "ADMINISTRADOR") return {};
-
-  const perfisGerenciados = perfisCriadosPor(autor.perfil);
-  if (perfisGerenciados.length === 0) return { id: { in: [] } };
-
-  if (autor.perfil === "SUPERVISOR") {
-    return {
-      perfil: { in: [...perfisGerenciados] },
-      equipes: {
-        some: {
-          ativo: true,
-          vinculoUnidade: { ativo: true },
-          equipeId: { in: autor.equipes },
-          equipe: { ativa: true, supervisorId: autor.id },
-        },
-      },
-    };
-  }
-
-  return {
-    perfil: { in: [...perfisGerenciados] as Perfil[] },
-    unidades: {
-      some: {
-        ativo: true,
-        unidadeId: { in: autor.unidades },
-        unidade: { ativa: true },
-      },
-    },
   };
 }

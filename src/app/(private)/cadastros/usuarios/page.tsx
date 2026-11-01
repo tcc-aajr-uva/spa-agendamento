@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { listarUsuarios } from "@/lib/usuario/listar-usuarios";
-import { rotuloDoPerfil } from "@/lib/usuario/rotulos";
+import { rotuloDoEstadoAcesso, rotuloDoPerfil } from "@/lib/usuario/rotulos";
 import { perfisDaRota } from "../../menu";
 import { FiltrosUsuarios } from "./filtros-usuarios";
 
@@ -61,13 +61,18 @@ async function ListaUsuarios({ searchParams }: Props) {
                 <strong>{usuario.nome}</strong>
                 <span className="rounded border px-2 py-0.5 text-sm">{rotuloDoPerfil(usuario.perfil)}</span>
                 <span className={`rounded border px-2 py-0.5 text-sm ${usuario.ativo ? "" : "text-red-700"}`}>
-                  {usuario.ativo ? "Ativo" : "Inativo"}
+                  {rotuloDoEstadoAcesso(usuario.estadoAcesso)}
                 </span>
               </div>
               <p className="text-sm">{usuario.email}</p>
               <p className="text-sm text-gray-600">Unidades: {usuario.unidades.join(", ") || "nenhuma"}</p>
               {usuario.equipes.length > 0 && (
                 <p className="text-sm text-gray-600">Equipes: {usuario.equipes.join(", ")}</p>
+              )}
+              {usuario.ativo && usuario.estadoAcesso !== "ATIVO" && usuario.podeGerenciarConvite && (
+                <Link className="inline-block pt-2 underline" href={`/cadastros/usuarios/${usuario.id}/convites`}>
+                  Gerenciar convite
+                </Link>
               )}
             </li>
           ))}
