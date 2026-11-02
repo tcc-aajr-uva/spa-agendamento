@@ -190,6 +190,8 @@ O workflow `.github/workflows/revisao-pr.yml` usa o Claude para revisar cada PR 
 - Roda ao abrir, reabrir ou tirar o PR de rascunho, se o workflow existir na branch do PR ou na base dele.
 - Para pedir uma revisão em qualquer PR, comente `/revisar` ou `/review`. O bot reage com 👀 e responde em cerca de 1 minuto. Esse comando usa o workflow e as regras da `main`, então funciona mesmo em branches antigas.
 - O que o bot olha fica em `.github/revisao/regras.md`, e o modelo do comentário em `.github/revisao/formato.md`.
+- Commit já revisado em outro PR não é revisado de novo. No PR da branch principal para a `main`, o bot reaproveita os reviews das tarefas: olha só os commits novos, confere se as partes funcionam juntas e traz de volta os achados Blocker e Major que ainda existem no código. Isso depende de merge commit, porque o squash troca os commits e o PR é revisado por inteiro.
+- O bot avisa quando o PR altera algo feito por outra tarefa ou outro card, e cobra uma única migration até o app ir para produção. Ele só comenta e sugere a correção: nunca altera o código.
 - O veredito é uma orientação: não bloqueia o merge e não substitui a revisão de outra pessoa, o `npm run lint` nem o `npm run build`.
 - Precisa do secret `CLAUDE_CODE_OAUTH_TOKEN` no repositório, gerado com `claude setup-token`.
 
