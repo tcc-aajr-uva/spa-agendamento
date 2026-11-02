@@ -22,7 +22,7 @@ export async function chamar(listaEsperaId: string, _estado: EstadoAcao, formDat
   const [diaSemana, horaInicio] = texto(formData, "horario").split(":");
   try {
     const criado = await chamarDaLista(listaEsperaId, { diaSemana, horaInicio }, usuario);
-    const link = await montarLinkDeCancelamento(criado.token);
+    const link = montarLinkDeCancelamento(criado.token);
     return {
       mensagem: `Agendado: ${DIAS_DA_SEMANA[criado.diaSemana]} às ${formatarHora(criado.horaInicio)}, a partir de ${formatarData(criado.dataInicio)}. Envie ao paciente o código ${criado.codigo} e o link de cancelamento ${link} (ele só aparece agora). O agendamento nasce pendente: confirme em Pacientes.`,
       avisarAoSair: true,
