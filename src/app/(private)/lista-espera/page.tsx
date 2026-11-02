@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
+import { PERFIS_QUE_CHAMAM } from "@/lib/lista-espera/inscricao";
 import { listarListaEspera } from "@/lib/lista-espera/listar-lista-espera";
 import { formatarData } from "../formatar";
 import { FormularioAcao } from "../formulario-acao";
@@ -30,6 +31,7 @@ async function Lista({ busca }: { busca: Busca }) {
   });
 
   if (!equipe) return <p>Nenhuma equipe disponível.</p>;
+  const podeChamar = PERFIS_QUE_CHAMAM.includes(usuario.perfil);
 
   return (
     <div className="flex flex-col gap-4">
@@ -54,9 +56,11 @@ async function Lista({ busca }: { busca: Busca }) {
               <span className={inscricao.posicao === 1 ? "font-bold" : ""}>
                 {inscricao.posicao}º — {inscricao.paciente.nome} — {inscricao.paciente.telefone} — desde {formatarData(inscricao.inscritoEm)}
               </span>
-              <Link className="underline" href={`/lista-espera/${inscricao.id}/chamar`}>
-                {inscricao.posicao === 1 ? "Chamar o 1º da lista" : "Chamar"}
-              </Link>
+              {podeChamar && (
+                <Link className="underline" href={`/lista-espera/${inscricao.id}/chamar`}>
+                  {inscricao.posicao === 1 ? "Chamar o 1º da lista" : "Chamar"}
+                </Link>
+              )}
               <FormularioAcao acao={remover.bind(null, inscricao.id)} rotulo="Remover" confirmacao="Remover este paciente da lista de espera?" />
             </li>
           ))}

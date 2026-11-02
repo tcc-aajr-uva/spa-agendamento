@@ -3,11 +3,11 @@ import { notFound } from "next/navigation";
 import { listarHorariosLivres } from "@/lib/agendamento/horarios-livres";
 import { DIAS_DA_SEMANA, formatarHora } from "@/lib/agendamento/regras";
 import { exigirUsuario, podeAcessar } from "@/lib/auth/autorizacao";
+import { PERFIS_QUE_CHAMAM } from "@/lib/lista-espera/inscricao";
 import { prisma } from "@/lib/prisma";
 import { formatarData } from "../../../formatar";
 import { FormularioAcao } from "../../../formulario-acao";
 import { PaginaModulo } from "../../../pagina-modulo";
-import { perfisDaRota } from "../../../menu";
 import { chamar } from "../../actions";
 
 type Parametros = PageProps<"/lista-espera/[id]/chamar">["params"];
@@ -21,7 +21,7 @@ export default function ChamarPage({ params }: PageProps<"/lista-espera/[id]/cha
 }
 
 async function Chamar({ parametros }: { parametros: Parametros }) {
-  const usuario = await exigirUsuario(perfisDaRota("/lista-espera"));
+  const usuario = await exigirUsuario(PERFIS_QUE_CHAMAM);
   const { id } = await parametros;
   const inscricao = await prisma.listaEspera.findUnique({
     where: { id },

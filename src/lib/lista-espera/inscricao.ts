@@ -1,9 +1,12 @@
 import "server-only";
+import type { Perfil } from "@/generated/prisma/client";
 import { PERFIS_DO_ATENDIMENTO } from "@/lib/atendimento/acesso";
 import { podeAcessar } from "@/lib/auth/autorizacao";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import type { Transacao } from "@/lib/transacao";
+
+export const PERFIS_QUE_CHAMAM: Perfil[] = ["ESTAGIARIO", "SECRETARIA"];
 
 export async function carregarInscricaoAguardando(tx: Transacao, listaEsperaId: string, usuario: ContextoAutorizacao) {
   if (!PERFIS_DO_ATENDIMENTO.includes(usuario.perfil)) throw new ErroDeRegra("SEM_PERMISSAO", "Você não pode alterar a lista de espera.");
