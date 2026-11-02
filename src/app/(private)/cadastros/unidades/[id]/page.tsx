@@ -8,21 +8,22 @@ import { PERFIS_UNIDADES, podeAlterarAtivacaoDeUnidade } from "@/lib/unidade/esc
 import { alterarAtivacao, atualizarUnidade } from "../actions";
 import { FormularioUnidade } from "../formulario-unidade";
 import { ControleAtivacaoUnidade } from "./controle-ativacao";
+import { SecaoPeriodos, type ParametrosPeriodos } from "./periodos/secao-periodos";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<ParametrosPeriodos> };
 
-export default function UnidadePage({ params }: Props) {
+export default function UnidadePage({ params, searchParams }: Props) {
   return (
     <section className="space-y-6">
       <Link className="underline" href="/cadastros/unidades" prefetch={false}>Voltar para unidades</Link>
       <Suspense fallback={<p>Carregando unidade…</p>}>
-        <ConteudoUnidade params={params} />
+        <ConteudoUnidade params={params} searchParams={searchParams} />
       </Suspense>
     </section>
   );
 }
 
-async function ConteudoUnidade({ params }: Props) {
+async function ConteudoUnidade({ params, searchParams }: Props) {
   const autor = await exigirUsuario([...PERFIS_UNIDADES]);
   const { id } = await params;
   const unidade = await consultarUnidadeGerenciavel(id, autor);
@@ -46,6 +47,10 @@ async function ConteudoUnidade({ params }: Props) {
         rotuloBotao="Salvar alterações"
         valores={{ ...unidade, atualizadoEm: unidade.atualizadoEm.toISOString() }}
       />
+
+      <Suspense fallback={<p>Carregando períodos letivos…</p>}>
+        <SecaoPeriodos unidadeId={id} autor={autor} caminhoLista={`/cadastros/unidades/${id}`} searchParams={searchParams} />
+      </Suspense>
 
       {podeAlterarAtivacaoDeUnidade(autor) && (
         <ControleAtivacaoUnidade acao={alterarAtivacao.bind(null, unidade.id)} ativa={unidade.ativa} />
