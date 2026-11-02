@@ -1,6 +1,11 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { ChevronRightIcon } from "lucide-react";
 
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { PaginacaoLista } from "@/components/paginacao-lista";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { PERFIS_UNIDADES } from "@/lib/unidade/escopo-unidade";
 import { listarUnidades } from "@/lib/unidade/listar-unidades";
@@ -12,7 +17,7 @@ type Props = {
 
 export default function UnidadesPage({ searchParams }: Props) {
   return (
-    <section className="space-y-6">
+    <section className="mx-auto w-full max-w-7xl space-y-6">
       <Suspense fallback={<p>Carregando unidades…</p>}>
         <ConteudoUnidades searchParams={searchParams} />
       </Suspense>
@@ -42,7 +47,9 @@ async function ConteudoUnidades({ searchParams }: Props) {
           <p className="text-sm text-gray-600">Gerencie as unidades disponíveis no seu escopo de atuação.</p>
         </div>
         {resultado.podeCriar && (
-          <Link className="rounded border px-3 py-2" href="/cadastros/unidades/nova" prefetch={false}>Nova unidade</Link>
+          <Button size="lg" nativeButton={false} render={<Link href="/cadastros/unidades/nova" prefetch={false} />}>
+            Nova unidade
+          </Button>
         )}
       </div>
 
@@ -52,40 +59,65 @@ async function ConteudoUnidades({ searchParams }: Props) {
         statusInicial={resultado.status}
       />
 
-      {resultado.unidades.length === 0 ? (
-        <div className="space-y-2 rounded border p-4">
-          <strong>Nenhuma unidade encontrada.</strong>
-          <p className="text-sm text-gray-600">Altere ou limpe os filtros para tentar novamente.</p>
-        </div>
-      ) : (
-        <ul className="divide-y rounded border">
-          {resultado.unidades.map((unidade) => (
-            <li className="space-y-2 p-4" key={unidade.id}>
-              <div className="flex flex-wrap items-center gap-2">
-                <strong>{unidade.nome}</strong>
-                <span className={`rounded border px-2 py-0.5 text-sm ${unidade.ativa ? "" : "text-red-700"}`}>
-                  {unidade.ativa ? "Ativa" : "Inativa"}
-                </span>
-                <span className="rounded border px-2 py-0.5 text-sm">
-                  Agendamento {unidade.agendamentoAberto ? "aberto" : "fechado"}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600">Podem agendar: {rotuloDosAgendadores(unidade) || "ninguém"}</p>
-              <Link className="inline-block underline" href={`/cadastros/unidades/${unidade.id}`} prefetch={false}>Ver detalhes</Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="overflow-hidden rounded-lg border">
+        <Table aria-label="Unidades" className="min-w-185">
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead scope="col" className="px-4">Nome</TableHead>
+              <TableHead scope="col">Situação</TableHead>
+              <TableHead scope="col">Agendamento</TableHead>
+              <TableHead scope="col">Podem agendar</TableHead>
+              <TableHead scope="col" className="w-10 px-4" aria-label="Detalhes da unidade" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {resultado.unidades.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-32 whitespace-normal text-center">
+                  <div className="space-y-1">
+                    <p className="font-medium">Nenhuma unidade encontrada.</p>
+                    <p className="text-muted-foreground">Altere ou limpe os filtros para tentar novamente.</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : resultado.unidades.map((unidade) => (
+              <TableRow key={unidade.id} className="relative">
+                <TableHead scope="row" className="min-w-44 max-w-sm whitespace-normal wrap-break-word px-4 py-4">
+                  <Link className="font-medium underline-offset-4 hover:underline after:absolute after:inset-0 after:z-10 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
+                    href={`/cadastros/unidades/${unidade.id}`} prefetch={false}>
+                    {unidade.nome}
+                  </Link>
+                </TableHead>
+                <TableCell>
+                  <Badge variant={unidade.ativa ? "default" : "outline"}>
+                    {unidade.ativa ? "Ativa" : "Inativa"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={unidade.agendamentoAberto ? "accent" : "outline"}>
+                    {unidade.agendamentoAberto ? "Aberto" : "Fechado"}
+                  </Badge>
+                </TableCell>
+                <TableCell className="whitespace-normal text-muted-foreground">
+                  {rotuloDosAgendadores(unidade) || "ninguém"}
+                </TableCell>
+                <TableCell className="px-4 text-right">
+                  <ChevronRightIcon aria-hidden="true" className="ml-auto size-4 text-muted-foreground" />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
-      <nav className="flex items-center gap-3" aria-label="Paginação">
-        {resultado.pagina > 1 && (
-          <Link className="underline" href={urlDaPagina(resultado.pagina - 1, resultado.busca, resultado.status)} prefetch={false}>Anterior</Link>
-        )}
-        <span>Página {resultado.pagina} de {resultado.totalPaginas} — {resultado.total} unidade(s)</span>
-        {resultado.pagina < resultado.totalPaginas && (
-          <Link className="underline" href={urlDaPagina(resultado.pagina + 1, resultado.busca, resultado.status)} prefetch={false}>Próxima</Link>
-        )}
-      </nav>
+      <PaginacaoLista
+        pagina={resultado.pagina}
+        totalPaginas={resultado.totalPaginas}
+        total={resultado.total}
+        rotuloTotal="unidade(s)"
+        ariaLabel="Paginação das unidades"
+        href={(pagina) => urlDaPagina(pagina, resultado.busca, resultado.status)}
+      />
     </div>
   );
 }
