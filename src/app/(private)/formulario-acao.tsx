@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, type FormEvent, type ReactNode } from "react";
+import { useActionState, useLayoutEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { EstadoAcao } from "./acao";
 import { AvisoAoSair } from "./aviso-ao-sair";
 
@@ -11,7 +11,15 @@ type Props = {
   children?: ReactNode;
 };
 
-export function FormularioAcao({ acao, rotulo, confirmacao, children }: Props) {
+export function FormularioAcao(props: Props) {
+  const [versao, setVersao] = useState(0);
+
+  useLayoutEffect(() => () => setVersao((atual) => atual + 1), []);
+
+  return <Formulario key={versao} {...props} />;
+}
+
+function Formulario({ acao, rotulo, confirmacao, children }: Props) {
   const [estado, enviar, enviando] = useActionState(acao, {});
 
   function aoEnviar(evento: FormEvent<HTMLFormElement>) {
