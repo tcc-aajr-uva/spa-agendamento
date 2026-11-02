@@ -10,6 +10,7 @@ import { perfisDaRota } from "../../menu";
 import { AcoesConfirmacao } from "./acoes-confirmacao";
 import { FormSessao } from "./form-sessao";
 import { FormTransferencia } from "./form-transferencia";
+import { LinkCancelamento } from "./link-cancelamento";
 
 type Parametros = PageProps<"/pacientes/[id]">["params"];
 
@@ -42,6 +43,7 @@ async function Atendimento({ parametros }: { parametros: Parametros }) {
       motivoEncerramento: true,
       encerradoEm: true,
       horarioAtivoId: true,
+      tokens: { where: { tipo: "CANCELAMENTO" }, orderBy: { criadoEm: "desc" }, take: 1, select: { codigo: true } },
       paciente: {
         select: { nome: true, cpf: true, dataNascimento: true, telefone: true, email: true, responsavelNome: true, responsavelCpf: true },
       },
@@ -121,6 +123,7 @@ async function Atendimento({ parametros }: { parametros: Parametros }) {
           />
           <AcoesConfirmacao agendamentoId={agendamento.id} status={agendamento.status} />
           <FormTransferencia agendamentoId={agendamento.id} status={agendamento.status} usuario={usuario} />
+          <LinkCancelamento agendamentoId={agendamento.id} codigo={agendamento.tokens[0]?.codigo} />
         </section>
       )}
 
