@@ -97,13 +97,6 @@ export const auth = betterAuth({
     max: 100,
     storage: "database",
     modelName: "LimiteRequisicao",
-
-    customRules: {
-      "/sign-in/email": {
-        window: 60,
-        max: 5,
-      },
-    },
   },
 
   databaseHooks: {
