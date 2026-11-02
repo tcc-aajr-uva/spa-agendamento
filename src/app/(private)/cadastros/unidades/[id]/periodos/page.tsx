@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { consultarUnidadeDosPeriodos, PERFIS_PERIODOS } from "@/lib/periodo-letivo/escopo-periodo";
 import { SecaoPeriodos, type ParametrosPeriodos } from "./secao-periodos";
+import { criarParametrosBusca } from "@/lib/url/parametros-busca";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -21,11 +22,7 @@ async function Conteudo({ params, searchParams }: Props) {
   if (!unidade) notFound();
   if (autor.perfil !== "SUPERVISOR") {
     const consulta = await searchParams;
-    const parametros = new URLSearchParams();
-    for (const [chave, valor] of Object.entries(consulta)) {
-      if (Array.isArray(valor)) valor.forEach((item) => parametros.append(chave, item));
-      else if (valor !== undefined) parametros.set(chave, valor);
-    }
+    const parametros = criarParametrosBusca(consulta);
     const caminho = `/cadastros/unidades/${id}`;
     redirect(`${caminho}${parametros.size ? `?${parametros}` : ""}#periodos`);
   }

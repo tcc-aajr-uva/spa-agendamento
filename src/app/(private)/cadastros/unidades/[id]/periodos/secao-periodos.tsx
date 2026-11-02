@@ -5,11 +5,12 @@ import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { listarPeriodos } from "@/lib/periodo-letivo/listar-periodos";
 import { periodoIdSchema, situacaoPeriodoSchema } from "@/lib/periodo-letivo/dados-periodo";
 import { podeGerenciarPeriodos } from "@/lib/periodo-letivo/escopo-periodo";
+import { criarParametrosBusca, type ParametrosBusca } from "@/lib/url/parametros-busca";
 import { MensagemSucesso } from "../../mensagem-sucesso";
 import { FiltrosPeriodos } from "./filtros-periodos";
 import { ListaPeriodos } from "./lista-periodos";
 
-export type ParametrosPeriodos = Record<string, string | string[] | undefined>;
+export type ParametrosPeriodos = ParametrosBusca;
 
 type Props = {
   unidadeId: string;
@@ -28,11 +29,7 @@ export async function SecaoPeriodos({ unidadeId, autor, caminhoLista, searchPara
   const caminhoDetalhes = `/cadastros/unidades/${unidadeId}/periodos`;
 
   function urlDaPagina(pagina: number) {
-    const parametros = new URLSearchParams();
-    for (const [chave, valor] of Object.entries(consulta)) {
-      if (Array.isArray(valor)) valor.forEach((item) => parametros.append(chave, item));
-      else if (valor !== undefined) parametros.set(chave, valor);
-    }
+    const parametros = criarParametrosBusca(consulta);
     parametros.delete("periodoSalvo");
     parametros.delete("excluido");
     parametros.delete("confirmacaoPeriodo");
