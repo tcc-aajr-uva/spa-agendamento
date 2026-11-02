@@ -5,6 +5,7 @@ import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { executarEmTransacao } from "@/lib/transacao";
 import { PERFIS_DA_SECRETARIA } from "@/lib/atendimento/acesso";
+import { liberarEmLote } from "@/lib/agendamento/liberar-agendamento";
 import { hojeNoBrasil } from "@/lib/agendamento/regras";
 
 export function filtroPeriodoEncerrado(agora: Date): Prisma.AgendamentoWhereInput {
@@ -41,20 +42,7 @@ export async function encerrarPeriodo(unidadeId: string, usuario: ContextoAutori
     if (encerrados.length === 0) return 0;
 
     const ids = encerrados.map((encerrado) => encerrado.id);
-    await tx.agendamento.updateMany({
-      where: { id: { in: ids } },
-      data: {
-        horarioAtivoId: null,
-        salaAtivaChave: null,
-        pacienteAtivoId: null,
-        status: "ENCERRADO",
-        motivoEncerramento: "FIM_DO_PERIODO",
-        encerradoEm: agora,
-      },
-    });
-    await tx.eventoAgendamento.createMany({
-      data: ids.map((agendamentoId) => ({ agendamentoId, tipo: "ENCERRADO" as const, usuarioId: usuario.id, observacao: "FIM_DO_PERIODO" })),
-    });
+    await liberarEmLote(tx, ids, { status: "ENCERRADO", motivo: "FIM_DO_PERIODO", usuarioId: usuario.id }, agora);
     return ids.length;
   });
 }
