@@ -298,7 +298,7 @@ async function prepararExemplo(exemplo: Exemplo) {
   return { exemplo, unidadeId: unidade.id, equipeId: equipe.id, estagiarioId: estagiario.id, salaId: sala.id, horarioId: horario.id, diaSemana, horaInicio, salaAtivaChave };
 }
 
-async function limparExemplosAnteriores(idsDosPacientes: string[], preparados: Awaited<ReturnType<typeof prepararExemplo>>[]) {
+async function limparExemplosAnteriores(idsDosPacientes: string[]) {
   const anteriores = await prisma.agendamento.findMany({ where: { pacienteId: { in: idsDosPacientes } }, select: { id: true } });
   const agendamentoId = { in: anteriores.map((anterior) => anterior.id) };
   await prisma.sessao.deleteMany({ where: { agendamentoId } });
@@ -306,16 +306,6 @@ async function limparExemplosAnteriores(idsDosPacientes: string[], preparados: A
   await prisma.tokenAcesso.deleteMany({ where: { agendamentoId } });
   await prisma.agendamento.deleteMany({ where: { id: agendamentoId } });
   await prisma.listaEspera.deleteMany({ where: { pacienteId: { in: idsDosPacientes } } });
-
-  await prisma.agendamento.updateMany({
-    where: {
-      OR: [
-        { horarioAtivoId: { in: preparados.map((preparado) => preparado.horarioId) } },
-        { salaAtivaChave: { in: preparados.map((preparado) => preparado.salaAtivaChave) } },
-      ],
-    },
-    data: { horarioAtivoId: null, salaAtivaChave: null, pacienteAtivoId: null, status: "CANCELADO", encerradoEm: agora },
-  });
 }
 
 async function exemplosDeAgendamento() {
@@ -331,9 +321,10 @@ async function exemplosDeAgendamento() {
     pacientes.set(paciente.chave, pacienteSalvo.id);
   }
 
+  await limparExemplosAnteriores([...pacientes.values()]);
+
   const preparados = [];
   for (const exemplo of EXEMPLOS) preparados.push(await prepararExemplo(exemplo));
-  await limparExemplosAnteriores([...pacientes.values()], preparados);
 
   for (const { exemplo, unidadeId, equipeId, estagiarioId, salaId, horarioId, diaSemana, horaInicio, salaAtivaChave } of preparados) {
     const pacienteId = pacientes.get(exemplo.paciente);
