@@ -50,15 +50,37 @@ jobs:
           set -euo pipefail
           mkdir -p .revisao
           git diff "HEAD^1...HEAD^2" > .revisao/diff.patch
-          gh pr view "$PR" --json title,headRefName,baseRefName,changedFiles,additions,deletions,comments > .revisao/pr.json
+          git diff --stat "HEAD^1...HEAD^2" > .revisao/arquivos.txt
+          gh pr view "$PR" --json title,body,headRefName,baseRefName,changedFiles,additions,deletions,comments > .revisao/pr.json
           jq '[.comments[] | select(.author.login == "github-actions" and (.body | startswith("## 🔍 Review")))]' \
             .revisao/pr.json > .revisao/reviews.json
           jq -r 'last.body // empty' .revisao/reviews.json > .revisao/anterior.md
+          gh pr list --state all --limit 200 --json number,headRefName,comments > .revisao/prs.json
+          jq --argjson atual "$PR" '[.[] | select(.number != $atual)
+            | {number, headRefName, body: ([.comments[] | select(.author.login == "github-actions" and (.body | startswith("## 🔍 Review")))] | last.body)}
+            | select(.body)]' .revisao/prs.json > .revisao/revisoes.json
+          revisados=()
+          : > .revisao/reaproveitado.md
+          while read -r sha numero branch; do
+            if git merge-base --is-ancestor "$sha" HEAD^2 2>/dev/null && ! git merge-base --is-ancestor "$sha" HEAD^1; then
+              revisados+=("$sha")
+              {
+                echo "# PR #$numero, branch $branch, commit $sha"
+                jq -r --argjson numero "$numero" '.[] | select(.number == $numero).body' .revisao/revisoes.json
+              } >> .revisao/reaproveitado.md
+            fi
+          done < <(jq -r '.[] | "\(.body | capture("commit `(?<sha>[0-9a-f]{7,40})`").sha) \(.number) \(.headRefName)"' .revisao/revisoes.json)
+          if [ "${#revisados[@]}" -gt 0 ]; then
+            git log --cc --reverse --format='commit %h %s' HEAD^1..HEAD^2 --not "${revisados[@]}" > .revisao/diff.patch
+          fi
           {
             jq -r '"Título: \(.title)\nBranch: \(.headRefName)\nBase: \(.baseRefName)\nArquivos: \(.changedFiles)\nAdições: \(.additions)\nRemoções: \(.deletions)"' .revisao/pr.json
             echo "PR: #$PR"
             echo "Commit: $(git rev-parse --short=7 HEAD^2)"
             echo "Passagem: $(( $(jq length .revisao/reviews.json) + 1 ))"
+            echo "Reviews reaproveitados: ${#revisados[@]}"
+            echo "Descrição do PR:"
+            jq -r '.body // ""' .revisao/pr.json
           } > .revisao/contexto.md
 
       - name: Revisar com o Claude
@@ -68,7 +90,7 @@ jobs:
           github_token: ${{ github.token }}
           claude_args: |
             --model claude-sonnet-5-5
-            --max-turns 25
+            --max-turns 35
             --allowedTools "Read,Grep,Glob,Write,Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
           prompt: |
             Você é o revisor de pull requests do projeto SPA Agendamento.
@@ -77,8 +99,12 @@ jobs:
             1. .github/revisao/regras.md
             2. .github/revisao/formato.md
             3. .revisao/contexto.md
-            4. .revisao/diff.patch
-            5. .revisao/anterior.md, se não estiver vazio
+            4. .revisao/arquivos.txt, com todos os arquivos do PR
+            5. .revisao/diff.patch
+            6. .revisao/anterior.md, se não estiver vazio
+            7. .revisao/reaproveitado.md, se não estiver vazio
+
+            Se .revisao/reaproveitado.md tiver conteúdo, .revisao/diff.patch traz só os commits que ainda não foram revisados.
 
             Depois leia o que precisar do código para confirmar cada achado.
 
