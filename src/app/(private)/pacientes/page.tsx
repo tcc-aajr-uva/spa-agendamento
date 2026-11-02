@@ -9,6 +9,7 @@ import { PaginaModulo } from "../pagina-modulo";
 import { Paginacao } from "../paginacao";
 import { montarHref, numeroDaPagina, primeiro, TAMANHO_DA_PAGINA } from "../parametros";
 import { perfisDaRota } from "../menu";
+import { EncerrarPeriodo } from "./encerrar-periodo";
 
 type Busca = PageProps<"/pacientes">["searchParams"];
 
@@ -54,6 +55,7 @@ async function Pacientes({ busca }: { busca: Busca }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <EncerrarPeriodo usuario={usuario} />
       {veEquipe && <Filtros usuario={usuario} equipeId={equipeId} estagiarioId={estagiarioId} />}
       {agendamentos.length === 0 ? (
         <p>Nenhum paciente ativo.</p>

@@ -47,13 +47,21 @@ export async function liberarPendentesVencidos(tx: Transacao, filtro: Prisma.Age
   });
   if (vencidos.length === 0) return 0;
 
-  const ids = vencidos.map((vencido) => vencido.id);
+  await liberarEmLote(tx, vencidos.map((vencido) => vencido.id), { status: "CANCELADO", motivo: "NAO_CONFIRMADO" }, agora);
+  return vencidos.length;
+}
+
+export async function liberarEmLote(tx: Transacao, ids: string[], liberacao: Liberacao, agora: Date): Promise<void> {
   await tx.agendamento.updateMany({
     where: { id: { in: ids } },
-    data: { ...CHAVES_LIBERADAS, status: "CANCELADO", motivoEncerramento: "NAO_CONFIRMADO", encerradoEm: agora },
+    data: { ...CHAVES_LIBERADAS, status: liberacao.status, motivoEncerramento: liberacao.motivo, encerradoEm: agora },
   });
   await tx.eventoAgendamento.createMany({
-    data: ids.map((agendamentoId) => ({ agendamentoId, tipo: "CANCELADO" as const, observacao: "NAO_CONFIRMADO" })),
+    data: ids.map((agendamentoId) => ({
+      agendamentoId,
+      tipo: liberacao.status,
+      usuarioId: liberacao.usuarioId ?? null,
+      observacao: liberacao.observacao ?? liberacao.motivo,
+    })),
   });
-  return ids.length;
 }
