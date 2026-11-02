@@ -79,7 +79,7 @@ async function main() {
   for (const unidade of UNIDADES) {
     const dadosUnidade = { nome: unidade.nome, agendamentoAberto: unidade.agendamentoAberto };
     const unidadeExistente = await prisma.unidade.findFirst({
-      where: { nome: unidade.nome },
+      where: { nome: { equals: unidade.nome, mode: "insensitive" } },
       select: { id: true },
     });
     const unidadeSalva = unidadeExistente

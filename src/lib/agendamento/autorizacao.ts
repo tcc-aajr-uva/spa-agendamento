@@ -35,8 +35,7 @@ export function autorizarAgendamento(
     return;
   }
 
-  const secretariaOuCoordenacao = usuario.perfil === "SECRETARIA" || usuario.perfil === "COORDENACAO";
-  if (!secretariaOuCoordenacao || !unidade.permiteSecretaria || !podeAcessar(usuario, { unidadeId: unidade.id })) {
+  if (usuario.perfil !== "SECRETARIA" || !unidade.permiteSecretaria || !podeAcessar(usuario, { unidadeId: unidade.id })) {
     throw new ErroDeRegra("SEM_PERMISSAO", "Você não pode agendar nesta unidade.");
   }
 }
