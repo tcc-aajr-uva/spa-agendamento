@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { formatarData, formatarDataHora } from "../../formatar";
 import { PaginaModulo } from "../../pagina-modulo";
 import { perfisDaRota } from "../../menu";
+import { AcoesConfirmacao } from "./acoes-confirmacao";
 import { FormSessao } from "./form-sessao";
 
 type Parametros = PageProps<"/pacientes/[id]">["params"];
@@ -117,6 +118,7 @@ async function Atendimento({ parametros }: { parametros: Parametros }) {
             dataFim={agendamento.dataFim}
             termoAssinado={agendamento.termoAssinadoEm !== null}
           />
+          <AcoesConfirmacao agendamentoId={agendamento.id} status={agendamento.status} />
         </section>
       )}
 
