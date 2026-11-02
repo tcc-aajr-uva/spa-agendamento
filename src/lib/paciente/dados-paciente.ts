@@ -6,6 +6,10 @@ export function somenteDigitos(valor: string): string {
   return valor.replace(/\D/g, "");
 }
 
+export function mascararCpf(cpf: string): string {
+  return `***.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-**`;
+}
+
 export function cpfValido(cpf: string): boolean {
   if (!/^\d{11}$/.test(cpf) || /^(\d)\1{10}$/.test(cpf)) return false;
   const digito = (tamanho: number) => {

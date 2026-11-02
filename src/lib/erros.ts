@@ -12,7 +12,11 @@ export type CodigoErro =
   | "LIMITE_REQUISICOES"
   | "NAO_ENCONTRADO"
   | "SALA_EM_USO"
-  | "CONFLITO_CONCORRENTE";
+  | "CONFLITO_CONCORRENTE"
+  | "PRAZO_VENCIDO"
+  | "STATUS_INVALIDO"
+  | "SESSAO_JA_REGISTRADA"
+  | "DATA_INVALIDA";
 
 export class ErroDeRegra extends Error {
   constructor(
