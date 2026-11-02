@@ -49,6 +49,10 @@ export async function criarUsuario(
     );
     revalidatePath("/cadastros/usuarios");
 
+    revalidatePath("/cadastros/equipes");
+    revalidatePath("/cadastros/equipes/[id]", "page");
+    revalidatePath("/cadastros/equipes/nova");
+
     const baseURL = process.env.BETTER_AUTH_URL;
     return {
       linkConvite: baseURL ? new URL(resultado.linkConvite, baseURL).toString() : resultado.linkConvite,
