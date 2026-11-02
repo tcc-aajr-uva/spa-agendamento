@@ -57,7 +57,7 @@ enum TipoToken {
 
 model Unidade {
   id                String   @id @default(cuid(2))
-  nome              String
+  nome              String   @unique
   ativa             Boolean  @default(true)
   permitePaciente   Boolean  @default(true)
   permiteEstagiario Boolean  @default(true)
@@ -67,6 +67,7 @@ model Unidade {
   horaFechamento    Int      @default(1260)
   duracaoBlocoMin   Int      @default(50)
   criadoEm          DateTime @default(now())
+  atualizadoEm      DateTime @updatedAt
 
   equipes      Equipe[]
   periodos     PeriodoLetivo[]

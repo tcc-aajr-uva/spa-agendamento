@@ -29,7 +29,9 @@ Sistema de agendamento do Serviço de Psicologia Aplicada (SPA) da Universidade 
    npm run db:bootstrap-admin
    ```
 
-   Mudou o `schema.prisma`? Gere uma migration nova com nome descritivo (`npx prisma migrate dev --name tabela-sessao`) e leve a pasta gerada no PR. Nunca apague nem edite uma migration que já foi aplicada; em produção as migrations rodam com `npx prisma migrate deploy`.
+   Durante o desenvolvimento atual, o projeto recria a migration `Initial` e os bancos de desenvolvimento são descartáveis. Não há compromisso de preservar dados ou compatibilidade com a Initial anterior. Após excluir a Initial anterior e recriar o banco de desenvolvimento, gere a nova com `npx prisma migrate dev --name initial` e leve a pasta gerada no PR. Não há SQL adicional a acrescentar manualmente.
+
+   Depois da entrada em produção, preserve o histórico aplicado e crie migrations incrementais com nomes descritivos; em produção use `npx prisma migrate deploy`.
 
 4. Rode o projeto e acesse `/entrar`:
 

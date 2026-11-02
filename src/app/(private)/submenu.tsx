@@ -5,7 +5,7 @@ import Link from "next/link";
 
 type Props = {
   rotulo: string;
-  itens: { href: string; rotulo: string }[];
+  itens: { href: string; rotulo: string; prefetch?: boolean }[];
 };
 
 export function Submenu({ rotulo, itens }: Props) {
@@ -33,7 +33,7 @@ export function Submenu({ rotulo, itens }: Props) {
       <summary className="cursor-pointer underline">{rotulo}</summary>
       <div className="absolute left-0 z-10 mt-2 flex min-w-40 flex-col gap-2 rounded border bg-white p-3 text-black shadow">
         {itens.map((item) => (
-          <Link key={item.href} href={item.href} className="underline" onClick={fechar}>
+          <Link key={item.href} href={item.href} className="underline" onClick={fechar} prefetch={item.prefetch}>
             {item.rotulo}
           </Link>
         ))}
