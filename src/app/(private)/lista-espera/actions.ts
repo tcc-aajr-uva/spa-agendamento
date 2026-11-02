@@ -4,6 +4,7 @@ import { DIAS_DA_SEMANA, formatarHora } from "@/lib/agendamento/regras";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { ErroDeRegra } from "@/lib/erros";
 import { chamarDaLista } from "@/lib/lista-espera/chamar-da-lista";
+import { PERFIS_QUE_CHAMAM } from "@/lib/lista-espera/inscricao";
 import { removerDaLista } from "@/lib/lista-espera/remover-da-lista";
 import { executarAcao, montarLinkDeCancelamento, texto, type EstadoAcao } from "../acao";
 import { formatarData } from "../formatar";
@@ -18,7 +19,7 @@ export async function remover(listaEsperaId: string): Promise<EstadoAcao> {
 }
 
 export async function chamar(listaEsperaId: string, _estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
-  const usuario = await exigirUsuario(perfisDaRota("/lista-espera"));
+  const usuario = await exigirUsuario(PERFIS_QUE_CHAMAM);
   const [diaSemana, horaInicio] = texto(formData, "horario").split(":");
   try {
     const criado = await chamarDaLista(listaEsperaId, { diaSemana, horaInicio }, usuario);
