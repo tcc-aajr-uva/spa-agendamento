@@ -70,6 +70,9 @@ function revalidarUsuario(usuarioId: string) {
   revalidatePath("/cadastros/usuarios");
   revalidatePath(`/cadastros/usuarios/${usuarioId}`);
   revalidatePath(`/cadastros/usuarios/${usuarioId}/convites`);
+  revalidatePath("/cadastros/equipes");
+  revalidatePath("/cadastros/equipes/[id]", "page");
+  revalidatePath("/cadastros/equipes/nova");
 }
 
 function textos(formData: FormData, campo: string): string[] {

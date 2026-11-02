@@ -59,7 +59,7 @@ export async function atualizarUsuarioGerenciavel(
       await sincronizarUnidadesDiretas(tx, usuarioId, vinculos.unidadeIds, autor);
     } else {
       await sincronizarEquipes(tx, usuarioId, perfil.data, usuario.ativo, vinculos.equipes, autor);
-      await sincronizarUnidadesDerivadasDasEquipes(tx, usuarioId);
+      await desativarUnidadesSemVinculosAtivosDeEquipe(tx, usuarioId);
       if (perfil.data === "ESTAGIARIO") await validarUnicaUnidadeDoEstagiario(tx, usuarioId);
     }
   });
@@ -74,6 +74,8 @@ async function sincronizarUnidadesDiretas(
   await tx.usuarioUnidade.updateMany({
     where: {
       usuarioId,
+      ativo: true,
+      unidade: { ativa: true },
       AND: [filtroDeVinculosDeUnidadeGerenciaveis(autor), { unidadeId: { notIn: unidadeIds } }],
     },
     data: { ativo: false },
@@ -98,6 +100,9 @@ async function sincronizarEquipes(
   const equipeIds = equipes.map(({ id }) => id);
   const filtroDeRemocao = {
     usuarioId,
+    ativo: true,
+    vinculoUnidade: { ativo: true },
+    equipe: { ativa: true, unidade: { ativa: true } },
     AND: [filtroDeVinculosDeEquipeGerenciaveis(autor), { equipeId: { notIn: equipeIds } }],
   };
 
@@ -135,28 +140,11 @@ async function sincronizarEquipes(
   }
 }
 
-async function sincronizarUnidadesDerivadasDasEquipes(tx: Transacao, usuarioId: string) {
-  const vinculos = await tx.usuarioEquipe.findMany({
-    where: {
-      usuarioId,
-      ativo: true,
-      equipe: { ativa: true, unidade: { ativa: true } },
-    },
-    select: { unidadeId: true },
-  });
-  const unidadeIds = [...new Set(vinculos.map(({ unidadeId }) => unidadeId))];
-
+async function desativarUnidadesSemVinculosAtivosDeEquipe(tx: Transacao, usuarioId: string) {
   await tx.usuarioUnidade.updateMany({
-    where: { usuarioId, unidadeId: { notIn: unidadeIds } },
+    where: { usuarioId, equipes: { none: { ativo: true } } },
     data: { ativo: false },
   });
-  for (const unidadeId of unidadeIds) {
-    await tx.usuarioUnidade.upsert({
-      where: { usuarioId_unidadeId: { usuarioId, unidadeId } },
-      create: { usuarioId, unidadeId },
-      update: { ativo: true },
-    });
-  }
 }
 
 async function validarUnicaUnidadeDoEstagiario(tx: Transacao, usuarioId: string) {
