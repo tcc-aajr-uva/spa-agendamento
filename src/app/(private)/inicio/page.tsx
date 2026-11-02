@@ -1,4 +1,5 @@
 import { exigirUsuario } from "@/lib/auth/autorizacao";
+import { rotuloDoPerfil } from "@/lib/usuario/rotulos";
 import { PaginaModulo } from "../pagina-modulo";
 
 export default function InicioPage() {
@@ -13,7 +14,7 @@ async function BoasVindas() {
   const usuario = await exigirUsuario();
   return (
     <p>
-      Olá, {usuario.nome}. Perfil {usuario.perfil}. Use o menu acima.
+      Olá, {usuario.nome}. Perfil {rotuloDoPerfil(usuario.perfil)}. Use o menu acima.
     </p>
   );
 }

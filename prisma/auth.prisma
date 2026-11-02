@@ -7,7 +7,7 @@ enum Perfil {
 }
 
 model Usuario {
-  id              String   @id @default(cuid())
+  id              String   @id @default(cuid(2))
   nome            String
   email           String   @unique
   emailVerificado Boolean  @default(false)
@@ -72,7 +72,7 @@ model UsuarioEquipe {
 }
 
 model Convite {
-  id         String    @id @default(cuid())
+  id         String    @id @default(cuid(2))
   usuarioId  String
   tokenHash  String    @unique
   expiraEm   DateTime
@@ -87,7 +87,7 @@ model Convite {
 }
 
 model SessaoAutenticacao {
-  id        String   @id @default(cuid())
+  id        String   @id @default(cuid(2))
   expiresAt DateTime
   token     String   @unique
   createdAt DateTime @default(now())
@@ -102,7 +102,7 @@ model SessaoAutenticacao {
 }
 
 model ContaAutenticacao {
-  id                    String    @id @default(cuid())
+  id                    String    @id @default(cuid(2))
   accountId             String
   providerId            String
   userId                String
@@ -123,7 +123,7 @@ model ContaAutenticacao {
 }
 
 model VerificacaoAutenticacao {
-  id         String   @id @default(cuid())
+  id         String   @id @default(cuid(2))
   identifier String
   value      String
   expiresAt  DateTime
@@ -134,7 +134,7 @@ model VerificacaoAutenticacao {
 }
 
 model LimiteRequisicao {
-  id          String @id @default(cuid())
+  id          String @id @default(cuid(2))
   key         String @unique
   count       Int
   lastRequest BigInt
