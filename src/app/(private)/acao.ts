@@ -1,5 +1,4 @@
 import { refresh } from "next/cache";
-import { headers } from "next/headers";
 import { ErroDeRegra } from "@/lib/erros";
 
 export type EstadoAcao = {
@@ -23,7 +22,8 @@ export function texto(formData: FormData, campo: string): string {
   return String(formData.get(campo) ?? "");
 }
 
-export async function montarLinkDeCancelamento(token: string): Promise<string> {
-  const origem = (await headers()).get("origin") ?? "";
-  return `${origem}/cancelar?token=${token}`;
+export function montarLinkDeCancelamento(token: string): string {
+  const caminho = `/cancelar?token=${token}`;
+  const baseURL = process.env.BETTER_AUTH_URL;
+  return baseURL ? new URL(caminho, baseURL).toString() : caminho;
 }
