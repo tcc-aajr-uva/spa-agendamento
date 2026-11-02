@@ -59,7 +59,7 @@ export async function atualizarUsuarioGerenciavel(
       await sincronizarUnidadesDiretas(tx, usuarioId, vinculos.unidadeIds, autor);
     } else {
       await sincronizarEquipes(tx, usuarioId, perfil.data, usuario.ativo, vinculos.equipes, autor);
-      await desativarUnidadesSemEquipes(tx, usuarioId);
+      await desativarUnidadesSemVinculosAtivosDeEquipe(tx, usuarioId);
       if (perfil.data === "ESTAGIARIO") await validarUnicaUnidadeDoEstagiario(tx, usuarioId);
     }
   });
@@ -140,9 +140,7 @@ async function sincronizarEquipes(
   }
 }
 
-async function desativarUnidadesSemEquipes(tx: Transacao, usuarioId: string) {
-  // A inatividade da equipe/unidade não remove a associação do usuário.
-  // Os vínculos selecionados já foram ativados em sincronizarEquipes.
+async function desativarUnidadesSemVinculosAtivosDeEquipe(tx: Transacao, usuarioId: string) {
   await tx.usuarioUnidade.updateMany({
     where: { usuarioId, equipes: { none: { ativo: true } } },
     data: { ativo: false },

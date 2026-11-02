@@ -41,7 +41,9 @@ async function Conteudo({ params }: Props) {
         supervisores={supervisores} somenteLeitura={somenteLeitura}
         supervisorAtualNome={equipe.supervisor ? `${equipe.supervisor.nome}${equipe.supervisor.ativo ? "" : " (inativo)"}` : undefined}
       />
-      <ControleAtivacaoEquipe acao={alterarAtivacao.bind(null, equipe.id)} valores={valores} somenteLeitura={somenteLeitura} />
+      {!somenteLeitura && (
+        <ControleAtivacaoEquipe acao={alterarAtivacao.bind(null, equipe.id)} valores={valores} />
+      )}
     </div>
   );
 }

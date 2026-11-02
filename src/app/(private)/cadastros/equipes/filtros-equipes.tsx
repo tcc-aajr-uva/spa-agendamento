@@ -21,14 +21,13 @@ export function FiltrosEquipes({ buscaInicial, unidadeInicial, statusInicial, pe
   const recebidos: Filtros = { busca: buscaInicial, unidadeId: unidadeInicial, status: statusInicial };
   const [estado, setEstado] = useState({ origem, filtros: recebidos, destinos: [] as string[], geracao: 0 });
   if (estado.origem !== origem) {
-    const confirmacao = estado.destinos.indexOf(origem);
-    // Respostas das nossas buscas preservam o texto digitado durante a navegação.
-    // Outras navegações adotam os filtros recebidos do servidor.
+    const indiceDaBuscaConfirmada = estado.destinos.indexOf(origem);
+    const respostaDaBusca = indiceDaBuscaConfirmada >= 0;
     setEstado({
       origem,
-      filtros: confirmacao >= 0 ? estado.filtros : recebidos,
-      destinos: confirmacao >= 0 ? estado.destinos.slice(confirmacao + 1) : [],
-      geracao: confirmacao >= 0 ? estado.geracao : estado.geracao + 1,
+      filtros: respostaDaBusca ? estado.filtros : recebidos,
+      destinos: respostaDaBusca ? estado.destinos.slice(indiceDaBuscaConfirmada + 1) : [],
+      geracao: respostaDaBusca ? estado.geracao : estado.geracao + 1,
     });
   }
   const filtros = estado.filtros;

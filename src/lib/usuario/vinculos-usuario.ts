@@ -28,7 +28,6 @@ export async function atribuirSupervisor(
   }
 
   if (supervisorId !== null) {
-    // A reativação de usuário atribui as equipes antes de ativar sua conta.
     const supervisor = await tx.usuario.findFirst({ where: { id: supervisorId, perfil: "SUPERVISOR" }, select: { id: true } });
     if (!supervisor) throw new ErroDeRegra("DADOS_INVALIDOS", "Supervisor inválido.");
     await tx.usuarioUnidade.upsert({
