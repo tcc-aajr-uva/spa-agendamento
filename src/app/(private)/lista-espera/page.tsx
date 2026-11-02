@@ -49,19 +49,20 @@ async function Lista({ busca }: { busca: Busca }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {equipes.length > 1 && <SeletorDeEquipe equipes={opcoes} atual={equipe.id} />}
-      <h2 className="text-lg font-semibold">
-        {equipe.unidade.nome} / {equipe.nome} — {total} aguardando
-      </h2>
-      {inscricoes.length === 0 ? (
-        <EstadoVazio>Lista de espera vazia.</EstadoVazio>
-      ) : (
-        <>
-          <TabelaDeInscricoes inscricoes={inscricoes} podeChamar={podeChamar} />
-          <ItensDeInscricao inscricoes={inscricoes} podeChamar={podeChamar} />
-        </>
-      )}
-      <Paginacao pagina={pagina} total={total} tamanho={TAMANHO_DA_PAGINA} href={(novaPagina) => montarHref("/lista-espera", { equipe: equipe.id, pagina: novaPagina })} />
+      <SeletorDeEquipe equipes={opcoes} atual={equipe.id}>
+        <h2 className="text-lg font-semibold">
+          {equipe.unidade.nome} / {equipe.nome} — {total} aguardando
+        </h2>
+        {inscricoes.length === 0 ? (
+          <EstadoVazio>Lista de espera vazia.</EstadoVazio>
+        ) : (
+          <>
+            <TabelaDeInscricoes inscricoes={inscricoes} podeChamar={podeChamar} />
+            <ItensDeInscricao inscricoes={inscricoes} podeChamar={podeChamar} />
+          </>
+        )}
+        <Paginacao pagina={pagina} total={total} tamanho={TAMANHO_DA_PAGINA} href={(novaPagina) => montarHref("/lista-espera", { equipe: equipe.id, pagina: novaPagina })} />
+      </SeletorDeEquipe>
     </div>
   );
 }

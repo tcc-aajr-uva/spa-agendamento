@@ -1,3 +1,4 @@
+import Form from "next/form";
 import Link from "next/link";
 import { ChevronRightIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,7 @@ import { exigirUsuario, filtroDeUnidades } from "@/lib/auth/autorizacao";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { DIAS_DA_SEMANA, filtroAgendamentoAtivo, formatarHora, pendenteVencendo } from "@/lib/agendamento/regras";
 import { prisma } from "@/lib/prisma";
+import { BotaoFiltrar } from "../botao-filtrar";
 import { CampoSelect } from "../campo-select";
 import { CarregandoLista } from "../carregando-lista";
 import { EstadoVazio } from "../cartao";
@@ -202,12 +204,10 @@ async function Filtros({ usuario, equipeId, estagiarioId }: { usuario: ContextoA
   const opcoesDeEstagiario = [{ value: null, label: "Todos" }, ...estagiarios.map((estagiario) => ({ value: estagiario.id, label: estagiario.nome }))];
 
   return (
-    <form method="get" className="flex flex-col gap-3 md:flex-row md:items-end">
+    <Form action="/pacientes" scroll={false} className="flex flex-col gap-3 md:flex-row md:items-end">
       <CampoSelect id="filtro-equipe" nome="equipe" rotulo="Equipe" valor={equipeId} opcoes={opcoesDeEquipe} className="md:w-72" />
       <CampoSelect id="filtro-estagiario" nome="estagiario" rotulo="Estagiário" valor={estagiarioId} opcoes={opcoesDeEstagiario} className="md:w-64" />
-      <Button type="submit" variant="outline">
-        Filtrar
-      </Button>
-    </form>
+      <BotaoFiltrar />
+    </Form>
   );
 }
