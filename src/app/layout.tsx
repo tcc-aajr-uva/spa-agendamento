@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
+import { Manrope, Inter } from "next/font/google";
 import "./globals.css";
+import { cn } from "@/lib/utils";
+
+const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -15,7 +18,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="pt-BR" className={`${manrope.variable} h-full antialiased`}>
+    <html lang="pt-BR" className={cn("h-full", "antialiased", manrope.variable, "font-sans", inter.variable)}>
       <body className="min-h-full font-sans">{children}</body>
     </html>
   );
