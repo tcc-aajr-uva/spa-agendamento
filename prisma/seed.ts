@@ -74,6 +74,8 @@ async function vincularEquipe(usuarioId: string, equipeId: string, unidadeId: st
 }
 
 async function main() {
+  if (process.env.NODE_ENV === "production") throw new Error("O seed não pode rodar em produção.");
+
   for (const unidade of UNIDADES) {
     const dadosUnidade = { nome: unidade.nome, agendamentoAberto: unidade.agendamentoAberto };
     const unidadeExistente = await prisma.unidade.findFirst({
