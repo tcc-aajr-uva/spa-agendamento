@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 import type { Transacao } from "@/lib/transacao";
 import { periodoIdSchema } from "./dados-periodo";
 
-export const PERFIS_PERIODOS = ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "SUPERVISOR"] as const;
 export const PERFIS_GESTAO_PERIODOS = ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA"] as const;
 
 export function podeGerenciarPeriodos(autor: ContextoAutorizacao): boolean {
@@ -15,7 +14,7 @@ export function podeGerenciarPeriodos(autor: ContextoAutorizacao): boolean {
 
 export function filtroDeUnidadesDosPeriodos(autor: ContextoAutorizacao): Prisma.UnidadeWhereInput {
   if (autor.perfil === "ADMINISTRADOR") return {};
-  if (!PERFIS_PERIODOS.some((perfil) => perfil === autor.perfil)) return { id: { in: [] } };
+  if (!PERFIS_GESTAO_PERIODOS.some((perfil) => perfil === autor.perfil)) return { id: { in: [] } };
   return { id: { in: autor.unidades }, ativa: true };
 }
 

@@ -5,30 +5,34 @@ import { notFound } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { consultarUsuarioGerenciavel } from "@/lib/usuario/consultar-usuario-gerenciavel";
 import { listarOpcoesDeVinculo } from "@/lib/usuario/opcoes-vinculo";
+import { podeConfigurarAtendimento } from "@/lib/usuario/atendimento-estagiario";
+import type { ParametrosBusca } from "@/lib/url/parametros-busca";
 import { rotuloDoEstadoAcesso, rotuloDoPerfil } from "@/lib/usuario/rotulos";
 import { perfisDaRota } from "../../../menu";
 import { alterarAtivacao, atualizarUsuario } from "./actions";
 import { ControleAtivacaoUsuario } from "./controle-ativacao";
 import { FormularioEdicaoUsuario } from "./formulario-edicao";
+import { SecaoAtendimento } from "./secao-atendimento";
 
 type Props = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<ParametrosBusca>;
 };
 
-export default function UsuarioPage({ params }: Props) {
+export default function UsuarioPage({ params, searchParams }: Props) {
   return (
     <section className="space-y-6">
       <Link className="underline" href="/cadastros/usuarios">
         Voltar para usuários
       </Link>
       <Suspense fallback={<p>Carregando usuário…</p>}>
-        <ConteudoUsuario params={params} />
+        <ConteudoUsuario params={params} searchParams={searchParams} />
       </Suspense>
     </section>
   );
 }
 
-async function ConteudoUsuario({ params }: Props) {
+async function ConteudoUsuario({ params, searchParams }: Props) {
   const autor = await exigirUsuario(perfisDaRota("/cadastros"));
   const { id } = await params;
   const usuario = await consultarUsuarioGerenciavel(id, autor);
@@ -61,6 +65,12 @@ async function ConteudoUsuario({ params }: Props) {
         tipoVinculo={tipoVinculo}
         vinculosIniciais={vinculosIniciais}
       />
+
+      {usuario.perfil === "ESTAGIARIO" && podeConfigurarAtendimento(autor) && (
+        <Suspense fallback={<p>Carregando configuração de atendimento…</p>}>
+          <SecaoAtendimento estagiarioId={usuario.id} autor={autor} searchParams={searchParams} />
+        </Suspense>
+      )}
 
       {usuario.podeAlterarAcesso ? (
         <ControleAtivacaoUsuario acao={alterarAtivacao.bind(null, usuario.id)} ativo={usuario.ativo} />
