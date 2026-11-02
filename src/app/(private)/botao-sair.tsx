@@ -15,21 +15,24 @@ export function BotaoSair({ className }: { className?: string }) {
     try {
       const resultado = await signOut();
       if (resultado.error) {
-        setErro("Não foi possível sair. Tente novamente.");
+        falhar();
         return;
       }
 
       window.location.replace("/entrar");
     } catch {
-      setErro("Não foi possível sair. Tente novamente.");
-    } finally {
-      setSaindo(false);
+      falhar();
     }
+  }
+
+  function falhar() {
+    setErro("Não foi possível sair. Tente novamente.");
+    setSaindo(false);
   }
 
   return (
     <div className="space-y-1">
-      <Button className={className} variant="outline" disabled={saindo} onClick={sair} type="button">
+      <Button className={className} variant="outline" disabled={saindo} onClick={sair} type="button" data-aviso-saida>
         {saindo ? "Saindo…" : "Sair"}
       </Button>
       {erro && (

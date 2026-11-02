@@ -1,12 +1,16 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { listarHorariosLivres } from "@/lib/agendamento/horarios-livres";
 import { DIAS_DA_SEMANA, formatarHora } from "@/lib/agendamento/regras";
 import { exigirUsuario, podeAcessar } from "@/lib/auth/autorizacao";
 import { PERFIS_QUE_CHAMAM } from "@/lib/lista-espera/inscricao";
 import { prisma } from "@/lib/prisma";
+import { CampoSelect } from "../../../campo-select";
+import { CarregandoLista } from "../../../carregando-lista";
+import { Cartao } from "../../../cartao";
 import { formatarData } from "../../../formatar";
 import { FormularioAcao } from "../../../formulario-acao";
+import { LinkVoltar } from "../../../link-voltar";
 import { PaginaModulo } from "../../../pagina-modulo";
 import { chamar } from "../../actions";
 
@@ -14,7 +18,7 @@ type Parametros = PageProps<"/lista-espera/[id]/chamar">["params"];
 
 export default function ChamarPage({ params }: PageProps<"/lista-espera/[id]/chamar">) {
   return (
-    <PaginaModulo titulo="Chamar da lista de espera" card="#3" pendente="design definitivo, a combinar com o time.">
+    <PaginaModulo carregando={<CarregandoLista />}>
       <Chamar parametros={params} />
     </PaginaModulo>
   );
@@ -37,16 +41,14 @@ async function Chamar({ parametros }: { parametros: Parametros }) {
   });
   if (!inscricao || !podeAcessar(usuario, inscricao)) notFound();
 
-  const voltar = (
-    <Link className="underline" href={`/lista-espera?equipe=${inscricao.equipeId}`}>
-      Voltar para a lista de espera
-    </Link>
-  );
+  const voltar = <LinkVoltar href={`/lista-espera?equipe=${inscricao.equipeId}`}>Voltar para a lista de espera</LinkVoltar>;
   if (inscricao.status !== "AGUARDANDO") {
     return (
-      <div className="flex flex-col gap-3">
-        <p>Esta inscrição não está mais aguardando ({inscricao.status}).</p>
+      <div className="flex max-w-2xl flex-col gap-4">
         {voltar}
+        <Alert variant="warning">
+          <AlertDescription>Esta inscrição não está mais aguardando.</AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -57,33 +59,37 @@ async function Chamar({ parametros }: { parametros: Parametros }) {
   const { paciente } = inscricao;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-2xl flex-col gap-4">
       {voltar}
-      <section className="flex flex-col gap-1">
-        <h2 className="font-semibold">{paciente.nome}</h2>
-        <p>
+      <h1 className="text-2xl font-bold">Chamar da lista de espera</h1>
+      <Cartao titulo={paciente.nome}>
+        <p className="text-muted-foreground">
           {paciente.telefone} — {paciente.email} — nascimento {formatarData(paciente.dataNascimento)}
         </p>
-        {paciente.responsavelNome && <p>Responsável: {paciente.responsavelNome}</p>}
-        <p>
+        {paciente.responsavelNome && <p className="text-muted-foreground">Responsável: {paciente.responsavelNome}</p>}
+        <p className="text-muted-foreground">
           {inscricao.equipe.unidade.nome} / {inscricao.equipe.nome} — na lista desde {formatarData(inscricao.inscritoEm)}
         </p>
-      </section>
+      </Cartao>
       {horarios.length === 0 ? (
-        <p>Nenhum horário livre {usuario.perfil === "ESTAGIARIO" ? "na sua agenda" : "nesta equipe"}. O paciente continua na lista.</p>
+        <Alert variant="warning">
+          <AlertDescription>Nenhum horário livre {usuario.perfil === "ESTAGIARIO" ? "na sua agenda" : "nesta equipe"}. O paciente continua na lista.</AlertDescription>
+        </Alert>
       ) : (
-        <FormularioAcao acao={chamar.bind(null, inscricao.id)} rotulo="Agendar com este horário">
-          <label className="flex flex-col gap-1 text-sm">
-            Horário combinado com o paciente
-            <select name="horario" required className="rounded border bg-transparent px-2 py-1">
-              {horarios.map((horario) => (
-                <option key={`${horario.diaSemana}:${horario.horaInicio}`} value={`${horario.diaSemana}:${horario.horaInicio}`}>
-                  {DIAS_DA_SEMANA[horario.diaSemana]} às {formatarHora(horario.horaInicio)}
-                </option>
-              ))}
-            </select>
-          </label>
-        </FormularioAcao>
+        <Cartao titulo="Agendar">
+          <FormularioAcao acao={chamar.bind(null, inscricao.id)} rotulo="Agendar com este horário" larguraTotal>
+            <CampoSelect
+              id="chamar-horario"
+              nome="horario"
+              rotulo="Horário combinado com o paciente"
+              opcoes={horarios.map((horario) => ({
+                value: `${horario.diaSemana}:${horario.horaInicio}`,
+                label: `${DIAS_DA_SEMANA[horario.diaSemana]} às ${formatarHora(horario.horaInicio)}`,
+              }))}
+              obrigatorio
+            />
+          </FormularioAcao>
+        </Cartao>
       )}
     </div>
   );

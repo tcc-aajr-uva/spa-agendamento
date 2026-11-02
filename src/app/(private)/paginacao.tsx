@@ -1,4 +1,8 @@
 import Link from "next/link";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
+import { IndicadorDeLink } from "./indicador-de-link";
 
 type Props = {
   pagina: number;
@@ -12,20 +16,30 @@ export function Paginacao({ pagina, total, tamanho, href }: Props) {
   if (ultima === 1) return null;
 
   return (
-    <nav className="flex items-center gap-4 text-sm">
-      {pagina > 1 && (
-        <Link className="underline" href={href(pagina - 1)}>
-          Anterior
-        </Link>
+    <Pagination aria-label="Paginação" className="items-center justify-between gap-4">
+      {pagina > 1 ? (
+        <Button variant="ghost" size="sm" nativeButton={false} render={<Link href={href(pagina - 1)} scroll={false} />}>
+          <IndicadorDeLink>
+            <ChevronLeftIcon data-icon="inline-start" />
+            Anterior
+          </IndicadorDeLink>
+        </Button>
+      ) : (
+        <span />
       )}
-      <span>
+      <span className="text-sm text-muted-foreground">
         Página {pagina} de {ultima}
       </span>
-      {pagina < ultima && (
-        <Link className="underline" href={href(pagina + 1)}>
-          Próxima
-        </Link>
+      {pagina < ultima ? (
+        <Button variant="ghost" size="sm" nativeButton={false} render={<Link href={href(pagina + 1)} scroll={false} />}>
+          <IndicadorDeLink>
+            Próxima
+            <ChevronRightIcon data-icon="inline-end" />
+          </IndicadorDeLink>
+        </Button>
+      ) : (
+        <span />
       )}
-    </nav>
+    </Pagination>
   );
 }

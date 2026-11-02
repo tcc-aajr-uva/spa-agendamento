@@ -1,9 +1,21 @@
+import Form from "next/form";
 import Link from "next/link";
+import { ChevronRightIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { StatusAgendamento } from "@/generated/prisma/client";
 import { filtroDosAtendimentos } from "@/lib/atendimento/acesso";
+import { statusDoAgendamento } from "@/lib/atendimento/rotulos";
 import { exigirUsuario, filtroDeUnidades } from "@/lib/auth/autorizacao";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { DIAS_DA_SEMANA, filtroAgendamentoAtivo, formatarHora, pendenteVencendo } from "@/lib/agendamento/regras";
 import { prisma } from "@/lib/prisma";
+import { BotaoFiltrar } from "../botao-filtrar";
+import { CampoSelect } from "../campo-select";
+import { CarregandoLista } from "../carregando-lista";
+import { EstadoVazio } from "../cartao";
 import { formatarDataHora } from "../formatar";
 import { PaginaModulo } from "../pagina-modulo";
 import { Paginacao } from "../paginacao";
@@ -13,9 +25,21 @@ import { EncerrarPeriodo } from "./encerrar-periodo";
 
 type Busca = PageProps<"/pacientes">["searchParams"];
 
+type LinhaDePaciente = {
+  id: string;
+  nome: string;
+  telefone: string;
+  horario: string;
+  sala: string;
+  estagiario: string;
+  status: StatusAgendamento;
+  prazo: string;
+  vencendo: boolean;
+};
+
 export default function PacientesPage({ searchParams }: PageProps<"/pacientes">) {
   return (
-    <PaginaModulo titulo="Pacientes" card="#3" pendente="design definitivo, a combinar com o time.">
+    <PaginaModulo titulo="Pacientes" carregando={<CarregandoLista />}>
       <Pacientes busca={searchParams} />
     </PaginaModulo>
   );
@@ -52,35 +76,113 @@ async function Pacientes({ busca }: { busca: Busca }) {
 
   const veEquipe = usuario.perfil !== "ESTAGIARIO";
   const href = (novaPagina: number) => montarHref("/pacientes", { equipe: equipeId, estagiario: estagiarioId, pagina: novaPagina });
+  const linhas: LinhaDePaciente[] = agendamentos.map((agendamento) => {
+    const pendente = agendamento.status === "PENDENTE";
+    return {
+      id: agendamento.id,
+      nome: agendamento.paciente.nome,
+      telefone: agendamento.paciente.telefone,
+      horario: `${DIAS_DA_SEMANA[agendamento.diaSemana]}, ${formatarHora(agendamento.horaInicio)}`,
+      sala: agendamento.sala.nome,
+      estagiario: agendamento.estagiario.nome,
+      status: agendamento.status,
+      prazo: pendente ? `confirmar até ${formatarDataHora(agendamento.prazoConfirmacao)}` : "",
+      vencendo: pendente && pendenteVencendo(agendamento, agora),
+    };
+  });
 
   return (
     <div className="flex flex-col gap-4">
       <EncerrarPeriodo usuario={usuario} />
       {veEquipe && <Filtros usuario={usuario} equipeId={equipeId} estagiarioId={estagiarioId} />}
-      {agendamentos.length === 0 ? (
-        <p>Nenhum paciente ativo.</p>
+      {linhas.length === 0 ? (
+        <EstadoVazio>Nenhum paciente ativo.</EstadoVazio>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {agendamentos.map((agendamento) => (
-            <li key={agendamento.id} className="rounded border p-2">
-              <Link className="underline" href={`/pacientes/${agendamento.id}`}>
-                {agendamento.paciente.nome}
-              </Link>{" "}
-              — {agendamento.paciente.telefone} — {DIAS_DA_SEMANA[agendamento.diaSemana]} {formatarHora(agendamento.horaInicio)} —{" "}
-              {agendamento.sala.nome} — {agendamento.status}
-              {veEquipe && ` — ${agendamento.estagiario.nome}`}
-              {agendamento.status === "PENDENTE" && (
-                <span className={pendenteVencendo(agendamento, agora) ? "font-semibold text-amber-500" : ""}>
-                  {" "}
-                  (confirmar até {formatarDataHora(agendamento.prazoConfirmacao)})
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
+        <>
+          <TabelaDePacientes linhas={linhas} veEquipe={veEquipe} />
+          <ListaDePacientes linhas={linhas} veEquipe={veEquipe} />
+        </>
       )}
       <Paginacao pagina={pagina} total={total} tamanho={TAMANHO_DA_PAGINA} href={href} />
     </div>
+  );
+}
+
+function StatusDoPaciente({ status }: { status: StatusAgendamento }) {
+  const { rotulo, variante } = statusDoAgendamento(status);
+  return <Badge variant={variante}>{rotulo}</Badge>;
+}
+
+function TabelaDePacientes({ linhas, veEquipe }: { linhas: LinhaDePaciente[]; veEquipe: boolean }) {
+  return (
+    <div className="hidden overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-foreground/10 md:block">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="pl-4">Paciente</TableHead>
+            <TableHead>Horário</TableHead>
+            <TableHead>Sala</TableHead>
+            {veEquipe && <TableHead>Estagiário</TableHead>}
+            <TableHead>Status</TableHead>
+            <TableHead>Prazo</TableHead>
+            <TableHead className="w-10" aria-label="Abrir atendimento" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {linhas.map((linha) => (
+            <TableRow key={linha.id}>
+              <TableCell className="pl-4">
+                <Link className="font-medium hover:underline" href={`/pacientes/${linha.id}`}>
+                  {linha.nome}
+                </Link>
+                <p className="text-muted-foreground">{linha.telefone}</p>
+              </TableCell>
+              <TableCell>{linha.horario}</TableCell>
+              <TableCell>{linha.sala}</TableCell>
+              {veEquipe && <TableCell>{linha.estagiario}</TableCell>}
+              <TableCell>
+                <StatusDoPaciente status={linha.status} />
+              </TableCell>
+              <TableCell className={linha.vencendo ? "font-medium text-destructive" : "text-muted-foreground"}>{linha.prazo || "—"}</TableCell>
+              <TableCell>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Abrir atendimento de ${linha.nome}`}
+                  nativeButton={false}
+                  render={<Link href={`/pacientes/${linha.id}`} />}
+                >
+                  <ChevronRightIcon />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function ListaDePacientes({ linhas, veEquipe }: { linhas: LinhaDePaciente[]; veEquipe: boolean }) {
+  return (
+    <ItemGroup className="gap-0 divide-y overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-foreground/10 md:hidden">
+      {linhas.map((linha) => (
+        <Item key={linha.id} className="rounded-none" render={<Link href={`/pacientes/${linha.id}`} />}>
+          <ItemContent>
+            <ItemTitle>{linha.nome}</ItemTitle>
+            <ItemDescription>
+              {linha.horario} · {linha.sala}
+            </ItemDescription>
+            <ItemDescription>{veEquipe ? `${linha.estagiario} · ${linha.telefone}` : linha.telefone}</ItemDescription>
+            {linha.prazo && <p className={linha.vencendo ? "font-medium text-destructive" : "text-muted-foreground"}>{linha.prazo}</p>}
+          </ItemContent>
+          <ItemActions className="self-start">
+            <StatusDoPaciente status={linha.status} />
+            <ChevronRightIcon aria-hidden className="size-4 text-muted-foreground" />
+          </ItemActions>
+        </Item>
+      ))}
+    </ItemGroup>
   );
 }
 
@@ -98,32 +200,14 @@ async function Filtros({ usuario, equipeId, estagiarioId }: { usuario: ContextoA
       select: { id: true, nome: true },
     }),
   ]);
+  const opcoesDeEquipe = [{ value: null, label: "Todas" }, ...equipes.map((equipe) => ({ value: equipe.id, label: `${equipe.unidade.nome} / ${equipe.nome}` }))];
+  const opcoesDeEstagiario = [{ value: null, label: "Todos" }, ...estagiarios.map((estagiario) => ({ value: estagiario.id, label: estagiario.nome }))];
 
   return (
-    <form method="get" className="flex flex-wrap items-end gap-2">
-      <label className="flex flex-col gap-1 text-sm">
-        Equipe
-        <select name="equipe" defaultValue={equipeId ?? ""} className="rounded border bg-transparent px-2 py-1">
-          <option value="">Todas</option>
-          {equipes.map((equipe) => (
-            <option key={equipe.id} value={equipe.id}>
-              {equipe.unidade.nome} / {equipe.nome}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        Estagiário
-        <select name="estagiario" defaultValue={estagiarioId ?? ""} className="rounded border bg-transparent px-2 py-1">
-          <option value="">Todos</option>
-          {estagiarios.map((estagiario) => (
-            <option key={estagiario.id} value={estagiario.id}>
-              {estagiario.nome}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button className="rounded border px-3 py-1">Filtrar</button>
-    </form>
+    <Form action="/pacientes" scroll={false} className="flex flex-col gap-3 md:flex-row md:items-end">
+      <CampoSelect id="filtro-equipe" nome="equipe" rotulo="Equipe" valor={equipeId} opcoes={opcoesDeEquipe} className="md:w-72" />
+      <CampoSelect id="filtro-estagiario" nome="estagiario" rotulo="Estagiário" valor={estagiarioId} opcoes={opcoesDeEstagiario} className="md:w-64" />
+      <BotaoFiltrar />
+    </Form>
   );
 }
