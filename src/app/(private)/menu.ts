@@ -17,6 +17,11 @@ export const MENU: ItemMenu[] = [
     perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "SUPERVISOR"],
     filhos: [
       {
+        href: "/cadastros/unidades",
+        rotulo: "Unidades",
+        perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA"],
+      },
+      {
         href: "/cadastros/usuarios",
         rotulo: "Usuários",
         perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "SUPERVISOR"],

@@ -138,6 +138,7 @@ CREATE TABLE "Unidade" (
     "horaFechamento" INTEGER NOT NULL DEFAULT 1260,
     "duracaoBlocoMin" INTEGER NOT NULL DEFAULT 50,
     "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "atualizadoEm" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Unidade_pkey" PRIMARY KEY ("id")
 );
@@ -341,6 +342,9 @@ CREATE INDEX "VerificacaoAutenticacao_identifier_idx" ON "VerificacaoAutenticaca
 
 -- CreateIndex
 CREATE UNIQUE INDEX "LimiteRequisicao_key_key" ON "LimiteRequisicao"("key");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Unidade_nome_key" ON "Unidade"("nome");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Equipe_unidadeId_nome_key" ON "Equipe"("unidadeId", "nome");
