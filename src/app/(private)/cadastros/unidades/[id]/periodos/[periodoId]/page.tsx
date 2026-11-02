@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { consultarPeriodo } from "@/lib/periodo-letivo/consultar-periodo";
 import { ROTULOS_SITUACAO_PERIODO } from "@/lib/periodo-letivo/dados-periodo";
-import { PERFIS_PERIODOS } from "@/lib/periodo-letivo/escopo-periodo";
+import { PERFIS_GESTAO_PERIODOS } from "@/lib/periodo-letivo/escopo-periodo";
 import { atualizarPeriodo, excluirPeriodo } from "../actions";
 import { FormularioPeriodo } from "../formulario-periodo";
 import { ControleExclusaoPeriodo } from "../controle-exclusao";
@@ -16,16 +16,15 @@ export default function PeriodoPage(props: Props) {
 }
 
 async function Conteudo({ params }: Props) {
-  const autor = await exigirUsuario([...PERFIS_PERIODOS]);
+  const autor = await exigirUsuario([...PERFIS_GESTAO_PERIODOS]);
   const { id, periodoId } = await params;
   const periodo = await consultarPeriodo(id, periodoId, autor);
   if (!periodo) notFound();
   const valores = { inicio: periodo.inicio, fim: periodo.fim };
   return (
     <div className="space-y-6">
-      <Link className="underline" prefetch={false}
-        href={autor.perfil === "SUPERVISOR" ? `/cadastros/unidades/${id}/periodos#periodos` : `/cadastros/unidades/${id}#periodos`}>
-        Voltar para {autor.perfil === "SUPERVISOR" ? "períodos letivos" : "unidade"}
+      <Link className="underline" prefetch={false} href={`/cadastros/unidades/${id}#periodos`}>
+        Voltar para unidade
       </Link>
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-2xl font-bold">Período letivo</h1>

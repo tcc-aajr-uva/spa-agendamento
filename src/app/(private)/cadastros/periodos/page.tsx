@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
-import { PERFIS_PERIODOS } from "@/lib/periodo-letivo/escopo-periodo";
+import { PERFIS_GESTAO_PERIODOS } from "@/lib/periodo-letivo/escopo-periodo";
 import { listarUnidadesDosPeriodos } from "@/lib/periodo-letivo/listar-periodos";
 import { AtualizarAoFocar } from "../../atualizar-ao-focar";
 
@@ -18,7 +18,7 @@ export default function UnidadesDosPeriodosPage(props: Props) {
 }
 
 async function Conteudo({ searchParams }: Props) {
-  const autor = await exigirUsuario([...PERFIS_PERIODOS]);
+  const autor = await exigirUsuario([...PERFIS_GESTAO_PERIODOS]);
   const consulta = await searchParams;
   const pagina = Array.isArray(consulta.pagina) ? consulta.pagina[0] : consulta.pagina;
   const resultado = await listarUnidadesDosPeriodos(pagina, autor);
