@@ -9,6 +9,7 @@ import { PaginaModulo } from "../../pagina-modulo";
 import { perfisDaRota } from "../../menu";
 import { AcoesConfirmacao } from "./acoes-confirmacao";
 import { FormSessao } from "./form-sessao";
+import { FormTransferencia } from "./form-transferencia";
 
 type Parametros = PageProps<"/pacientes/[id]">["params"];
 
@@ -119,6 +120,7 @@ async function Atendimento({ parametros }: { parametros: Parametros }) {
             termoAssinado={agendamento.termoAssinadoEm !== null}
           />
           <AcoesConfirmacao agendamentoId={agendamento.id} status={agendamento.status} />
+          <FormTransferencia agendamentoId={agendamento.id} status={agendamento.status} usuario={usuario} />
         </section>
       )}
 
