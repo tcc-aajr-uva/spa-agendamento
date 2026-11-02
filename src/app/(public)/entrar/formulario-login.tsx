@@ -14,6 +14,14 @@ const loginSchema = z.object({
 
 type Login = z.infer<typeof loginSchema>;
 
+function mensagemDeLimiteExcedido(segundos: number | null) {
+  if (segundos === null) {
+    return "Muitas tentativas. Aguarde alguns instantes e tente novamente.";
+  }
+
+  return `Muitas tentativas. Tente novamente em ${segundos} ${segundos === 1 ? "segundo" : "segundos"}.`;
+}
+
 export function FormularioLogin() {
   const router = useRouter();
   const {
@@ -26,14 +34,30 @@ export function FormularioLogin() {
   });
 
   const entrar = handleSubmit(async ({ email, senha }) => {
+    let limiteExcedido = false;
+    let segundosParaNovaTentativa: number | null = null;
+
     const resultado = await signIn.email({
       email,
       password: senha,
+      fetchOptions: {
+        onError: ({ response }) => {
+          if (response.status !== 429) return;
+
+          limiteExcedido = true;
+          const retryAfter = Number(response.headers.get("X-Retry-After"));
+          if (Number.isInteger(retryAfter) && retryAfter > 0) {
+            segundosParaNovaTentativa = retryAfter;
+          }
+        },
+      },
     });
 
     if (resultado.error) {
       setError("root", {
-        message: "E-mail ou senha inválidos.",
+        message: limiteExcedido
+          ? mensagemDeLimiteExcedido(segundosParaNovaTentativa)
+          : "E-mail ou senha inválidos.",
       });
       return;
     }
