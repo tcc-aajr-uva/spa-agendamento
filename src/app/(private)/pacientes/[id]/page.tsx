@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { exigirUsuario, podeAcessar } from "@/lib/auth/autorizacao";
 import { DIAS_DA_SEMANA, estaOcupando, formatarHora } from "@/lib/agendamento/regras";
+import { mascararCpf } from "@/lib/paciente/dados-paciente";
 import { prisma } from "@/lib/prisma";
 import { formatarData, formatarDataHora } from "../../formatar";
 import { PaginaModulo } from "../../pagina-modulo";
@@ -49,6 +50,7 @@ async function Atendimento({ parametros }: { parametros: Parametros }) {
       sala: { select: { nome: true } },
       sessoes: {
         orderBy: { data: "desc" },
+        take: 50,
         select: { id: true, data: true, presenca: true, registradoPor: { select: { nome: true } } },
       },
       eventos: {
@@ -73,14 +75,14 @@ async function Atendimento({ parametros }: { parametros: Parametros }) {
       <section className="flex flex-col gap-1">
         <h2 className="font-semibold">{paciente.nome}</h2>
         <p>
-          CPF {paciente.cpf} — nascimento {formatarData(paciente.dataNascimento)}
+          CPF {mascararCpf(paciente.cpf)} — nascimento {formatarData(paciente.dataNascimento)}
         </p>
         <p>
           {paciente.telefone} — {paciente.email}
         </p>
         {paciente.responsavelNome && (
           <p>
-            Responsável: {paciente.responsavelNome} (CPF {paciente.responsavelCpf})
+            Responsável: {paciente.responsavelNome} (CPF {mascararCpf(paciente.responsavelCpf ?? "")})
           </p>
         )}
       </section>
