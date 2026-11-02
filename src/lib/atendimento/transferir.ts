@@ -21,14 +21,13 @@ const transferenciaSchema = z.object({
 
 type Destino = { unidadeId: string; equipeId: string; estagiarioId: string };
 
-async function carregarPeriodoId(tx: Transacao, unidadeId: string, agora: Date): Promise<string> {
+async function buscarPeriodoId(tx: Transacao, unidadeId: string, agora: Date): Promise<string | null> {
   const periodo = await tx.periodoLetivo.findFirst({
     where: { unidadeId, fim: { gte: hojeNoBrasil(agora) } },
     orderBy: { inicio: "asc" },
     select: { id: true },
   });
-  if (!periodo) throw new ErroDeRegra("SEM_PERIODO_LETIVO", "Não há período letivo aberto nesta unidade.");
-  return periodo.id;
+  return periodo?.id ?? null;
 }
 
 function horariosDaEquipe(destino: Destino, periodoLetivoId: string) {
@@ -87,7 +86,9 @@ export async function listarHorariosParaTransferencia(
   agora = new Date(),
 ): Promise<HorarioParaTransferencia[]> {
   const agendamento = await carregarAgendamentoAtivo(prisma, agendamentoId, usuario, PERFIS_DA_SECRETARIA);
-  const periodoLetivoId = await carregarPeriodoId(prisma, agendamento.unidadeId, agora);
+  const periodoLetivoId = await buscarPeriodoId(prisma, agendamento.unidadeId, agora);
+  if (!periodoLetivoId) return [];
+
   const horarios = await prisma.horarioDisponivel.findMany({
     where: { ...horariosDaEquipe(agendamento, periodoLetivoId), ocupadoPor: { is: null } },
     orderBy: [{ estagiario: { nome: "asc" } }, { diaSemana: "asc" }, { horaInicio: "asc" }],
@@ -129,7 +130,9 @@ async function transferirNaTransacao(
     throw new ErroDeRegra("STATUS_INVALIDO", "Só é possível transferir um atendimento confirmado.");
   }
 
-  const periodoLetivoId = await carregarPeriodoId(tx, agendamento.unidadeId, agora);
+  const periodoLetivoId = await buscarPeriodoId(tx, agendamento.unidadeId, agora);
+  if (!periodoLetivoId) throw new ErroDeRegra("SEM_PERIODO_LETIVO", "Não há período letivo aberto nesta unidade.");
+
   const horario = await tx.horarioDisponivel.findFirst({
     where: { ...horariosDaEquipe(agendamento, periodoLetivoId), id: horarioDisponivelId },
     select: dadosDoHorario(agendamento, periodoLetivoId),
