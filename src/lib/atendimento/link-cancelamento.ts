@@ -22,13 +22,14 @@ export async function gerarNovoLinkDeCancelamento(agendamentoId: string, usuario
 
     const token = gerarToken();
     const dados = { tokenHash: hashToken(token), expiraEm: new Date(agendamento.dataFim.getTime() + UM_DIA_MS) };
+    const codigo = atual?.codigo ?? gerarCodigo();
     if (atual) {
       await tx.tokenAcesso.update({ where: { id: atual.id }, data: dados });
-      return { codigo: atual.codigo, token };
+    } else {
+      await tx.tokenAcesso.create({ data: { ...dados, agendamentoId, codigo, tipo: "CANCELAMENTO" } });
     }
 
-    const codigo = gerarCodigo();
-    await tx.tokenAcesso.create({ data: { ...dados, agendamentoId, codigo, tipo: "CANCELAMENTO" } });
+    await tx.eventoAgendamento.create({ data: { agendamentoId, tipo: "LINK_CANCELAMENTO_GERADO", usuarioId: usuario.id } });
     return { codigo, token };
   });
 }

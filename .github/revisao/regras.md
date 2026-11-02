@@ -40,7 +40,7 @@
 - Leitura de pendente respeita `filtroAgendamentoAtivo` ou `estaOcupando`.
 - Entrada validada com Zod no servidor.
 - Tabela de outro card passa pelo dono.
-- Migration já aplicada não é editada, e schema novo leva migration no PR.
+- Até o app ir para produção, existe um único arquivo de migration inicial, recriado a cada mudança de schema, e o PR leva esse arquivo. Depois da produção, migration aplicada não é editada e schema novo leva migration nova.
 - Performance: evite N+1 e produto cartesiano, use `select`/`include`, pagine listas e crie índice nos filtros.
 - Leitura de cookie, banco ou `searchParams` fica dentro de `<Suspense>`.
 - Sem comentários no código.

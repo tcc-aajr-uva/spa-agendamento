@@ -43,6 +43,7 @@ enum TipoEvento {
   TERMO_ASSINADO
   TRANSFERIDO
   ENCERRADO
+  LINK_CANCELAMENTO_GERADO
 }
 
 enum StatusListaEspera {
