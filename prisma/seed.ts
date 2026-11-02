@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type Perfil } from "../src/generated/prisma/client";
+import { hojeNoBrasil } from "../src/lib/agendamento/regras";
 import { gerarHashDaSenha } from "../src/lib/auth/password";
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
@@ -8,7 +9,7 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: proc
 const UM_DIA_MS = 24 * 60 * 60 * 1000;
 const UMA_HORA_MS = 60 * 60 * 1000;
 const agora = new Date();
-const hoje = new Date(`${agora.toISOString().slice(0, 10)}T00:00:00Z`);
+const hoje = hojeNoBrasil(agora);
 
 const UNIDADES = [
   { id: "seed-unidade-tijuca", nome: "Tijuca", agendamentoAberto: true },
@@ -267,7 +268,10 @@ async function exemplosDeAgendamento() {
     },
     data: { horarioAtivoId: null, salaAtivaChave: null, pacienteAtivoId: null, status: "CANCELADO", encerradoEm: agora },
   });
-  await prisma.sessao.deleteMany({ where: { ...naoSeed, agendamentoId: { in: EXEMPLOS.map((exemplo) => exemplo.id) } } });
+  const idsDosExemplos = { in: EXEMPLOS.map((exemplo) => exemplo.id) };
+  await prisma.sessao.deleteMany({ where: { ...naoSeed, agendamentoId: idsDosExemplos } });
+  await prisma.eventoAgendamento.deleteMany({ where: { agendamentoId: idsDosExemplos } });
+  await prisma.tokenAcesso.deleteMany({ where: { agendamentoId: idsDosExemplos } });
 
   for (const { exemplo, unidadeId, equipeId, estagiarioId, diaSemana, horaInicio, horarioId, salaId, salaChave } of preparados) {
     const dados = {
@@ -293,9 +297,10 @@ async function exemplosDeAgendamento() {
     };
     await prisma.agendamento.upsert({
       where: { id: exemplo.id },
-      create: { id: exemplo.id, ...dados, eventos: { create: { tipo: "CRIADO" } } },
+      create: { id: exemplo.id, ...dados },
       update: dados,
     });
+    await prisma.eventoAgendamento.create({ data: { agendamentoId: exemplo.id, tipo: "CRIADO" } });
 
     for (const sessao of exemplo.sessoes ?? []) {
       const id = `${exemplo.id}-sessao-${sessao.semanasAtras}`;
