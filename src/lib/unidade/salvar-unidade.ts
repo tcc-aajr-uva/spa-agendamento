@@ -15,11 +15,13 @@ import {
 export async function criarUnidade(entrada: DadosUnidade, autor: ContextoAutorizacao): Promise<string> {
   if (!podeCriarUnidade(autor)) throw new ErroDeRegra("SEM_PERMISSAO", "Somente o administrador pode criar unidades.");
   const dados = validar(entrada);
-  await garantirNomeDisponivel(dados.nome);
 
   try {
-    const unidade = await prisma.unidade.create({ data: dados, select: { id: true } });
-    return unidade.id;
+    return await executarEmTransacao(async (tx) => {
+      await garantirNomeDisponivel(tx, dados.nome);
+      const unidade = await tx.unidade.create({ data: dados, select: { id: true } });
+      return unidade.id;
+    });
   } catch (erro) {
     tratarNomeRepetido(erro);
     throw erro;
@@ -55,7 +57,7 @@ export async function atualizarUnidade(
       }
 
       validarCamposDaSecretaria(autor, unidade, dados);
-      await garantirNomeDisponivel(dados.nome, unidade.id, tx);
+      await garantirNomeDisponivel(tx, dados.nome, unidade.id);
       await validarHorariosAtivosNaGrade(tx, unidade, dados);
       const atualizacao = await tx.unidade.updateMany({
         where: { id: unidade.id, atualizadoEm: versao },
@@ -105,11 +107,11 @@ function tratarNomeRepetido(erro: unknown): void {
 }
 
 async function garantirNomeDisponivel(
+  tx: Transacao,
   nome: string,
   ignorarId?: string,
-  cliente: Pick<Transacao, "unidade"> = prisma,
 ): Promise<void> {
-  const repetida = await cliente.unidade.findFirst({
+  const repetida = await tx.unidade.findFirst({
     where: {
       nome: { equals: nome, mode: "insensitive" },
       ...(ignorarId ? { id: { not: ignorarId } } : {}),

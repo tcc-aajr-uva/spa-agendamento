@@ -2,6 +2,8 @@
 
 import { useActionState, useState } from "react";
 
+import { formatarHora } from "@/lib/agendamento/regras";
+
 import type { EstadoUnidade } from "./actions";
 import { MensagemSucesso } from "./mensagem-sucesso";
 
@@ -186,10 +188,6 @@ function OpcaoBooleana({
       <span>{rotulo}</span>
     </label>
   );
-}
-
-function formatarHora(minutos: number): string {
-  return `${String(Math.floor(minutos / 60)).padStart(2, "0")}:${String(minutos % 60).padStart(2, "0")}`;
 }
 
 function chaveDosValores(valores: ValoresUnidade): string {

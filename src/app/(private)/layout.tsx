@@ -30,16 +30,16 @@ async function Navegacao() {
             <Submenu
               key={item.href}
               rotulo={item.rotulo}
-              itens={filhos.map(({ href, rotulo }) => ({
+              itens={filhos.map(({ href, rotulo, prefetch }) => ({
                 href,
                 rotulo,
-                prefetch: href === "/cadastros/unidades" ? false : undefined,
+                prefetch,
               }))}
             />
           );
         }
         return (
-          <Link key={item.href} href={item.href} className="underline">
+          <Link key={item.href} href={item.href} className="underline" prefetch={item.prefetch}>
             {item.rotulo}
           </Link>
         );

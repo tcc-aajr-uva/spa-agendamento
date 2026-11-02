@@ -5,6 +5,7 @@ export type ItemMenu = {
   rotulo: string;
   card: string;
   perfis: Perfil[];
+  prefetch?: boolean;
   filhos?: Omit<ItemMenu, "card" | "filhos">[];
 };
 
@@ -19,6 +20,7 @@ export const MENU: ItemMenu[] = [
       {
         href: "/cadastros/unidades",
         rotulo: "Unidades",
+        prefetch: false,
         perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA"],
       },
       {
