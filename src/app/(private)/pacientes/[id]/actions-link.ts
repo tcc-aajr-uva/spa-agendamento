@@ -9,7 +9,7 @@ export async function gerarLink(agendamentoId: string): Promise<EstadoAcao> {
   const usuario = await exigirUsuario(perfisDaRota("/pacientes"));
   return executarAcao(async () => {
     const { codigo, token } = await gerarNovoLinkDeCancelamento(agendamentoId, usuario);
-    const link = await montarLinkDeCancelamento(token);
+    const link = montarLinkDeCancelamento(token);
     return { mensagem: `Envie ao paciente o código ${codigo} e o link ${link} (ele só aparece agora).`, avisarAoSair: true };
   });
 }
