@@ -2,13 +2,13 @@
 
 Comece o arquivo exatamente com `## 🔍 Review`, sem nenhum texto antes.
 
-Use os dados de `.revisao/contexto.md` na linha de resumo. A tabela de contagem aparece sempre, com zeros.
+Use os dados de `.revisao/contexto.md` na linha de resumo, sem mudar o trecho "commit `abc1234`": o workflow lê esse commit para reaproveitar o review em outros PRs. A tabela de contagem aparece sempre, com zeros.
 
 Seção sem conteúdo não aparece, e nunca escreva "nenhum achado encontrado". A única seção sempre publicada é "Não coberto".
 
 Todo achado Blocker, Major ou Minor tem os três campos: Achado, Impacto e Sugestão. Sem os três, ele não entra. Nit é uma linha só.
 
-Numere os achados em ordem de importância: `[1]`, `[2]`, `[3]`.
+Numere os achados em ordem de importância: `[1]`, `[2]`, `[3]`. Achado que veio de outro PR leva a origem no título, como `(do PR #18)`.
 
 Em `arquivo:linha`, use a linha do arquivo real, nunca a posição em `.revisao/diff.patch`. Antes de gravar, confirme cada linha com Grep no arquivo.
 
@@ -49,6 +49,10 @@ Em linguagem simples, o que o PR entrega para quem usa o sistema.
 
 - `arquivo.ts:10` — uma linha só.
 
+### ⚠️ Afeta outras tarefas
+
+- `src/lib/arquivo.ts:10` — o que mudou, de qual tarefa ou card veio e quem deve conferir.
+
 ### 🤔 Vale um olhar
 
 Suspeitas não comprovadas, marcadas como tal.
@@ -58,9 +62,14 @@ Suspeitas não comprovadas, marcadas como tal.
 - ✅ [1] resolvido
 - ❌ [2] persiste
 
+### ♻️ Reaproveitado de outros PRs
+
+- PR #18 (commit `abc1234`): já revisado, sem pendências.
+- PR #19 (commit `def5678`): 🟡 Minor ainda presente em `arquivo.ts:10`, em uma linha.
+
 ### 🧭 Não coberto
 
-Build e lint não foram executados. Liste também os arquivos que não foram lidos.
+Build e lint não foram executados. Liste também os arquivos que não foram lidos. Se houve reaproveitamento, diga que os commits já revisados não foram relidos.
 ```
 
 ## Veredito
@@ -71,6 +80,6 @@ Use exatamente um destes:
 - `🟡 Aprovar com ressalvas`: só minor, sem blocker ou major.
 - `🔴 Precisa de ajustes`: pelo menos um blocker ou major.
 
-Nit não muda o veredito.
+Nit, "Afeta outras tarefas" e "Reaproveitado de outros PRs" não mudam o veredito.
 
 O veredito é uma orientação. Quem aprova e faz o merge é uma pessoa do grupo.

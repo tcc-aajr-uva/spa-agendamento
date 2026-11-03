@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomInt } from "node:crypto";
 import { BYTES_TOKEN, TAMANHO_CODIGO } from "./token-constantes";
 
 const ALFABETO_CODIGO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const FORMATO_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 
 export function gerarToken(): string {
   return randomBytes(BYTES_TOKEN).toString("base64url");

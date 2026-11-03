@@ -29,7 +29,9 @@ Sistema de agendamento do Serviço de Psicologia Aplicada (SPA) da Universidade 
    npm run db:bootstrap-admin
    ```
 
-   Mudou o `schema.prisma`? Gere uma migration nova com nome descritivo (`npx prisma migrate dev --name tabela-sessao`) e leve a pasta gerada no PR. Nunca apague nem edite uma migration que já foi aplicada; em produção as migrations rodam com `npx prisma migrate deploy`.
+   Durante o desenvolvimento atual, o projeto recria a migration `Initial` e os bancos de desenvolvimento são descartáveis. Não há compromisso de preservar dados ou compatibilidade com a Initial anterior. Após excluir a Initial anterior e recriar o banco de desenvolvimento, gere a nova com `npx prisma migrate dev --name initial` e leve a pasta gerada no PR. Não há SQL adicional a acrescentar manualmente.
+
+   Depois da entrada em produção, preserve o histórico aplicado e crie migrations incrementais com nomes descritivos; em produção use `npx prisma migrate deploy`.
 
 4. Rode o projeto e acesse `/entrar`:
 
@@ -67,6 +69,7 @@ BETTER_AUTH_SECRET=substitua-por-uma-chave-local-longa-e-aleatoria
 BOOTSTRAP_ADMIN_NAME=Administrador
 BOOTSTRAP_ADMIN_EMAIL=admin@spa.teste
 BOOTSTRAP_ADMIN_PASSWORD=TesteAdmin@1234
+SEED_SENHA=TesteSeed@1234
 ```
 
 | Variável | Finalidade |
@@ -78,6 +81,7 @@ BOOTSTRAP_ADMIN_PASSWORD=TesteAdmin@1234
 | `BOOTSTRAP_ADMIN_NAME` | Nome do primeiro administrador criado pelo bootstrap. |
 | `BOOTSTRAP_ADMIN_EMAIL` | E-mail do primeiro administrador criado pelo bootstrap. |
 | `BOOTSTRAP_ADMIN_PASSWORD` | Senha inicial do administrador. Deve possuir ao menos 12 caracteres e no máximo 72 bytes. |
+| `SEED_SENHA` | Só para desenvolvimento e opcional. Com ela, `npm run db:seed` cria o login de cada usuário de teste (e-mails `seed-...@spa.teste`), para testar com cada perfil. Nunca configure em produção. |
 
 O arquivo `.env` não deve ser commitado. Em produção, configure as variáveis diretamente no provedor de deploy e remova as três variáveis `BOOTSTRAP_ADMIN_*` depois que o primeiro administrador for criado.
 
@@ -158,8 +162,8 @@ Com Cache Components, qualquer leitura de cookie, banco ou `searchParams` fica d
 | `agendamento/liberar-agendamento.ts` | `liberarAgendamento(id, { status, motivo, usuarioId })`: a função única que libera horário e sala | #2, #3, #4 |
 | `lista-espera/adicionar-lista-espera.ts` | `adicionarListaEspera(entrada, usuario)` | #4, #3 |
 | `salas/situacao-sala.ts` | `alterarSituacaoDaSala(usuario, salaId, ativar)`: não desativa sala com agendamento ativo | #2 |
-| `agenda/horarios.ts` | `adicionarHorarioDoEstagiario` (só dentro da grade da unidade) e `removerHorarioDoEstagiario` (recusa horário com paciente) | #2 |
-| `agenda/reservas.ts` | `cancelarReservaDoEstagiario(usuario, agendamentoId)`: só a reserva do próprio estagiário, liberando horário e sala | #2 |
+| `agenda/horarios.ts` | `adicionarHorarioDoEstagiario` (só dentro da grade da unidade), `removerHorarioDoEstagiario` e `trocarHorarioDoEstagiario` (recusam horário com paciente) | #2 |
+| `agenda/reservas.ts` | `cancelarReservaDoEstagiario(usuario, agendamentoId)`: só a reserva do próprio estagiário, liberando horário e sala; `remarcarReservaDoEstagiario(usuario, agendamentoId, horarioId)`: muda o mesmo agendamento, para todas as semanas, para um horário livre do próprio estagiário | #2 |
 
 ### Autenticação
 
@@ -186,6 +190,8 @@ O workflow `.github/workflows/revisao-pr.yml` usa o Claude para revisar cada PR 
 - Roda ao abrir, reabrir ou tirar o PR de rascunho, se o workflow existir na branch do PR ou na base dele.
 - Para pedir uma revisão em qualquer PR, comente `/revisar` ou `/review`. O bot reage com 👀 e responde em cerca de 1 minuto. Esse comando usa o workflow e as regras da `main`, então funciona mesmo em branches antigas.
 - O que o bot olha fica em `.github/revisao/regras.md`, e o modelo do comentário em `.github/revisao/formato.md`.
+- Commit já revisado em outro PR não é revisado de novo. No PR da branch principal para a `main`, o bot reaproveita os reviews das tarefas: olha só os commits novos, confere se as partes funcionam juntas e traz de volta os achados Blocker e Major que ainda existem no código. Isso depende de merge commit, porque o squash troca os commits e o PR é revisado por inteiro.
+- O bot avisa quando o PR altera algo feito por outra tarefa ou outro card, e cobra uma única migration até o app ir para produção. Ele só comenta e sugere a correção: nunca altera o código.
 - O veredito é uma orientação: não bloqueia o merge e não substitui a revisão de outra pessoa, o `npm run lint` nem o `npm run build`.
 - Precisa do secret `CLAUDE_CODE_OAUTH_TOKEN` no repositório, gerado com `claude setup-token`.
 

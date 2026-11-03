@@ -1,0 +1,91 @@
+import { Suspense } from "react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { exigirUsuario } from "@/lib/auth/autorizacao";
+import { consultarUsuarioGerenciavel } from "@/lib/usuario/consultar-usuario-gerenciavel";
+import { listarOpcoesDeVinculo } from "@/lib/usuario/opcoes-vinculo";
+import { podeConfigurarAtendimento } from "@/lib/usuario/atendimento-estagiario";
+import type { ParametrosBusca } from "@/lib/url/parametros-busca";
+import { rotuloDoEstadoAcesso, rotuloDoPerfil } from "@/lib/usuario/rotulos";
+import { perfisDaRota } from "../../../menu";
+import { alterarAtivacao, atualizarUsuario } from "./actions";
+import { ControleAtivacaoUsuario } from "./controle-ativacao";
+import { FormularioEdicaoUsuario } from "./formulario-edicao";
+import { SecaoAtendimento } from "./secao-atendimento";
+
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<ParametrosBusca>;
+};
+
+export default function UsuarioPage({ params, searchParams }: Props) {
+  return (
+    <section className="space-y-6">
+      <Link className="underline" href="/cadastros/usuarios">
+        Voltar para usuários
+      </Link>
+      <Suspense fallback={<p>Carregando usuário…</p>}>
+        <ConteudoUsuario params={params} searchParams={searchParams} />
+      </Suspense>
+    </section>
+  );
+}
+
+async function ConteudoUsuario({ params, searchParams }: Props) {
+  const autor = await exigirUsuario(perfisDaRota("/cadastros"));
+  const { id } = await params;
+  const usuario = await consultarUsuarioGerenciavel(id, autor);
+  if (!usuario) notFound();
+
+  const tipoVinculo =
+    usuario.perfil === "COORDENACAO" || usuario.perfil === "SECRETARIA" ? "unidadeIds" : "equipeIds";
+  const vinculosIniciais = tipoVinculo === "unidadeIds" ? usuario.unidadeIds : usuario.equipeIds;
+  const opcoes = await listarOpcoesDeVinculo(autor, usuario.perfil, usuario.id);
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold">Detalhes do usuário</h1>
+        <p>{usuario.email}</p>
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded border px-2 py-0.5 text-sm">{rotuloDoPerfil(usuario.perfil)}</span>
+          <span className="rounded border px-2 py-0.5 text-sm">{rotuloDoEstadoAcesso(usuario.estadoAcesso)}</span>
+        </div>
+        <p className="text-sm text-gray-600">O e-mail e o perfil não podem ser alterados nesta tela.</p>
+      </div>
+
+      <FormularioEdicaoUsuario
+        key={`${usuario.id}:${usuario.ativo}`}
+        acao={atualizarUsuario.bind(null, usuario.id)}
+        nome={usuario.nome}
+        opcoes={opcoes}
+        possuiVinculosForaDoEscopo={usuario.possuiVinculosForaDoEscopo}
+        restringirEquipesAUmaUnidade={usuario.perfil === "ESTAGIARIO"}
+        tipoVinculo={tipoVinculo}
+        vinculosIniciais={vinculosIniciais}
+      />
+
+      {usuario.perfil === "ESTAGIARIO" && podeConfigurarAtendimento(autor) && (
+        <Suspense fallback={<p>Carregando configuração de atendimento…</p>}>
+          <SecaoAtendimento estagiarioId={usuario.id} autor={autor} searchParams={searchParams} />
+        </Suspense>
+      )}
+
+      {usuario.podeAlterarAcesso ? (
+        <ControleAtivacaoUsuario acao={alterarAtivacao.bind(null, usuario.id)} ativo={usuario.ativo} />
+      ) : (
+        <p className="rounded border p-4 text-sm text-gray-600">
+          O acesso global só pode ser alterado pelo administrador ou por uma coordenação responsável por todas as
+          unidades deste usuário.
+        </p>
+      )}
+
+      {usuario.ativo && usuario.estadoAcesso !== "ATIVO" && (
+        <Link className="inline-block underline" href={`/cadastros/usuarios/${usuario.id}/convites`}>
+          Gerenciar convite
+        </Link>
+      )}
+    </div>
+  );
+}

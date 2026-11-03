@@ -11,7 +11,7 @@ CREATE TYPE "MotivoEncerramento" AS ENUM ('NAO_CONFIRMADO', 'NAO_LOCALIZADO', 'D
 CREATE TYPE "Presenca" AS ENUM ('PRESENTE', 'FALTA', 'FALTA_JUSTIFICADA');
 
 -- CreateEnum
-CREATE TYPE "TipoEvento" AS ENUM ('CRIADO', 'CONFIRMADO', 'CANCELADO', 'REMARCADO', 'FALTA', 'TERMO_ASSINADO', 'TRANSFERIDO', 'ENCERRADO');
+CREATE TYPE "TipoEvento" AS ENUM ('CRIADO', 'CONFIRMADO', 'CANCELADO', 'REMARCADO', 'FALTA', 'TERMO_ASSINADO', 'TRANSFERIDO', 'ENCERRADO', 'LINK_CANCELAMENTO_GERADO');
 
 -- CreateEnum
 CREATE TYPE "StatusListaEspera" AS ENUM ('AGUARDANDO', 'CHAMADO', 'REMOVIDO');
@@ -138,6 +138,7 @@ CREATE TABLE "Unidade" (
     "horaFechamento" INTEGER NOT NULL DEFAULT 1260,
     "duracaoBlocoMin" INTEGER NOT NULL DEFAULT 50,
     "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "atualizadoEm" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Unidade_pkey" PRIMARY KEY ("id")
 );
@@ -341,6 +342,9 @@ CREATE INDEX "VerificacaoAutenticacao_identifier_idx" ON "VerificacaoAutenticaca
 
 -- CreateIndex
 CREATE UNIQUE INDEX "LimiteRequisicao_key_key" ON "LimiteRequisicao"("key");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Unidade_nome_key" ON "Unidade"("nome");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Equipe_unidadeId_nome_key" ON "Equipe"("unidadeId", "nome");

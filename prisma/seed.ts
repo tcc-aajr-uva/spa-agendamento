@@ -1,17 +1,22 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type Perfil } from "../src/generated/prisma/client";
+import { hojeNoBrasil } from "../src/lib/agendamento/regras";
+import { gerarHashDaSenha } from "../src/lib/auth/password";
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
 const UM_DIA_MS = 24 * 60 * 60 * 1000;
 const UMA_HORA_MS = 60 * 60 * 1000;
 const agora = new Date();
-const hoje = new Date(`${agora.toISOString().slice(0, 10)}T00:00:00Z`);
+const hoje = hojeNoBrasil(agora);
+const segundoSemestre = agora.getUTCMonth() >= 6;
+const inicioPeriodo = new Date(Date.UTC(agora.getUTCFullYear(), segundoSemestre ? 6 : 0, 1));
+const fimPeriodo = new Date(Date.UTC(agora.getUTCFullYear(), segundoSemestre ? 11 : 5, segundoSemestre ? 31 : 30));
 
 const UNIDADES = [
-  { id: "seed-unidade-tijuca", nome: "Tijuca", agendamentoAberto: true },
-  { id: "seed-unidade-barra", nome: "Barra", agendamentoAberto: false },
+  { chave: "tijuca", nome: "Tijuca", agendamentoAberto: true },
+  { chave: "barra", nome: "Barra", agendamentoAberto: false },
 ];
 
 const EQUIPES = [
@@ -30,9 +35,26 @@ const HORARIOS_POR_ESTAGIARIO = [
   ],
 ];
 
-async function usuario(id: string, nome: string, perfil: Perfil) {
-  const dados = { nome, email: `${id}@spa.teste`, perfil };
-  await prisma.usuario.upsert({ where: { id }, create: { id, ...dados }, update: dados });
+const senhaDeTeste = process.env.SEED_SENHA ? gerarHashDaSenha(process.env.SEED_SENHA) : null;
+
+async function usuario(chave: string, nome: string, perfil: Perfil) {
+  const dados = { nome, email: `${chave}@spa.teste`, emailVerificado: true, perfil };
+  const salvo = await prisma.usuario.upsert({
+    where: { email: dados.email },
+    create: dados,
+    update: { nome, perfil },
+    select: { id: true },
+  });
+
+  const password = await senhaDeTeste;
+  if (password) {
+    await prisma.contaAutenticacao.upsert({
+      where: { providerId_accountId: { providerId: "credential", accountId: salvo.id } },
+      create: { accountId: salvo.id, providerId: "credential", userId: salvo.id, password },
+      update: { password },
+    });
+  }
+  return salvo;
 }
 
 async function vincularUnidade(usuarioId: string, unidadeId: string) {
@@ -52,65 +74,98 @@ async function vincularEquipe(usuarioId: string, equipeId: string, unidadeId: st
 }
 
 async function main() {
+  if (process.env.NODE_ENV === "production") throw new Error("O seed não pode rodar em produção.");
+
   for (const unidade of UNIDADES) {
     const dadosUnidade = { nome: unidade.nome, agendamentoAberto: unidade.agendamentoAberto };
-    await prisma.unidade.upsert({ where: { id: unidade.id }, create: { id: unidade.id, ...dadosUnidade }, update: dadosUnidade });
+    const unidadeExistente = await prisma.unidade.findFirst({
+      where: { nome: { equals: unidade.nome, mode: "insensitive" } },
+      select: { id: true },
+    });
+    const unidadeSalva = unidadeExistente
+      ? await prisma.unidade.update({
+          where: { id: unidadeExistente.id },
+          data: dadosUnidade,
+          select: { id: true },
+        })
+      : await prisma.unidade.create({ data: dadosUnidade, select: { id: true } });
 
-    const periodoId = `${unidade.id}-periodo`;
-    const periodo = { unidadeId: unidade.id, inicio: new Date(hoje.getTime() - 30 * UM_DIA_MS), fim: new Date(hoje.getTime() + 120 * UM_DIA_MS) };
-    await prisma.periodoLetivo.upsert({ where: { id: periodoId }, create: { id: periodoId, ...periodo }, update: periodo });
+    const periodoSalvo =
+      (await prisma.periodoLetivo.findFirst({
+        where: { unidadeId: unidadeSalva.id, inicio: inicioPeriodo, fim: fimPeriodo },
+        select: { id: true },
+      })) ??
+      (await prisma.periodoLetivo.create({
+        data: { unidadeId: unidadeSalva.id, inicio: inicioPeriodo, fim: fimPeriodo },
+        select: { id: true },
+      }));
 
     for (const numero of [1, 2, 3]) {
-      const salaId = `${unidade.id}-sala-${numero}`;
       await prisma.sala.upsert({
-        where: { id: salaId },
-        create: { id: salaId, unidadeId: unidade.id, nome: `Sala ${numero}` },
-        update: { nome: `Sala ${numero}` },
+        where: { unidadeId_nome: { unidadeId: unidadeSalva.id, nome: `Sala ${numero}` } },
+        create: { unidadeId: unidadeSalva.id, nome: `Sala ${numero}` },
+        update: { ativa: true },
       });
     }
 
-    const secretariaId = `${unidade.id}-secretaria`;
-    await usuario(secretariaId, `Secretaria ${unidade.nome}`, "SECRETARIA");
-    await vincularUnidade(secretariaId, unidade.id);
+    const secretaria = await usuario(
+      `seed-unidade-${unidade.chave}-secretaria`,
+      `Secretaria ${unidade.nome}`,
+      "SECRETARIA",
+    );
+    await vincularUnidade(secretaria.id, unidadeSalva.id);
 
     for (const equipe of EQUIPES) {
-      const equipeId = `${unidade.id}-${equipe.sufixo}`;
-      const supervisorId = `${equipeId}-supervisor`;
-      await prisma.equipe.upsert({
-        where: { id: equipeId },
-        create: { id: equipeId, unidadeId: unidade.id, nome: equipe.nome },
-        update: { nome: equipe.nome },
+      const chaveEquipe = `seed-unidade-${unidade.chave}-${equipe.sufixo}`;
+      const equipeSalva = await prisma.equipe.upsert({
+        where: { unidadeId_nome: { unidadeId: unidadeSalva.id, nome: equipe.nome } },
+        create: { unidadeId: unidadeSalva.id, nome: equipe.nome },
+        update: { ativa: true },
+        select: { id: true },
       });
-      await usuario(supervisorId, `Supervisor ${equipe.nome} ${unidade.nome}`, "SUPERVISOR");
-      await vincularUnidade(supervisorId, unidade.id);
-      await vincularEquipe(supervisorId, equipeId, unidade.id);
-      await prisma.equipe.update({ where: { id: equipeId }, data: { supervisorId } });
+      const supervisor = await usuario(
+        `${chaveEquipe}-supervisor`,
+        `Supervisor ${equipe.nome} ${unidade.nome}`,
+        "SUPERVISOR",
+      );
+      await vincularUnidade(supervisor.id, unidadeSalva.id);
+      await vincularEquipe(supervisor.id, equipeSalva.id, unidadeSalva.id);
+      await prisma.equipe.update({ where: { id: equipeSalva.id }, data: { supervisorId: supervisor.id } });
 
       for (const [indice, horarios] of HORARIOS_POR_ESTAGIARIO.entries()) {
-        const estagiarioId = `${equipeId}-estagiario-${indice + 1}`;
-        await usuario(estagiarioId, `Estagiário ${indice + 1} ${equipe.nome} ${unidade.nome}`, "ESTAGIARIO");
-        await vincularUnidade(estagiarioId, unidade.id);
-        await vincularEquipe(estagiarioId, equipeId, unidade.id);
+        const estagiario = await usuario(
+          `${chaveEquipe}-estagiario-${indice + 1}`,
+          `Estagiário ${indice + 1} ${equipe.nome} ${unidade.nome}`,
+          "ESTAGIARIO",
+        );
+        await vincularUnidade(estagiario.id, unidadeSalva.id);
+        await vincularEquipe(estagiario.id, equipeSalva.id, unidadeSalva.id);
         await prisma.configuracaoAtendimentoEstagiario.upsert({
-          where: { estagiarioId_equipeId_periodoLetivoId: { estagiarioId, equipeId, periodoLetivoId: periodoId } },
+          where: {
+            estagiarioId_equipeId_periodoLetivoId: {
+              estagiarioId: estagiario.id,
+              equipeId: equipeSalva.id,
+              periodoLetivoId: periodoSalvo.id,
+            },
+          },
           create: {
-            estagiarioId,
-            equipeId,
-            unidadeId: unidade.id,
-            periodoLetivoId: periodoId,
+            estagiarioId: estagiario.id,
+            equipeId: equipeSalva.id,
+            unidadeId: unidadeSalva.id,
+            periodoLetivoId: periodoSalvo.id,
             liberado: true,
             limitePacientes: 2,
           },
           update: {
-            unidadeId: unidade.id,
+            unidadeId: unidadeSalva.id,
             liberado: true,
             limitePacientes: 2,
           },
         });
         for (const horario of horarios) {
           await prisma.horarioDisponivel.upsert({
-            where: { estagiarioId_diaSemana_horaInicio: { estagiarioId, ...horario } },
-            create: { estagiarioId, ...horario },
+            where: { estagiarioId_diaSemana_horaInicio: { estagiarioId: estagiario.id, ...horario } },
+            create: { estagiarioId: estagiario.id, ...horario },
             update: { ativo: true },
           });
         }
@@ -121,63 +176,209 @@ async function main() {
   await exemplosDeAgendamento();
 }
 
+const PACIENTES_NA_LISTA = 25;
+
 const PACIENTES = [
-  { id: "seed-paciente-1", nome: "Paciente Confirmado", cpf: "52998224725" },
-  { id: "seed-paciente-2", nome: "Paciente Pendente", cpf: "11144477735" },
-  { id: "seed-paciente-3", nome: "Paciente Pendente Vencido", cpf: "15350946056" },
-  { id: "seed-paciente-4", nome: "Paciente Na Lista", cpf: "86288366757" },
+  { chave: "seed-paciente-1", nome: "Paciente Confirmado Sem Sessões", cpf: "52998224725" },
+  { chave: "seed-paciente-2", nome: "Paciente Pendente", cpf: "11144477735" },
+  { chave: "seed-paciente-3", nome: "Paciente Pendente Vencido", cpf: "15350946056" },
+  { chave: "seed-paciente-4", nome: "Paciente Na Lista", cpf: "86288366757" },
+  { chave: "seed-paciente-5", nome: "Paciente Duas Faltas", cpf: cpfDeTeste(310000001) },
+  { chave: "seed-paciente-6", nome: "Paciente Sem Termo", cpf: cpfDeTeste(310000002) },
+  { chave: "seed-paciente-7", nome: "Paciente Período Encerrado", cpf: cpfDeTeste(310000003) },
+  ...Array.from({ length: PACIENTES_NA_LISTA }, (_, indice) => {
+    const numero = String(indice + 1).padStart(2, "0");
+    return { chave: `seed-paciente-lista-${numero}`, nome: `Paciente Lista ${numero}`, cpf: cpfDeTeste(320000000 + (indice + 1) * 12347) };
+  }),
 ];
 
+type SessaoDeExemplo = { semanasAtras: number; presenca: "PRESENTE" | "FALTA" | "FALTA_JUSTIFICADA" };
+
+type Exemplo = {
+  paciente: string;
+  unidade: "tijuca" | "barra";
+  equipe: "neuro" | "infantil";
+  estagiario: number;
+  horario: number;
+  sala: number;
+  status: "PENDENTE" | "CONFIRMADO";
+  prazoHoras: number;
+  inicioSemanasAtras?: number;
+  fimEmDias?: number;
+  termoAssinado?: boolean;
+  sessoes?: SessaoDeExemplo[];
+};
+
+const EXEMPLOS: Exemplo[] = [
+  { paciente: "seed-paciente-1", unidade: "tijuca", equipe: "neuro", estagiario: 1, horario: 0, sala: 1, status: "CONFIRMADO", prazoHoras: -24, inicioSemanasAtras: 2 },
+  { paciente: "seed-paciente-2", unidade: "tijuca", equipe: "neuro", estagiario: 1, horario: 1, sala: 1, status: "PENDENTE", prazoHoras: 6 },
+  { paciente: "seed-paciente-3", unidade: "tijuca", equipe: "neuro", estagiario: 2, horario: 0, sala: 2, status: "PENDENTE", prazoHoras: -2 },
+  {
+    paciente: "seed-paciente-5",
+    unidade: "tijuca",
+    equipe: "infantil",
+    estagiario: 1,
+    horario: 0,
+    sala: 2,
+    status: "CONFIRMADO",
+    prazoHoras: -24 * 28,
+    inicioSemanasAtras: 4,
+    termoAssinado: true,
+    sessoes: [
+      { semanasAtras: 4, presenca: "PRESENTE" },
+      { semanasAtras: 3, presenca: "FALTA" },
+      { semanasAtras: 2, presenca: "FALTA_JUSTIFICADA" },
+    ],
+  },
+  {
+    paciente: "seed-paciente-6",
+    unidade: "tijuca",
+    equipe: "infantil",
+    estagiario: 1,
+    horario: 1,
+    sala: 2,
+    status: "CONFIRMADO",
+    prazoHoras: -24 * 14,
+    inicioSemanasAtras: 2,
+    sessoes: [{ semanasAtras: 2, presenca: "PRESENTE" }],
+  },
+  {
+    paciente: "seed-paciente-7",
+    unidade: "barra",
+    equipe: "neuro",
+    estagiario: 1,
+    horario: 0,
+    sala: 1,
+    status: "CONFIRMADO",
+    prazoHoras: -24 * 70,
+    inicioSemanasAtras: 10,
+    fimEmDias: -1,
+    termoAssinado: true,
+  },
+];
+
+function cpfDeTeste(numero: number): string {
+  const base = String(numero).padStart(9, "0").slice(-9).split("").map(Number);
+  const digito = (digitos: number[]) => {
+    const soma = digitos.reduce((total, valor, indice) => total + valor * (digitos.length + 1 - indice), 0);
+    const resto = (soma * 10) % 11;
+    return resto === 10 ? 0 : resto;
+  };
+  const primeiro = digito(base);
+  return [...base, primeiro, digito([...base, primeiro])].join("");
+}
+
+function ocorrencia(diaSemana: number, semanasAtras: number): Date {
+  const diasDesde = (hoje.getUTCDay() - diaSemana + 7) % 7;
+  return new Date(hoje.getTime() - (diasDesde + semanasAtras * 7) * UM_DIA_MS);
+}
+
+async function prepararExemplo(exemplo: Exemplo) {
+  const nomeDaUnidade = UNIDADES.find((unidade) => unidade.chave === exemplo.unidade)?.nome ?? "";
+  const nomeDaEquipe = EQUIPES.find((equipe) => equipe.sufixo === exemplo.equipe)?.nome ?? "";
+  const unidade = await prisma.unidade.findFirstOrThrow({ where: { nome: nomeDaUnidade }, select: { id: true } });
+  const equipe = await prisma.equipe.findUniqueOrThrow({
+    where: { unidadeId_nome: { unidadeId: unidade.id, nome: nomeDaEquipe } },
+    select: { id: true },
+  });
+  const estagiario = await prisma.usuario.findUniqueOrThrow({
+    where: { email: `seed-unidade-${exemplo.unidade}-${exemplo.equipe}-estagiario-${exemplo.estagiario}@spa.teste` },
+    select: { id: true },
+  });
+  const { diaSemana, horaInicio } = HORARIOS_POR_ESTAGIARIO[exemplo.estagiario - 1][exemplo.horario];
+  const horario = await prisma.horarioDisponivel.findUniqueOrThrow({
+    where: { estagiarioId_diaSemana_horaInicio: { estagiarioId: estagiario.id, diaSemana, horaInicio } },
+    select: { id: true },
+  });
+  const sala = await prisma.sala.findUniqueOrThrow({
+    where: { unidadeId_nome: { unidadeId: unidade.id, nome: `Sala ${exemplo.sala}` } },
+    select: { id: true },
+  });
+  const salaAtivaChave = `${sala.id}:${diaSemana}:${horaInicio}`;
+  return { exemplo, unidadeId: unidade.id, equipeId: equipe.id, estagiarioId: estagiario.id, salaId: sala.id, horarioId: horario.id, diaSemana, horaInicio, salaAtivaChave };
+}
+
+async function limparExemplosAnteriores(idsDosPacientes: string[]) {
+  const anteriores = await prisma.agendamento.findMany({ where: { pacienteId: { in: idsDosPacientes } }, select: { id: true } });
+  const agendamentoId = { in: anteriores.map((anterior) => anterior.id) };
+  await prisma.sessao.deleteMany({ where: { agendamentoId } });
+  await prisma.eventoAgendamento.deleteMany({ where: { agendamentoId } });
+  await prisma.tokenAcesso.deleteMany({ where: { agendamentoId } });
+  await prisma.agendamento.deleteMany({ where: { id: agendamentoId } });
+  await prisma.listaEspera.deleteMany({ where: { pacienteId: { in: idsDosPacientes } } });
+}
+
 async function exemplosDeAgendamento() {
+  const pacientes = new Map<string, string>();
   for (const paciente of PACIENTES) {
-    const dados = { nome: paciente.nome, cpf: paciente.cpf, dataNascimento: new Date("1995-05-10T00:00:00Z"), telefone: "21999990000", email: `${paciente.id}@spa.teste` };
-    await prisma.paciente.upsert({ where: { id: paciente.id }, create: { id: paciente.id, ...dados }, update: dados });
-  }
-
-  const equipeId = "seed-unidade-tijuca-neuro";
-  const exemplos = [
-    { id: "seed-agendamento-confirmado", pacienteId: "seed-paciente-1", estagiario: 1, horario: 0, sala: 1, status: "CONFIRMADO" as const, prazo: -24 },
-    { id: "seed-agendamento-pendente", pacienteId: "seed-paciente-2", estagiario: 1, horario: 1, sala: 1, status: "PENDENTE" as const, prazo: 6 },
-    { id: "seed-agendamento-vencido", pacienteId: "seed-paciente-3", estagiario: 2, horario: 0, sala: 2, status: "PENDENTE" as const, prazo: -2 },
-  ];
-
-  for (const exemplo of exemplos) {
-    const estagiarioId = `${equipeId}-estagiario-${exemplo.estagiario}`;
-    const { diaSemana, horaInicio } = HORARIOS_POR_ESTAGIARIO[exemplo.estagiario - 1][exemplo.horario];
-    const horario = await prisma.horarioDisponivel.findUniqueOrThrow({
-      where: { estagiarioId_diaSemana_horaInicio: { estagiarioId, diaSemana, horaInicio } },
+    const dados = { nome: paciente.nome, dataNascimento: new Date("1995-05-10T00:00:00Z"), telefone: "21999990000", email: `${paciente.chave}@spa.teste` };
+    const pacienteSalvo = await prisma.paciente.upsert({
+      where: { cpf: paciente.cpf },
+      create: { cpf: paciente.cpf, ...dados },
+      update: dados,
       select: { id: true },
     });
-    const salaId = `seed-unidade-tijuca-sala-${exemplo.sala}`;
-    const dados = {
-      unidadeId: "seed-unidade-tijuca",
-      equipeId,
-      horarioDisponivelId: horario.id,
-      estagiarioId,
-      salaId,
-      pacienteId: exemplo.pacienteId,
-      diaSemana,
-      horaInicio,
-      status: exemplo.status,
-      dataInicio: hoje,
-      dataFim: new Date(hoje.getTime() + 120 * UM_DIA_MS),
-      prazoConfirmacao: new Date(agora.getTime() + exemplo.prazo * UMA_HORA_MS),
-      confirmadoEm: exemplo.status === "CONFIRMADO" ? agora : null,
-      motivoEncerramento: null,
-      encerradoEm: null,
-      horarioAtivoId: horario.id,
-      salaAtivaChave: `${salaId}:${diaSemana}:${horaInicio}`,
-      pacienteAtivoId: exemplo.pacienteId,
-    };
-    await prisma.agendamento.upsert({
-      where: { id: exemplo.id },
-      create: { id: exemplo.id, ...dados, eventos: { create: { tipo: "CRIADO" } } },
-      update: dados,
+    pacientes.set(paciente.chave, pacienteSalvo.id);
+  }
+
+  await limparExemplosAnteriores([...pacientes.values()]);
+
+  const preparados = [];
+  for (const exemplo of EXEMPLOS) preparados.push(await prepararExemplo(exemplo));
+
+  for (const { exemplo, unidadeId, equipeId, estagiarioId, salaId, horarioId, diaSemana, horaInicio, salaAtivaChave } of preparados) {
+    const pacienteId = pacientes.get(exemplo.paciente);
+    if (!pacienteId) throw new Error(`Paciente de demonstração não encontrado: ${exemplo.paciente}`);
+    await prisma.agendamento.create({
+      data: {
+        unidadeId,
+        equipeId,
+        horarioDisponivelId: horarioId,
+        estagiarioId,
+        salaId,
+        pacienteId,
+        diaSemana,
+        horaInicio,
+        status: exemplo.status,
+        dataInicio: exemplo.inicioSemanasAtras === undefined ? hoje : ocorrencia(diaSemana, exemplo.inicioSemanasAtras),
+        dataFim: exemplo.fimEmDias === undefined ? fimPeriodo : new Date(hoje.getTime() + exemplo.fimEmDias * UM_DIA_MS),
+        prazoConfirmacao: new Date(agora.getTime() + exemplo.prazoHoras * UMA_HORA_MS),
+        confirmadoEm: exemplo.status === "CONFIRMADO" ? agora : null,
+        termoAssinadoEm: exemplo.termoAssinado ? agora : null,
+        horarioAtivoId: horarioId,
+        salaAtivaChave,
+        pacienteAtivoId: pacienteId,
+        eventos: { create: { tipo: "CRIADO" } },
+        sessoes: {
+          create: (exemplo.sessoes ?? []).map((sessao) => ({
+            data: ocorrencia(diaSemana, sessao.semanasAtras),
+            presenca: sessao.presenca,
+            registradoPorId: estagiarioId,
+          })),
+        },
+      },
     });
   }
 
-  const lista = { unidadeId: "seed-unidade-tijuca", equipeId: "seed-unidade-tijuca-infantil", pacienteId: "seed-paciente-4", pacienteAtivoId: "seed-paciente-4" };
-  await prisma.listaEspera.upsert({ where: { id: "seed-lista-1" }, create: { id: "seed-lista-1", ...lista }, update: { ...lista, status: "AGUARDANDO" } });
+  const unidade = await prisma.unidade.findFirstOrThrow({ where: { nome: "Tijuca" }, select: { id: true } });
+  const equipeInfantil = await prisma.equipe.findUniqueOrThrow({
+    where: { unidadeId_nome: { unidadeId: unidade.id, nome: EQUIPES[1].nome } },
+    select: { id: true },
+  });
+  const inscricoes = [
+    { paciente: "seed-paciente-4", inscritoEm: new Date(agora.getTime() - 40 * UM_DIA_MS) },
+    ...PACIENTES.filter((paciente) => paciente.chave.startsWith("seed-paciente-lista-")).map((paciente, indice) => ({
+      paciente: paciente.chave,
+      inscritoEm: new Date(agora.getTime() - (30 - indice) * UM_DIA_MS),
+    })),
+  ];
+  for (const inscricao of inscricoes) {
+    const pacienteId = pacientes.get(inscricao.paciente);
+    if (!pacienteId) throw new Error(`Paciente da lista de espera não encontrado: ${inscricao.paciente}`);
+    await prisma.listaEspera.create({
+      data: { unidadeId: unidade.id, equipeId: equipeInfantil.id, pacienteId, pacienteAtivoId: pacienteId, inscritoEm: inscricao.inscritoEm },
+    });
+  }
 }
 
 main()
