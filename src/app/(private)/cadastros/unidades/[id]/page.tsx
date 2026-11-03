@@ -1,21 +1,29 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { ArrowLeftIcon } from "lucide-react";
 import { notFound } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { consultarUnidadeGerenciavel } from "@/lib/unidade/consultar-unidade";
 import { PERFIS_UNIDADES, podeAlterarAtivacaoDeUnidade } from "@/lib/unidade/escopo-unidade";
 import { alterarAtivacao, atualizarUnidade } from "../actions";
 import { FormularioUnidade } from "../formulario-unidade";
+import { AbasUnidade } from "./abas-unidade";
 import { ControleAtivacaoUnidade } from "./controle-ativacao";
+import { NotificacaoUnidadeCriada } from "./notificacao-unidade-criada";
 import { SecaoPeriodos, type ParametrosPeriodos } from "./periodos/secao-periodos";
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<ParametrosPeriodos> };
 
 export default function UnidadePage({ params, searchParams }: Props) {
   return (
-    <section className="space-y-6">
-      <Link className="underline" href="/cadastros/unidades" prefetch={false}>Voltar para unidades</Link>
+    <section className="mx-auto w-full max-w-7xl space-y-6">
+      <Button variant="ghost" nativeButton={false} render={<Link href="/cadastros/unidades" prefetch={false} />}>
+        <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
+        Voltar para unidades
+      </Button>
       <Suspense fallback={<p>Carregando unidade…</p>}>
         <ConteudoUnidade params={params} searchParams={searchParams} />
       </Suspense>
@@ -31,30 +39,37 @@ async function ConteudoUnidade({ params, searchParams }: Props) {
 
   return (
     <div className="space-y-6">
+      <NotificacaoUnidadeCriada />
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold">{unidade.nome}</h1>
-          <span className={`rounded border px-2 py-0.5 text-sm ${unidade.ativa ? "" : "text-red-700"}`}>
+          <Badge variant={unidade.ativa ? "default" : "outline"}>
             {unidade.ativa ? "Ativa" : "Inativa"}
-          </span>
+          </Badge>
         </div>
-        <p className="text-sm text-gray-600">Altere as regras de funcionamento e de agendamento da unidade.</p>
+        <p className="text-sm text-muted-foreground">Altere as regras de funcionamento e de agendamento da unidade.</p>
       </div>
 
-      <FormularioUnidade
-        acao={atualizarUnidade.bind(null, unidade.id)}
-        podeAlterarDadosAdministrativos={autor.perfil !== "SECRETARIA"}
-        rotuloBotao="Salvar alterações"
-        valores={{ ...unidade, atualizadoEm: unidade.atualizadoEm.toISOString() }}
+      <AbasUnidade
+        dados={
+          <>
+            <FormularioUnidade
+              acao={atualizarUnidade.bind(null, unidade.id)}
+              podeAlterarDadosAdministrativos={autor.perfil !== "SECRETARIA"}
+              rotuloBotao="Salvar alterações"
+              valores={{ ...unidade, atualizadoEm: unidade.atualizadoEm.toISOString() }}
+            />
+            {podeAlterarAtivacaoDeUnidade(autor) && (
+              <ControleAtivacaoUnidade acao={alterarAtivacao.bind(null, unidade.id)} ativa={unidade.ativa} />
+            )}
+          </>
+        }
+        periodos={
+          <Suspense fallback={<p>Carregando períodos letivos…</p>}>
+            <SecaoPeriodos unidadeId={id} autor={autor} caminhoLista={`/cadastros/unidades/${id}`} searchParams={searchParams} />
+          </Suspense>
+        }
       />
-
-      <Suspense fallback={<p>Carregando períodos letivos…</p>}>
-        <SecaoPeriodos unidadeId={id} autor={autor} caminhoLista={`/cadastros/unidades/${id}`} searchParams={searchParams} />
-      </Suspense>
-
-      {podeAlterarAtivacaoDeUnidade(autor) && (
-        <ControleAtivacaoUnidade acao={alterarAtivacao.bind(null, unidade.id)} ativa={unidade.ativa} />
-      )}
     </div>
   );
 }

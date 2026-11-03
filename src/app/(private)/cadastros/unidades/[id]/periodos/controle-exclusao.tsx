@@ -1,6 +1,11 @@
 "use client";
 
-import { useActionState, useId } from "react";
+import { useActionState, useId, useState } from "react";
+import { CircleAlertIcon, LockKeyholeIcon } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DatasPeriodo } from "@/lib/periodo-letivo/dados-periodo";
 import type { EstadoPeriodo } from "./actions";
 
@@ -9,31 +14,65 @@ export function ControleExclusaoPeriodo({ acao, valores, motivosBloqueio }: {
 }) {
   const [estado, excluir, excluindo] = useActionState(acao, {});
   const descricaoId = useId();
+  const formularioId = useId();
+  const [confirmacaoAberta, definirConfirmacaoAberta] = useState(false);
   const bloqueado = motivosBloqueio.length > 0;
   return (
-    <form action={excluir} className="space-y-3 rounded border p-4" onSubmit={(evento) => {
+    <form id={formularioId} action={excluir} onSubmit={(evento) => {
       if (bloqueado) {
         evento.preventDefault();
         return;
       }
-      if (!window.confirm("Excluir este período letivo? Esta ação não pode ser desfeita.")) evento.preventDefault();
+      definirConfirmacaoAberta(false);
     }}>
-      <h2 className="font-semibold">Excluir período</h2>
-      <p className="text-sm text-gray-600">Somente períodos futuros sem configurações de atendimento nem agendamentos podem ser excluídos.</p>
-      {bloqueado && (
-        <div id={descricaoId} className="space-y-1 text-sm text-gray-600">
-          <p>A exclusão está bloqueada pelos seguintes motivos:</p>
-          <ul className="list-disc space-y-1 pl-5">
-            {motivosBloqueio.map((motivo) => <li key={motivo}>{motivo}</li>)}
-          </ul>
-        </div>
-      )}
       <input type="hidden" name="versao" value={JSON.stringify(valores)} />
-      <button className="rounded border px-3 py-2 text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-        type="submit" disabled={excluindo || bloqueado} aria-describedby={bloqueado ? descricaoId : undefined}>
-        {excluindo ? "Excluindo…" : "Excluir período"}
-      </button>
-      {estado.erro && <p className="text-sm text-red-700" role="alert">{estado.erro}</p>}
+      <Card className="sm:[--card-spacing:--spacing(6)]">
+        <CardHeader>
+          <CardTitle><h2>Excluir período</h2></CardTitle>
+          <CardDescription>Somente períodos futuros sem configurações de atendimento nem agendamentos podem ser excluídos.</CardDescription>
+        </CardHeader>
+        {(bloqueado || estado.erro) && (
+          <CardContent className="space-y-4">
+            {bloqueado && (
+              <Alert id={descricaoId}>
+                <LockKeyholeIcon aria-hidden="true" />
+                <AlertTitle>Exclusão bloqueada</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc space-y-1 pl-5">
+                    {motivosBloqueio.map((motivo) => <li key={motivo}>{motivo}</li>)}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+            {estado.erro && (
+              <Alert variant="destructive">
+                <CircleAlertIcon aria-hidden="true" />
+                <AlertTitle>Não foi possível excluir o período</AlertTitle>
+                <AlertDescription>{estado.erro}</AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        )}
+        <CardFooter className="justify-end">
+          <AlertDialog open={confirmacaoAberta} onOpenChange={definirConfirmacaoAberta}>
+            <AlertDialogTrigger render={<Button variant="destructive" type="button" disabled={excluindo || bloqueado} aria-describedby={bloqueado ? descricaoId : undefined} />}>
+              {excluindo ? "Excluindo…" : "Excluir período"}
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Excluir este período letivo?</AlertDialogTitle>
+                <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel type="button">Cancelar</AlertDialogCancel>
+                <AlertDialogAction variant="destructive" type="submit" form={formularioId} disabled={excluindo || bloqueado}>
+                  Excluir período
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </CardFooter>
+      </Card>
     </form>
   );
 }

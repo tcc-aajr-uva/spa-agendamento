@@ -30,7 +30,7 @@ export async function criarUnidade(_estado: EstadoUnidade, formData: FormData): 
     throw erro;
   }
   revalidatePath("/cadastros/unidades");
-  redirect(`/cadastros/unidades/${unidadeId}`);
+  redirect(`/cadastros/unidades/${unidadeId}?unidadeCriada=1`);
 }
 
 export async function atualizarUnidade(

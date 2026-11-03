@@ -1,11 +1,20 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { CircleAlertIcon, TriangleAlertIcon } from "lucide-react";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "@/components/ui/toast";
 import { formatarHora } from "@/lib/agendamento/regras";
 
 import type { EstadoUnidade } from "./actions";
-import { MensagemSucesso } from "./mensagem-sucesso";
 
 export type ValoresUnidade = {
   nome: string;
@@ -44,6 +53,13 @@ export function FormularioUnidade({
   podeAlterarDadosAdministrativos = true,
 }: Props) {
   const [estado, enviar, enviando] = useActionState(acao, {});
+  const ultimaNotificacao = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (!estado.sucesso || estado.versaoSucesso === undefined || ultimaNotificacao.current === estado.versaoSucesso) return;
+    ultimaNotificacao.current = estado.versaoSucesso;
+    toast.add({ title: estado.sucesso, type: "success", timeout: 5_000 });
+  }, [estado.sucesso, estado.versaoSucesso]);
 
   return (
     <FormularioEditavel
@@ -82,35 +98,47 @@ function FormularioEditavel({
   return (
     <form
       action={enviar}
-      className="space-y-5 rounded border p-4"
       onChange={() => {
         if (!alterado) setChaveDaEdicao(chaveRecebida);
         setAlterado(true);
       }}
     >
-      <CamposUnidade
-        key={chaveExibida}
-        podeAlterarDadosAdministrativos={podeAlterarDadosAdministrativos}
-        valores={valores}
-      />
+      <Card className="sm:[--card-spacing:--spacing(6)]">
+        <CardContent className="space-y-6">
+          <CamposUnidade
+            key={chaveExibida}
+            podeAlterarDadosAdministrativos={podeAlterarDadosAdministrativos}
+            valores={valores}
+          />
 
-      {possuiAtualizacaoExterna && (
-        <div className="space-y-2 rounded border border-amber-600 p-3 text-sm" role="alert">
-          <p>Esta unidade foi alterada em outra sessão. Suas alterações locais foram preservadas.</p>
-          <button className="underline" onClick={() => setAlterado(false)} type="button">
-            Descartar alterações locais e carregar a versão mais recente
-          </button>
-        </div>
-      )}
+          {possuiAtualizacaoExterna && (
+            <Alert variant="warning">
+              <TriangleAlertIcon aria-hidden="true" />
+              <AlertTitle>Unidade alterada em outra sessão</AlertTitle>
+              <AlertDescription className="space-y-3">
+                <p>Suas alterações locais foram preservadas.</p>
+                <Button className="h-auto max-w-full whitespace-normal text-left" variant="outline" onClick={() => setAlterado(false)} type="button">
+                  Descartar alterações locais e carregar a versão mais recente
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
 
-      {estado.sucesso && (
-        <MensagemSucesso key={estado.versaoSucesso} texto={estado.sucesso} />
-      )}
-      {estado.erro && <p className="text-sm text-red-700" aria-live="polite">{estado.erro}</p>}
+          {estado.erro && (
+            <Alert variant="destructive">
+              <CircleAlertIcon aria-hidden="true" />
+              <AlertTitle>Não foi possível salvar a unidade</AlertTitle>
+              <AlertDescription>{estado.erro}</AlertDescription>
+            </Alert>
+          )}
 
-      <button className="rounded border px-3 py-2" disabled={enviando} type="submit">
-        {enviando ? "Salvando…" : rotuloBotao}
-      </button>
+        </CardContent>
+        <CardFooter className="justify-end">
+          <Button size="lg" disabled={enviando} type="submit">
+            {enviando ? "Salvando…" : rotuloBotao}
+          </Button>
+        </CardFooter>
+      </Card>
     </form>
   );
 }
@@ -125,47 +153,71 @@ function CamposUnidade({
   return (
     <>
       {valores.atualizadoEm && <input defaultValue={valores.atualizadoEm} name="atualizadoEm" type="hidden" />}
-      <label className="block space-y-1">
-        <span>Nome</span>
-        <input
-          className="w-full rounded border px-3 py-2 read-only:bg-gray-100"
-          defaultValue={valores.nome}
-          maxLength={120}
-          minLength={2}
-          name="nome"
-          readOnly={!podeAlterarDadosAdministrativos}
-          required
-        />
-      </label>
+      <FieldGroup className="gap-8">
+        <FieldSet>
+          <FieldLegend className="text-base font-semibold">Identificação</FieldLegend>
+          <FieldDescription>Informe o nome que identifica a unidade no sistema.</FieldDescription>
+          <Field>
+            <FieldLabel htmlFor="unidade-nome">Nome</FieldLabel>
+            <Input
+              className="h-auto px-3 py-2 leading-5 shadow-xs read-only:bg-muted"
+              id="unidade-nome"
+              defaultValue={valores.nome}
+              maxLength={120}
+              minLength={2}
+              name="nome"
+              readOnly={!podeAlterarDadosAdministrativos}
+              required
+            />
+          </Field>
+        </FieldSet>
 
-      <fieldset className="space-y-3">
-        <legend className="font-medium">Quem pode agendar</legend>
-        {!podeAlterarDadosAdministrativos && (
-          <p className="text-sm text-gray-600">Somente a coordenação ou o administrador pode alterar estas permissões.</p>
-        )}
-        <OpcaoBooleana nome="permitePaciente" rotulo="Paciente" marcada={valores.permitePaciente} habilitada={podeAlterarDadosAdministrativos} />
-        <OpcaoBooleana nome="permiteEstagiario" rotulo="Estagiário" marcada={valores.permiteEstagiario} habilitada={podeAlterarDadosAdministrativos} />
-        <OpcaoBooleana nome="permiteSecretaria" rotulo="Secretaria" marcada={valores.permiteSecretaria} habilitada={podeAlterarDadosAdministrativos} />
-      </fieldset>
+        <Separator />
 
-      <fieldset className="space-y-3">
-        <legend className="font-medium">Agendamento e funcionamento</legend>
-        <OpcaoBooleana nome="agendamentoAberto" rotulo="Agendamento aberto" marcada={valores.agendamentoAberto} />
-        <div className="grid gap-4 sm:grid-cols-3">
-          <label className="space-y-1">
-            <span className="block">Abertura</span>
-            <input className="w-full rounded border px-3 py-2" defaultValue={formatarHora(valores.horaAbertura)} name="horaAbertura" required type="time" />
-          </label>
-          <label className="space-y-1">
-            <span className="block">Fechamento</span>
-            <input className="w-full rounded border px-3 py-2" defaultValue={formatarHora(valores.horaFechamento)} name="horaFechamento" required type="time" />
-          </label>
-          <label className="space-y-1">
-            <span className="block">Duração do bloco (minutos)</span>
-            <input className="w-full rounded border px-3 py-2" defaultValue={valores.duracaoBlocoMin} max={720} min={1} name="duracaoBlocoMin" required type="number" />
-          </label>
-        </div>
-      </fieldset>
+        <FieldSet>
+          <FieldLegend className="text-base font-semibold">Permissões de agendamento</FieldLegend>
+          <FieldDescription>Selecione os perfis que podem realizar agendamentos nesta unidade.</FieldDescription>
+          {!podeAlterarDadosAdministrativos && (
+            <FieldDescription>Somente a coordenação ou o administrador pode alterar estas permissões.</FieldDescription>
+          )}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <OpcaoBooleana nome="permitePaciente" rotulo="Paciente" marcada={valores.permitePaciente} habilitada={podeAlterarDadosAdministrativos} />
+            <OpcaoBooleana nome="permiteEstagiario" rotulo="Estagiário" marcada={valores.permiteEstagiario} habilitada={podeAlterarDadosAdministrativos} />
+            <OpcaoBooleana nome="permiteSecretaria" rotulo="Secretaria" marcada={valores.permiteSecretaria} habilitada={podeAlterarDadosAdministrativos} />
+          </div>
+        </FieldSet>
+
+        <Separator />
+
+        <FieldSet>
+          <FieldLegend className="text-base font-semibold">Funcionamento</FieldLegend>
+          <FieldDescription>Defina a abertura de agendamentos, os horários de funcionamento e a duração dos blocos.</FieldDescription>
+          <OpcaoBooleana nome="agendamentoAberto" rotulo="Agendamento aberto" marcada={valores.agendamentoAberto} />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field>
+              <FieldLabel htmlFor="unidade-abertura">Abertura</FieldLabel>
+              <InputGroup className="h-auto shadow-xs">
+                <InputGroupInput className="h-auto py-2 leading-5" id="unidade-abertura" defaultValue={formatarHora(valores.horaAbertura)} name="horaAbertura" required type="time" />
+              </InputGroup>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="unidade-fechamento">Fechamento</FieldLabel>
+              <InputGroup className="h-auto shadow-xs">
+                <InputGroupInput className="h-auto py-2 leading-5" id="unidade-fechamento" defaultValue={formatarHora(valores.horaFechamento)} name="horaFechamento" required type="time" />
+              </InputGroup>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="unidade-duracao">Duração do bloco</FieldLabel>
+              <InputGroup className="h-auto shadow-xs">
+                <InputGroupInput className="h-auto py-2 leading-5" id="unidade-duracao" aria-describedby="unidade-duracao-unidade" defaultValue={valores.duracaoBlocoMin} max={720} min={1} name="duracaoBlocoMin" required type="number" />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupText id="unidade-duracao-unidade">min</InputGroupText>
+                </InputGroupAddon>
+              </InputGroup>
+            </Field>
+          </div>
+        </FieldSet>
+      </FieldGroup>
     </>
   );
 }
@@ -182,11 +234,11 @@ function OpcaoBooleana({
   habilitada?: boolean;
 }) {
   return (
-    <label className="flex items-center gap-2">
+    <Field orientation="horizontal" data-disabled={!habilitada}>
       {!habilitada && <input name={nome} type="hidden" value={String(marcada)} />}
-      <input defaultChecked={marcada} disabled={!habilitada} name={habilitada ? nome : undefined} type="checkbox" />
-      <span>{rotulo}</span>
-    </label>
+      <Checkbox id={`unidade-${nome}`} defaultChecked={marcada} disabled={!habilitada} name={habilitada ? nome : undefined} value="on" />
+      <FieldLabel htmlFor={`unidade-${nome}`}>{rotulo}</FieldLabel>
+    </Field>
   );
 }
 

@@ -1,14 +1,17 @@
 import "server-only";
 
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PaginacaoLista } from "@/components/paginacao-lista";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { listarPeriodos } from "@/lib/periodo-letivo/listar-periodos";
 import { periodoIdSchema, situacaoPeriodoSchema } from "@/lib/periodo-letivo/dados-periodo";
 import { podeGerenciarPeriodos } from "@/lib/periodo-letivo/escopo-periodo";
 import { criarParametrosBusca, type ParametrosBusca } from "@/lib/url/parametros-busca";
-import { MensagemSucesso } from "../../mensagem-sucesso";
 import { FiltrosPeriodos } from "./filtros-periodos";
 import { ListaPeriodos } from "./lista-periodos";
+import { NotificacaoPeriodo } from "./notificacao-periodo";
 
 export type ParametrosPeriodos = ParametrosBusca;
 
@@ -38,20 +41,34 @@ export async function SecaoPeriodos({ unidadeId, autor, caminhoLista, searchPara
   }
 
   return (
-    <section id="periodos" className="space-y-4 rounded border p-4" aria-label="Períodos letivos">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Períodos letivos</h2>
-        {podeGerenciarPeriodos(autor) && <Link className="rounded border px-3 py-2" prefetch={false} href={`${caminhoDetalhes}/novo`}>Novo período</Link>}
-      </div>
-      {salvo.success && <MensagemSucesso key={`salvo:${salvo.data}:${confirmacao}`} texto="Período letivo salvo." />}
-      {excluido.success && <MensagemSucesso key={`excluido:${excluido.data}:${confirmacao}`} texto="Período letivo excluído." />}
-      <FiltrosPeriodos situacaoInicial={resultado.situacao} />
-      <ListaPeriodos
-        periodos={resultado.periodos} caminhoDetalhes={caminhoDetalhes}
-        pagina={resultado.pagina} totalPaginas={resultado.totalPaginas} total={resultado.total}
-        anterior={resultado.pagina > 1 ? urlDaPagina(resultado.pagina - 1) : undefined}
-        proxima={resultado.pagina < resultado.totalPaginas ? urlDaPagina(resultado.pagina + 1) : undefined}
-      />
+    <section id="periodos" aria-label="Períodos letivos">
+      <Card className="sm:[--card-spacing:--spacing(6)]">
+        <CardHeader className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-1.5">
+            <CardTitle><h2>Períodos letivos</h2></CardTitle>
+            <CardDescription>Gerencie as datas dos períodos letivos desta unidade.</CardDescription>
+          </div>
+          {podeGerenciarPeriodos(autor) && (
+            <Button size="lg" nativeButton={false} render={<Link prefetch={false} href={`${caminhoDetalhes}/novo`} />}>
+              Novo período
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {salvo.success && <NotificacaoPeriodo key={`salvo:${salvo.data}:${confirmacao}`} parametro="periodoSalvo" periodoId={salvo.data} confirmacao={confirmacao} />}
+          {excluido.success && <NotificacaoPeriodo key={`excluido:${excluido.data}:${confirmacao}`} parametro="excluido" periodoId={excluido.data} confirmacao={confirmacao} />}
+          <FiltrosPeriodos situacaoInicial={resultado.situacao} />
+          <ListaPeriodos periodos={resultado.periodos} caminhoDetalhes={caminhoDetalhes} />
+          <PaginacaoLista
+            pagina={resultado.pagina}
+            totalPaginas={resultado.totalPaginas}
+            total={resultado.total}
+            rotuloTotal="período(s)"
+            ariaLabel="Paginação dos períodos letivos"
+            href={urlDaPagina}
+          />
+        </CardContent>
+      </Card>
     </section>
   );
 }
