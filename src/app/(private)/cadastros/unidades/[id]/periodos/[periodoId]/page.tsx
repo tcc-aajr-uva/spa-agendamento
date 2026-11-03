@@ -1,5 +1,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { ArrowLeftIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { notFound } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { consultarPeriodo } from "@/lib/periodo-letivo/consultar-periodo";
@@ -12,7 +15,7 @@ import { ControleExclusaoPeriodo } from "../controle-exclusao";
 type Props = { params: Promise<{ id: string; periodoId: string }> };
 
 export default function PeriodoPage(props: Props) {
-  return <section className="space-y-6"><Suspense fallback={<p>Carregando período letivo…</p>}><Conteudo {...props} /></Suspense></section>;
+  return <section className="mx-auto w-full max-w-7xl space-y-6"><Suspense fallback={<p>Carregando período letivo…</p>}><Conteudo {...props} /></Suspense></section>;
 }
 
 async function Conteudo({ params }: Props) {
@@ -23,12 +26,15 @@ async function Conteudo({ params }: Props) {
   const valores = { inicio: periodo.inicio, fim: periodo.fim };
   return (
     <div className="space-y-6">
-      <Link className="underline" prefetch={false} href={`/cadastros/unidades/${id}#periodos`}>
+      <Button variant="ghost" nativeButton={false} render={<Link prefetch={false} href={`/cadastros/unidades/${id}#periodos`} />}>
+        <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
         Voltar para unidade
-      </Link>
+      </Button>
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-2xl font-bold">Período letivo</h1>
-        <span className="rounded border px-2 py-0.5 text-sm">{ROTULOS_SITUACAO_PERIODO[periodo.situacao]}</span>
+        <Badge variant={periodo.situacao === "EM_ANDAMENTO" ? "default" : periodo.situacao === "FUTURO" ? "accent" : "outline"}>
+          {ROTULOS_SITUACAO_PERIODO[periodo.situacao]}
+        </Badge>
       </div>
       <FormularioPeriodo acao={atualizarPeriodo.bind(null, id, periodoId)} valores={valores}
         unidade={periodo.unidade.nome} somenteLeitura={!periodo.podeEditar} emUso={periodo.emUso} />
