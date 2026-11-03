@@ -82,7 +82,7 @@ function Formulario({ acao, rotulo, confirmacao, variante = "default", tamanho =
               <AlertDialogDescription>{confirmacao}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogCancel>Voltar</AlertDialogCancel>
               <AlertDialogAction variant={variante === "destructive" ? "destructive" : "default"} onClick={continuar}>
                 Continuar
               </AlertDialogAction>
