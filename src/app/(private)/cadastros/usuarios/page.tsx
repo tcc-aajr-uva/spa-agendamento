@@ -1,6 +1,11 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { ChevronRightIcon } from "lucide-react";
 
+import { PaginacaoLista } from "@/components/paginacao-lista";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { listarUsuarios } from "@/lib/usuario/listar-usuarios";
 import { rotuloDoEstadoAcesso, rotuloDoPerfil } from "@/lib/usuario/rotulos";
@@ -13,15 +18,15 @@ type Props = {
 
 export default function UsuariosPage({ searchParams }: Props) {
   return (
-    <section className="space-y-6">
+    <section className="mx-auto w-full max-w-7xl space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-2">
           <h1 className="text-2xl font-bold">Usuários</h1>
-          <p className="text-sm text-gray-600">Consulte os usuários que pertencem ao seu escopo de atuação.</p>
+          <p className="text-sm text-muted-foreground">Consulte os usuários que pertencem ao seu escopo de atuação.</p>
         </div>
-        <Link className="rounded border px-3 py-2" href="/cadastros/usuarios/novo">
+        <Button size="lg" nativeButton={false} render={<Link href="/cadastros/usuarios/novo" />}>
           Novo usuário
-        </Link>
+        </Button>
       </div>
 
       <Suspense fallback={<p>Carregando usuários…</p>}>
@@ -41,66 +46,80 @@ async function ListaUsuarios({ searchParams }: Props) {
   const resultado = await listarUsuarios({ busca, pagina, status }, autor);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <FiltrosUsuarios buscaInicial={busca} statusInicial={status} />
 
-      {resultado.usuarios.length === 0 ? (
-        <div className="space-y-2 rounded border p-4">
-          <strong>Nenhum usuário encontrado.</strong>
-          <p className="text-sm text-gray-600">
-            {busca || status !== "ATIVOS"
-              ? "Altere ou limpe os filtros para tentar novamente."
-              : "Crie o primeiro usuário disponível para o seu perfil."}
-          </p>
-        </div>
-      ) : (
-        <ul className="divide-y rounded border">
-          {resultado.usuarios.map((usuario) => (
-            <li className="space-y-1 p-4" key={usuario.id}>
-              <div className="flex flex-wrap items-center gap-2">
-                <strong>{usuario.nome}</strong>
-                <span className="rounded border px-2 py-0.5 text-sm">{rotuloDoPerfil(usuario.perfil)}</span>
-                <span className={`rounded border px-2 py-0.5 text-sm ${usuario.ativo ? "" : "text-red-700"}`}>
-                  {rotuloDoEstadoAcesso(usuario.estadoAcesso)}
-                </span>
-              </div>
-              <p className="text-sm">{usuario.email}</p>
-              <p className="text-sm text-gray-600">Unidades: {usuario.unidades.join(", ") || "nenhuma"}</p>
-              {usuario.equipes.length > 0 && (
-                <p className="text-sm text-gray-600">Equipes: {usuario.equipes.join(", ")}</p>
-              )}
-              {usuario.podeGerenciar && (
-                <div className="flex flex-wrap gap-3 pt-2">
-                  <Link className="underline" href={`/cadastros/usuarios/${usuario.id}`}>
-                    Ver detalhes
-                  </Link>
-                  {usuario.ativo && usuario.estadoAcesso !== "ATIVO" && (
-                    <Link className="underline" href={`/cadastros/usuarios/${usuario.id}/convites`}>
-                      Gerenciar convite
-                    </Link>
+      <div className="overflow-hidden rounded-lg border">
+        <Table aria-label="Usuários" className="min-w-225">
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead scope="col" className="px-4">Usuário</TableHead>
+              <TableHead scope="col">Perfil</TableHead>
+              <TableHead scope="col">Acesso</TableHead>
+              <TableHead scope="col">Vínculos</TableHead>
+              <TableHead scope="col" className="w-10 px-4" aria-label="Detalhes do usuário" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {resultado.usuarios.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-32 whitespace-normal text-center">
+                  <div className="space-y-1">
+                    <p className="font-medium">Nenhum usuário encontrado.</p>
+                    <p className="text-muted-foreground">
+                      {busca || status !== "ATIVOS"
+                        ? "Altere ou limpe os filtros para tentar novamente."
+                        : "Crie o primeiro usuário disponível para o seu perfil."}
+                    </p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : resultado.usuarios.map((usuario) => (
+              <TableRow key={usuario.id} className="relative">
+                <TableHead scope="row" className="min-w-52 whitespace-normal px-4 py-4">
+                  <div className="space-y-1">
+                    {usuario.podeGerenciar ? (
+                      <Link
+                        className="font-medium underline-offset-4 hover:underline after:absolute after:inset-0 after:z-10 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
+                        href={`/cadastros/usuarios/${usuario.id}`}
+                      >
+                        {usuario.nome}
+                      </Link>
+                    ) : <span className="font-medium">{usuario.nome}</span>}
+                    <p className="font-normal text-muted-foreground">{usuario.email}</p>
+                  </div>
+                </TableHead>
+                <TableCell><Badge variant="outline">{rotuloDoPerfil(usuario.perfil)}</Badge></TableCell>
+                <TableCell>
+                  <Badge variant={usuario.estadoAcesso === "ATIVO" ? "default" : "outline"}>
+                    {rotuloDoEstadoAcesso(usuario.estadoAcesso)}
+                  </Badge>
+                </TableCell>
+                <TableCell className="max-w-sm whitespace-normal text-muted-foreground">
+                  <div className="space-y-1">
+                    <p>Unidades: {usuario.unidades.join(", ") || "nenhuma"}</p>
+                    {usuario.equipes.length > 0 && <p>Equipes: {usuario.equipes.join(", ")}</p>}
+                  </div>
+                </TableCell>
+                <TableCell className="px-4">
+                  {usuario.podeGerenciar && (
+                    <ChevronRightIcon aria-hidden="true" className="ml-auto size-4 text-muted-foreground" />
                   )}
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
-      <nav className="flex items-center gap-3" aria-label="Paginação">
-        {resultado.pagina > 1 && (
-          <Link className="underline" href={urlDaPagina(resultado.pagina - 1, busca, status)}>
-            Anterior
-          </Link>
-        )}
-        <span>
-          Página {resultado.pagina} de {resultado.totalPaginas} — {resultado.total} usuário(s)
-        </span>
-        {resultado.pagina < resultado.totalPaginas && (
-          <Link className="underline" href={urlDaPagina(resultado.pagina + 1, busca, status)}>
-            Próxima
-          </Link>
-        )}
-      </nav>
+      <PaginacaoLista
+        pagina={resultado.pagina}
+        totalPaginas={resultado.totalPaginas}
+        total={resultado.total}
+        rotuloTotal="usuário(s)"
+        ariaLabel="Paginação dos usuários"
+        href={(paginaAtual) => urlDaPagina(paginaAtual, busca, status)}
+      />
     </div>
   );
 }

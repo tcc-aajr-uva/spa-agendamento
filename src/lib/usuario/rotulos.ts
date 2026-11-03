@@ -14,7 +14,7 @@ export function rotuloDoPerfil(perfil: Perfil): string {
 }
 
 const ROTULOS_ESTADO_ACESSO: Record<EstadoAcessoUsuario, string> = {
-  ATIVO: "Acesso ativo",
+  ATIVO: "Ativo",
   INATIVO: "Inativo",
   CONVITE_PENDENTE: "Convite pendente",
   CONVITE_EXPIRADO: "Convite expirado",

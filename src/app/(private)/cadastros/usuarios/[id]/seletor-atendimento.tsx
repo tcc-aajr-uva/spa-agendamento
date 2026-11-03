@@ -3,6 +3,9 @@
 import { useOptimistic, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 type Props = {
   equipes: { id: string; nome: string }[];
   periodos: { id: string; nome: string }[];
@@ -17,6 +20,11 @@ export function SeletorAtendimento({ equipes, periodos, equipeId, periodoId, chi
   const busca = useSearchParams();
   const [carregando, iniciar] = useTransition();
   const [selecao, selecionar] = useOptimistic({ equipeId, periodoId });
+  const opcoesEquipes = equipes.map((opcao) => ({ value: opcao.id, label: opcao.nome }));
+  const opcoesPeriodos = [
+    { value: "", label: "Selecionar automaticamente" },
+    ...periodos.map((opcao) => ({ value: opcao.id, label: opcao.nome })),
+  ];
 
   function alterar(campo: "equipeId" | "periodoId", valor: string) {
     const parametros = new URLSearchParams(busca.toString());
@@ -32,24 +40,32 @@ export function SeletorAtendimento({ equipes, periodos, equipeId, periodoId, chi
   return (
     <div className="space-y-4" aria-busy={carregando}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block space-y-1">
-          <span>Equipe</span>
-          <select className="w-full rounded border px-3 py-2" value={selecao.equipeId} disabled={carregando}
-            onChange={(evento) => alterar("equipeId", evento.target.value)}>
-            <option value="" disabled>Selecione uma equipe</option>
-            {equipes.map((opcao) => <option key={opcao.id} value={opcao.id}>{opcao.nome}</option>)}
-          </select>
-        </label>
-        <label className="block space-y-1">
-          <span>Período letivo</span>
-          <select className="w-full rounded border px-3 py-2" value={selecao.periodoId} disabled={carregando || periodos.length === 0}
-            onChange={(evento) => alterar("periodoId", evento.target.value)}>
-            <option value="">Selecionar automaticamente</option>
-            {periodos.map((opcao) => <option key={opcao.id} value={opcao.id}>{opcao.nome}</option>)}
-          </select>
-        </label>
+        <Field>
+          <FieldLabel htmlFor="atendimento-equipe">Equipe</FieldLabel>
+          <Select items={opcoesEquipes} value={selecao.equipeId} disabled={carregando}
+            onValueChange={(valor) => { if (valor !== null) alterar("equipeId", valor); }}>
+            <SelectTrigger id="atendimento-equipe" className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
+              <SelectValue placeholder="Selecione uma equipe" />
+            </SelectTrigger>
+            <SelectContent>
+              {opcoesEquipes.map((opcao) => <SelectItem key={opcao.value} value={opcao.value}>{opcao.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="atendimento-periodo">Período letivo</FieldLabel>
+          <Select items={opcoesPeriodos} value={selecao.periodoId} disabled={carregando || periodos.length === 0}
+            onValueChange={(valor) => { if (valor !== null) alterar("periodoId", valor); }}>
+            <SelectTrigger id="atendimento-periodo" className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
+              <SelectValue placeholder="Selecionar automaticamente" />
+            </SelectTrigger>
+            <SelectContent>
+              {opcoesPeriodos.map((opcao) => <SelectItem key={opcao.value} value={opcao.value}>{opcao.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </Field>
       </div>
-      {carregando && <p role="status">Carregando configuração…</p>}
+      {carregando && <p className="text-sm text-muted-foreground" role="status">Carregando configuração…</p>}
       <fieldset disabled={carregando} className="min-w-0 space-y-4">{children}</fieldset>
     </div>
   );
