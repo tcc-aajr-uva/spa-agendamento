@@ -13,7 +13,7 @@ import { Paginacao } from "../paginacao";
 import { montarHref, numeroDaPagina, primeiro } from "../parametros";
 import { perfisDaRota } from "../menu";
 import { alterarSituacaoSala, criarSala } from "./actions";
-import { DIAS_EXIBIDOS, OcupacaoSalas } from "./ocupacao-salas";
+import { diaDaUrl, OcupacaoSalas } from "./ocupacao-salas";
 
 const SALAS_POR_PAGINA = 10;
 
@@ -43,7 +43,7 @@ async function Salas({ searchParams }: { searchParams: PageProps<"/salas">["sear
   ]);
 
   const unidadeOcupacao = escolherUnidade(primeiro(parametros.unidade), unidades);
-  const dia = DIAS_EXIBIDOS.includes(Number(primeiro(parametros.dia))) ? Number(primeiro(parametros.dia)) : DIAS_EXIBIDOS[0];
+  const dia = diaDaUrl(primeiro(parametros.dia));
   const link = (mudanca: Record<string, number | string>) =>
     montarHref("/salas", { pagina, dia, unidade: unidadeOcupacao ?? undefined, ...mudanca });
 
@@ -57,9 +57,10 @@ async function Salas({ searchParams }: { searchParams: PageProps<"/salas">["sear
             <ItemGroup className="gap-0 divide-y overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-foreground/10">
               {salas.map((sala) => (
                 <Item key={sala.id} className="flex-wrap rounded-none [&_[data-slot=alert]]:basis-full">
-                  <ItemContent>
-                    <ItemTitle className="text-base font-normal">
-                      {sala.unidade.nome} — {sala.nome}
+                  <ItemContent className="basis-full sm:basis-auto">
+                    <ItemTitle className="grid grid-cols-[8rem_1fr] text-base font-normal">
+                      <span className="truncate">{sala.unidade.nome}</span>
+                      <span>{sala.nome}</span>
                     </ItemTitle>
                   </ItemContent>
                   <ItemActions className="contents [&_form]:contents">

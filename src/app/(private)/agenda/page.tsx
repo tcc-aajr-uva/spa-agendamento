@@ -2,14 +2,14 @@ import { Badge } from "@/components/ui/badge";
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { descreverHorario, unidadeDaAgenda } from "@/lib/agenda/horarios";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
-import { estaOcupando } from "@/lib/agendamento/regras";
+import { DIAS_DA_SEMANA, estaOcupando, formatarHora } from "@/lib/agendamento/regras";
 import { prisma } from "@/lib/prisma";
 import { Cartao, EstadoVazio } from "../cartao";
 import { FormularioAcao } from "../formulario-acao";
 import { CarregandoLista } from "../carregando-lista";
 import { PaginaModulo } from "../pagina-modulo";
 import { perfisDaRota } from "../menu";
-import { DIAS_EXIBIDOS, horariosDaGrade, OcupacaoSalas } from "../salas/ocupacao-salas";
+import { DIAS_EXIBIDOS, diaDaUrl, horariosDaGrade, OcupacaoSalas } from "../salas/ocupacao-salas";
 import { adicionarHorario, removerHorario } from "./actions";
 import { AvisosDaAgenda, BotaoTrocarHorario, SeletoresHorario } from "./formularios-agenda";
 
@@ -25,8 +25,7 @@ async function MeusHorarios({ searchParams }: { searchParams: PageProps<"/agenda
   const usuario = await exigirUsuario(perfisDaRota("/agenda"));
   const unidadeId = unidadeDaAgenda(usuario);
   if (!unidadeId) return <EstadoVazio>Seu cadastro não tem unidade. Fale com a secretaria.</EstadoVazio>;
-  const { dia: diaDaUrl } = await searchParams;
-  const dia = DIAS_EXIBIDOS.includes(Number(diaDaUrl)) ? Number(diaDaUrl) : DIAS_EXIBIDOS[0];
+  const dia = diaDaUrl((await searchParams).dia);
 
   const agora = new Date();
   const [horarios, unidade] = await Promise.all([
@@ -53,8 +52,11 @@ async function MeusHorarios({ searchParams }: { searchParams: PageProps<"/agenda
               const comPaciente = horario.ocupadoPor !== null && estaOcupando(horario.ocupadoPor, agora);
               return (
                 <Item key={horario.id} className="flex-wrap rounded-none [&_[data-slot=alert]]:basis-full">
-                  <ItemContent>
-                    <ItemTitle className="text-base font-normal">{descricao}</ItemTitle>
+                  <ItemContent className="basis-full sm:basis-auto">
+                    <ItemTitle className="grid grid-cols-[5.5rem_3.5rem] text-base font-normal tabular-nums">
+                      <span>{DIAS_DA_SEMANA[horario.diaSemana]}</span>
+                      <span>{formatarHora(horario.horaInicio)}</span>
+                    </ItemTitle>
                   </ItemContent>
                   <ItemActions className="contents [&>form]:contents">
                     <Badge variant={comPaciente ? "accent" : "outline"}>{comPaciente ? "Com paciente" : "Livre"}</Badge>
@@ -88,6 +90,7 @@ async function MeusHorarios({ searchParams }: { searchParams: PageProps<"/agenda
         unidadeId={unidadeId}
         dia={dia}
         unidades={null}
+        estagiarioId={usuario.id}
         link={({ dia: novoDia }) => `/agenda?dia=${novoDia}`}
       />
     </AvisosDaAgenda>

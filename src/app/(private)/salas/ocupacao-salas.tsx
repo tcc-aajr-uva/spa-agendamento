@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { chaveSala, DIAS_DA_SEMANA, estaOcupando, formatarHora, horarioNaGrade } from "@/lib/agendamento/regras";
+import { chaveSala, DIAS_DA_SEMANA, estaOcupando, formatarHora, FUSO_HORARIO, horarioNaGrade } from "@/lib/agendamento/regras";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { prisma } from "@/lib/prisma";
@@ -10,9 +10,19 @@ type Props = {
   dia: number;
   unidades: { id: string; nome: string }[] | null;
   link: (mudanca: Record<string, number | string>) => string;
+  estagiarioId?: string;
 };
 
 export const DIAS_EXIBIDOS = [1, 2, 3, 4, 5, 6];
+
+const DIAS_EM_INGLES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+export function diaDaUrl(valor: string | string[] | undefined, agora = new Date()): number {
+  const pedido = Number(valor);
+  if (DIAS_EXIBIDOS.includes(pedido)) return pedido;
+  const hoje = DIAS_EM_INGLES.indexOf(new Intl.DateTimeFormat("en-US", { timeZone: FUSO_HORARIO, weekday: "short" }).format(agora));
+  return DIAS_EXIBIDOS.includes(hoje) ? hoje : DIAS_EXIBIDOS[0];
+}
 
 export function horariosDaGrade(unidade: { horaAbertura: number; horaFechamento: number; duracaoBlocoMin: number }): number[] {
   const horarios: number[] = [];
@@ -22,7 +32,7 @@ export function horariosDaGrade(unidade: { horaAbertura: number; horaFechamento:
   return horarios;
 }
 
-export async function OcupacaoSalas({ unidadeId, dia, unidades, link }: Props) {
+export async function OcupacaoSalas({ unidadeId, dia, unidades, link, estagiarioId }: Props) {
   const agora = new Date();
   const unidade = await prisma.unidade.findUnique({
     where: { id: unidadeId },
@@ -33,7 +43,7 @@ export async function OcupacaoSalas({ unidadeId, dia, unidades, link }: Props) {
       salas: { where: { ativa: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } },
       agendamentos: {
         where: { diaSemana: dia, horarioAtivoId: { not: null }, sala: { ativa: true } },
-        select: { salaId: true, horaInicio: true, status: true, prazoConfirmacao: true, horarioAtivoId: true },
+        select: { salaId: true, horaInicio: true, status: true, prazoConfirmacao: true, horarioAtivoId: true, estagiarioId: true },
       },
     },
   });
@@ -43,7 +53,7 @@ export async function OcupacaoSalas({ unidadeId, dia, unidades, link }: Props) {
   const ocupacao = new Map(
     unidade.agendamentos
       .filter((agendamento) => estaOcupando(agendamento, agora))
-      .map((agendamento) => [chaveSala(agendamento.salaId, dia, agendamento.horaInicio), agendamento.status]),
+      .map((agendamento) => [chaveSala(agendamento.salaId, dia, agendamento.horaInicio), agendamento]),
   );
 
   return (
@@ -90,10 +100,12 @@ export async function OcupacaoSalas({ unidadeId, dia, unidades, link }: Props) {
               <TableRow key={hora} className="border-0 hover:bg-transparent">
                 <TableHead scope="row" className="h-auto px-1 text-sm font-normal text-muted-foreground">{formatarHora(hora)}</TableHead>
                 {unidade.salas.map((sala) => {
-                  const status = ocupacao.get(chaveSala(sala.id, dia, hora));
-                  const [texto, cor] = !status
+                  const agendamento = ocupacao.get(chaveSala(sala.id, dia, hora));
+                  const [texto, cor] = !agendamento
                     ? ["Livre", "bg-muted text-muted-foreground"]
-                    : status === "PENDENTE"
+                    : estagiarioId && agendamento.estagiarioId === estagiarioId
+                      ? ["Sua reserva", "bg-accent text-accent-foreground"]
+                      : agendamento.status === "PENDENTE"
                       ? ["Pendente", "bg-secondary text-secondary-foreground"]
                       : ["Ocupada", "bg-primary text-primary-foreground"];
                   return (
