@@ -75,19 +75,19 @@ export async function gerenciarConvite(
     operacao: String(formData.get("operacao") ?? ""),
   });
   if (!entrada.success) return { erro: "Operação de convite inválida." };
-  const caminhoConvites = `/cadastros/usuarios/${entrada.data.usuarioId}/convites`;
+  const caminhoUsuario = `/cadastros/usuarios/${entrada.data.usuarioId}`;
 
   try {
     if (entrada.data.operacao === "REVOGAR") {
       await revogarConvite(entrada.data.usuarioId, autor);
       revalidatePath("/cadastros/usuarios");
-      revalidatePath(caminhoConvites);
+      revalidatePath(caminhoUsuario);
       return { mensagem: "Convite revogado." };
     }
 
     const resultado = await gerarNovoConvite(entrada.data.usuarioId, autor);
     revalidatePath("/cadastros/usuarios");
-    revalidatePath(caminhoConvites);
+    revalidatePath(caminhoUsuario);
     const baseURL = process.env.BETTER_AUTH_URL;
     return {
       mensagem: "Novo convite gerado. Compartilhe somente o link abaixo.",

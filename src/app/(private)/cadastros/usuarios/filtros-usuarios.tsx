@@ -3,9 +3,22 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+type Status = "ATIVOS" | "INATIVOS" | "TODOS";
+
+const OPCOES_STATUS: { value: Status; label: string }[] = [
+  { value: "ATIVOS", label: "Ativos" },
+  { value: "INATIVOS", label: "Inativos" },
+  { value: "TODOS", label: "Todos" },
+];
+
 type Props = {
   buscaInicial: string;
-  statusInicial: "ATIVOS" | "INATIVOS" | "TODOS";
+  statusInicial: Status;
 };
 
 export function FiltrosUsuarios({ buscaInicial, statusInicial }: Props) {
@@ -45,7 +58,7 @@ export function FiltrosUsuarios({ buscaInicial, statusInicial }: Props) {
     return () => window.clearTimeout(temporizador);
   }, [atualizar, busca]);
 
-  const alterarStatus = (novoStatus: "ATIVOS" | "INATIVOS" | "TODOS") => {
+  const alterarStatus = (novoStatus: Status) => {
     setStatus(novoStatus);
     statusAtual.current = novoStatus;
     atualizar(busca, novoStatus);
@@ -61,33 +74,39 @@ export function FiltrosUsuarios({ buscaInicial, statusInicial }: Props) {
 
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <label className="flex flex-col gap-1">
-        Buscar
-        <input
-          className="rounded border px-3 py-2"
+      <Field className="w-full gap-3 sm:w-80">
+        <FieldLabel className="leading-5" htmlFor="busca-usuarios">Buscar</FieldLabel>
+        <Input
+          className="h-auto px-3 py-2 text-sm leading-5 shadow-xs"
+          id="busca-usuarios"
           name="busca"
           onChange={(evento) => setBusca(evento.target.value)}
           placeholder="Nome ou e-mail"
           type="search"
           value={busca}
         />
-      </label>
-      <label className="flex flex-col gap-1">
-        Status
-        <select
-          className="rounded border px-3 py-2"
+      </Field>
+      <Field className="w-full gap-3 sm:w-80">
+        <FieldLabel className="leading-5" htmlFor="status-usuarios">Situação</FieldLabel>
+        <Select
+          items={OPCOES_STATUS}
           name="status"
-          onChange={(evento) => alterarStatus(evento.target.value as "ATIVOS" | "INATIVOS" | "TODOS")}
+          onValueChange={(valor) => { if (valor !== null) alterarStatus(valor); }}
           value={status}
         >
-          <option value="ATIVOS">Ativos</option>
-          <option value="INATIVOS">Inativos</option>
-          <option value="TODOS">Todos</option>
-        </select>
-      </label>
-      <button className="rounded border px-3 py-2" disabled={!busca && status === "ATIVOS"} onClick={limpar} type="button">
+          <SelectTrigger id="status-usuarios" className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {OPCOES_STATUS.map((opcao) => (
+              <SelectItem key={opcao.value} value={opcao.value}>{opcao.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Button className="h-auto px-4 py-2 leading-5 shadow-xs" variant="outline" disabled={!busca && status === "ATIVOS"} onClick={limpar} type="button">
         Limpar filtros
-      </button>
+      </Button>
       {atualizando && (
         <span className="text-sm" aria-live="polite">
           Atualizando…
