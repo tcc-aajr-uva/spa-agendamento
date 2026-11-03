@@ -1,9 +1,18 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { CircleAlertIcon, TriangleAlertIcon } from "lucide-react";
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "@/components/ui/toast";
 import { chaveDaEquipe, type VersaoEquipe } from "@/lib/equipe/dados-equipe";
 import type { EstadoEquipe } from "./actions";
-import { MensagemSucesso } from "../unidades/mensagem-sucesso";
 
 type Props = {
   acao: (estado: EstadoEquipe, formData: FormData) => Promise<EstadoEquipe>;
@@ -19,6 +28,14 @@ const VALORES_PADRAO: VersaoEquipe = { nome: "", unidadeId: "", ativa: true, sup
 
 export function FormularioEquipe({ acao, valores = VALORES_PADRAO, ...props }: Props) {
   const [estado, enviar, enviando] = useActionState(acao, {});
+  const ultimaNotificacao = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (!estado.sucesso || estado.versaoSucesso === undefined || ultimaNotificacao.current === estado.versaoSucesso) return;
+    ultimaNotificacao.current = estado.versaoSucesso;
+    toast.add({ title: estado.sucesso, type: "success", timeout: 5_000 });
+  }, [estado.sucesso, estado.versaoSucesso]);
+
   return <FormularioEditavel key={estado.versaoSucesso} {...props} valores={valores} estado={estado} enviar={enviar} enviando={enviando} />;
 }
 
@@ -38,57 +55,131 @@ function FormularioEditavel({
   const supervisoresDisponiveis = supervisores.filter((supervisor) => supervisor.qualquerUnidade || supervisor.unidadeIds.includes(unidadeId));
   const responsavelIndisponivel = supervisorId !== null && !supervisoresDisponiveis.some((supervisor) => supervisor.id === supervisorId);
   const atualizadaExternamente = rascunho !== null && chaveDaEquipe(base) !== chaveDaEquipe(valores);
+  const opcoesUnidades = unidades.map((unidade) => ({ value: unidade.id, label: unidade.nome }));
+  const opcoesSupervisores = [
+    { value: "", label: "Sem supervisor responsável" },
+    ...(responsavelIndisponivel && supervisorId
+      ? [{
+          value: supervisorId,
+          label: `${supervisorAtualNome ?? "Responsável anterior"}${somenteLeitura ? "" : " (indisponível para nova atribuição)"}`,
+        }]
+      : []),
+    ...supervisoresDisponiveis.map((supervisor) => ({
+      value: supervisor.id,
+      label: `${supervisor.nome} — ${supervisor.email}`,
+    })),
+  ];
 
   return (
-    <form action={somenteLeitura ? undefined : enviar} className="space-y-5 rounded border p-4"
+    <form action={somenteLeitura ? undefined : enviar}
       onSubmit={(evento) => { if (somenteLeitura) evento.preventDefault(); }}>
-      {unidadeFixa ? (
-        <>
-          <label className="block space-y-1">
-            <span>Unidade</span>
-            <input className="w-full rounded border px-3 py-2" value={unidadeFixa} readOnly disabled />
-          </label>
-          <input type="hidden" name="versao" value={chaveDaEquipe(base)} />
-        </>
-      ) : (
-        <label className="block space-y-1">
-          <span>Unidade</span>
-          <select className="w-full rounded border px-3 py-2" name="unidadeId" required value={unidadeId} disabled={enviando || somenteLeitura}
-            onChange={(evento) => setRascunho({ base, nome, unidadeId: evento.target.value, supervisorId: null })}>
-            <option value="">Selecione uma unidade</option>
-            {unidades.map((unidade) => <option key={unidade.id} value={unidade.id}>{unidade.nome}</option>)}
-          </select>
-        </label>
-      )}
-      <label className="block space-y-1">
-        <span>Nome da equipe</span>
-        <input className="w-full rounded border px-3 py-2" name="nome" required minLength={2} maxLength={120} disabled={enviando || somenteLeitura}
-          value={nome} onChange={(evento) => setRascunho({ base, nome: evento.target.value, unidadeId, supervisorId })} />
-      </label>
-      <label className="block space-y-1">
-        <span>Supervisor responsável (opcional)</span>
-        <select className="w-full rounded border px-3 py-2" name="supervisorId" value={supervisorId ?? ""}
-          disabled={enviando || !unidadeId || somenteLeitura}
-          onChange={(evento) => setRascunho({ base, nome, unidadeId, supervisorId: evento.target.value || null })}>
-          <option value="">Sem supervisor responsável</option>
-          {responsavelIndisponivel && <option value={supervisorId ?? ""}>{supervisorAtualNome ?? "Responsável anterior"}{!somenteLeitura && " (indisponível para nova atribuição)"}</option>}
-          {supervisoresDisponiveis.map((supervisor) => <option key={supervisor.id} value={supervisor.id}>{supervisor.nome} — {supervisor.email}</option>)}
-        </select>
-      </label>
-      {!somenteLeitura && <p className="text-sm text-gray-600">Selecione um supervisor existente ou deixe a equipe sem responsável. Novos supervisores podem ser cadastrados em Usuários.</p>}
-      {atualizadaExternamente && (
-        <div className="space-y-2 rounded border border-amber-600 p-3 text-sm" role="alert">
-          <p>Esta equipe foi alterada em outra sessão. Suas alterações locais foram preservadas.</p>
-          <button type="button" className="underline" disabled={enviando} onClick={() => setRascunho(null)}>
-            Descartar alterações locais e carregar a versão mais recente
-          </button>
-        </div>
-      )}
-      {estado.erro && <p className="text-sm text-red-700" role="alert">{estado.erro}</p>}
-      {estado.sucesso && <MensagemSucesso key={estado.versaoSucesso} texto={estado.sucesso} />}
-      {!somenteLeitura && <button className="rounded border px-3 py-2" disabled={enviando} type="submit">
-        {enviando ? "Salvando…" : unidadeFixa ? "Salvar alterações" : "Criar equipe"}
-      </button>}
+      <Card className="sm:[--card-spacing:--spacing(6)]">
+        <CardContent className="space-y-6">
+          <FieldGroup className="gap-8">
+            <FieldSet>
+              <FieldLegend className="text-base font-semibold">Identificação</FieldLegend>
+              <FieldDescription>Informe a unidade e o nome que identificam a equipe no sistema.</FieldDescription>
+              <div className="grid gap-4">
+                <Field>
+                  <FieldLabel htmlFor="equipe-unidade">Unidade</FieldLabel>
+                  {unidadeFixa ? (
+                    <>
+                      <Input id="equipe-unidade" className="h-auto px-3 py-2 leading-5 shadow-xs" value={unidadeFixa} readOnly disabled />
+                      <input type="hidden" name="versao" value={chaveDaEquipe(base)} />
+                    </>
+                  ) : (
+                    <Select
+                      disabled={enviando || somenteLeitura}
+                      items={opcoesUnidades}
+                      name="unidadeId"
+                      onValueChange={(valor) => setRascunho({ base, nome, unidadeId: valor ?? "", supervisorId: null })}
+                      required
+                      value={unidadeId}
+                    >
+                      <SelectTrigger id="equipe-unidade" className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
+                        <SelectValue placeholder="Selecione uma unidade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {opcoesUnidades.map((opcao) => (
+                          <SelectItem key={opcao.value} value={opcao.value}>{opcao.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="equipe-nome">Nome da equipe</FieldLabel>
+                  <Input
+                    className="h-auto px-3 py-2 leading-5 shadow-xs"
+                    disabled={enviando || somenteLeitura}
+                    id="equipe-nome"
+                    maxLength={120}
+                    minLength={2}
+                    name="nome"
+                    onChange={(evento) => setRascunho({ base, nome: evento.target.value, unidadeId, supervisorId })}
+                    required
+                    value={nome}
+                  />
+                </Field>
+              </div>
+            </FieldSet>
+
+            <Separator />
+
+            <FieldSet>
+              <FieldLegend className="text-base font-semibold">Supervisão</FieldLegend>
+              <FieldDescription>Selecione um supervisor existente ou deixe a equipe sem responsável.</FieldDescription>
+              <Field>
+                <FieldLabel htmlFor="equipe-supervisor">Supervisor responsável (opcional)</FieldLabel>
+                <Select
+                  disabled={enviando || !unidadeId || somenteLeitura}
+                  items={opcoesSupervisores}
+                  name="supervisorId"
+                  onValueChange={(valor) => setRascunho({ base, nome, unidadeId, supervisorId: valor || null })}
+                  value={supervisorId ?? ""}
+                >
+                  <SelectTrigger id="equipe-supervisor" className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
+                    <SelectValue placeholder="Sem supervisor responsável" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {opcoesSupervisores.map((opcao) => (
+                      <SelectItem key={opcao.value} value={opcao.value}>{opcao.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!somenteLeitura && <FieldDescription>Novos supervisores podem ser cadastrados em Usuários.</FieldDescription>}
+              </Field>
+            </FieldSet>
+          </FieldGroup>
+
+          {atualizadaExternamente && (
+            <Alert variant="warning">
+              <TriangleAlertIcon aria-hidden="true" />
+              <AlertTitle>Equipe alterada em outra sessão</AlertTitle>
+              <AlertDescription className="space-y-3">
+                <p>Suas alterações locais foram preservadas.</p>
+                <Button className="h-auto max-w-full whitespace-normal text-left" variant="outline" type="button" disabled={enviando} onClick={() => setRascunho(null)}>
+                  Descartar alterações locais e carregar a versão mais recente
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+          {estado.erro && (
+            <Alert variant="destructive">
+              <CircleAlertIcon aria-hidden="true" />
+              <AlertTitle>Não foi possível salvar a equipe</AlertTitle>
+              <AlertDescription>{estado.erro}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+        {!somenteLeitura && (
+          <CardFooter className="justify-end">
+            <Button size="lg" disabled={enviando} type="submit">
+              {enviando ? "Salvando…" : unidadeFixa ? "Salvar alterações" : "Criar equipe"}
+            </Button>
+          </CardFooter>
+        )}
+      </Card>
     </form>
   );
 }
