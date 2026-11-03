@@ -1,5 +1,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { ArrowLeftIcon } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { listarUnidadesParaEquipe, listarSupervisoresParaEquipe } from "@/lib/equipe/consultar-equipe";
 import { PERFIS_GESTAO_EQUIPES } from "@/lib/equipe/escopo-equipe";
@@ -8,10 +11,18 @@ import { FormularioEquipe } from "../formulario-equipe";
 
 export default function NovaEquipePage() {
   return (
-    <section className="space-y-6">
-      <Link href="/cadastros/equipes" className="underline" prefetch={false}>Voltar para equipes</Link>
-      <h1 className="text-2xl font-bold">Nova equipe</h1>
-      <Suspense fallback={<p>Carregando formulário…</p>}><Conteudo /></Suspense>
+    <section className="mx-auto w-full max-w-7xl space-y-6">
+      <div className="space-y-2">
+        <Button variant="ghost" nativeButton={false} render={<Link href="/cadastros/equipes" prefetch={false} />}>
+          <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
+          Voltar para equipes
+        </Button>
+        <h1 className="text-2xl font-bold">Nova equipe</h1>
+        <p className="text-sm text-muted-foreground">Cadastre a equipe e defina sua unidade e supervisão responsável.</p>
+      </div>
+      <Suspense fallback={<p>Carregando formulário…</p>}>
+        <Conteudo />
+      </Suspense>
     </section>
   );
 }

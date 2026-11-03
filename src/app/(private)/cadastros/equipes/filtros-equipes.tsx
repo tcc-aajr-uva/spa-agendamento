@@ -3,8 +3,19 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 type Status = "ATIVAS" | "INATIVAS" | "TODAS";
 type Filtros = { busca: string; unidadeId: string; status: Status };
+
+const OPCOES_STATUS: { value: Status; label: string }[] = [
+  { value: "ATIVAS", label: "Ativas" },
+  { value: "INATIVAS", label: "Inativas" },
+  { value: "TODAS", label: "Todas" },
+];
 type Props = {
   buscaInicial: string;
   unidadeInicial: string;
@@ -17,6 +28,13 @@ export function FiltrosEquipes({ buscaInicial, unidadeInicial, statusInicial, pe
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const opcoesUnidades = [
+    { value: "", label: "Todas do meu escopo" },
+    ...unidades.map((unidade) => ({
+      value: unidade.id,
+      label: `${unidade.nome}${unidade.ativa ? "" : " (inativa)"}`,
+    })),
+  ];
   const origem = `${router.bfcacheId}:${pathname}?${searchParams.toString()}`;
   const recebidos: Filtros = { busca: buscaInicial, unidadeId: unidadeInicial, status: statusInicial };
   const [estado, setEstado] = useState({ origem, filtros: recebidos, destinos: [] as string[], geracao: 0 });
@@ -78,35 +96,66 @@ export function FiltrosEquipes({ buscaInicial, unidadeInicial, statusInicial, pe
 
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <label className="flex flex-col gap-1">
-        Buscar
-        <input className="rounded border px-3 py-2" name="busca" type="search" maxLength={120}
-          value={filtros.busca} onChange={(evento) => alterarBusca(evento.target.value)} placeholder="Nome da equipe" />
-      </label>
-      <label className="flex flex-col gap-1">
-        Unidade
-        <select className="rounded border px-3 py-2" name="unidadeId" value={filtros.unidadeId}
-          onChange={(evento) => aplicar({ ...filtros, unidadeId: evento.target.value })}>
-          <option value="">Todas do meu escopo</option>
-          {unidades.map((unidade) => <option key={unidade.id} value={unidade.id}>{unidade.nome}{!unidade.ativa && " (inativa)"}</option>)}
-        </select>
-      </label>
+      <Field className="w-full gap-3 sm:w-80">
+        <FieldLabel className="leading-5" htmlFor="busca-equipes">Buscar</FieldLabel>
+        <Input
+          className="h-auto px-3 py-2 text-sm leading-5 shadow-xs"
+          id="busca-equipes"
+          maxLength={120}
+          name="busca"
+          onChange={(evento) => alterarBusca(evento.target.value)}
+          placeholder="Nome da equipe"
+          type="search"
+          value={filtros.busca}
+        />
+      </Field>
+      <Field className="w-full gap-3 sm:w-80">
+        <FieldLabel className="leading-5" htmlFor="unidade-equipes">Unidade</FieldLabel>
+        <Select
+          items={opcoesUnidades}
+          name="unidadeId"
+          onValueChange={(valor) => aplicar({ ...filtros, unidadeId: valor ?? "" })}
+          value={filtros.unidadeId}
+        >
+          <SelectTrigger id="unidade-equipes" className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
+            <SelectValue placeholder="Todas do meu escopo" />
+          </SelectTrigger>
+          <SelectContent>
+            {opcoesUnidades.map((opcao) => (
+              <SelectItem key={opcao.value} value={opcao.value}>
+                {opcao.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
       {permitirInativas && (
-        <label className="flex flex-col gap-1">
-          Situação
-          <select className="rounded border px-3 py-2" name="status" value={filtros.status}
-            onChange={(evento) => aplicar({ ...filtros, status: evento.target.value as Status })}>
-            <option value="ATIVAS">Ativas</option>
-            <option value="INATIVAS">Inativas</option>
-            <option value="TODAS">Todas</option>
-          </select>
-        </label>
+        <Field className="w-full gap-3 sm:w-80">
+          <FieldLabel className="leading-5" htmlFor="status-equipes">Situação</FieldLabel>
+          <Select
+            items={OPCOES_STATUS}
+            name="status"
+            onValueChange={(valor) => {
+              if (valor !== null) aplicar({ ...filtros, status: valor });
+            }}
+            value={filtros.status}
+          >
+            <SelectTrigger id="status-equipes" className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {OPCOES_STATUS.map((opcao) => (
+                <SelectItem key={opcao.value} value={opcao.value}>{opcao.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
       )}
-      <button className="rounded border px-3 py-2" type="button"
+      <Button className="h-auto px-4 py-2 leading-5 shadow-xs" variant="outline" type="button"
         disabled={!filtros.busca && !filtros.unidadeId && filtros.status === "ATIVAS"}
         onClick={() => aplicar({ busca: "", unidadeId: "", status: "ATIVAS" })}>
         Limpar filtros
-      </button>
+      </Button>
       {atualizando && <span className="text-sm" aria-live="polite">Atualizando…</span>}
     </div>
   );
