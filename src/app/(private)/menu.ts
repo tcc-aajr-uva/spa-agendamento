@@ -24,12 +24,6 @@ export const MENU: ItemMenu[] = [
         perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA"],
       },
       {
-        href: "/cadastros/periodos",
-        rotulo: "Períodos letivos",
-        prefetch: false,
-        perfis: ["SUPERVISOR"],
-      },
-      {
         href: "/cadastros/equipes",
         rotulo: "Equipes",
         prefetch: false,

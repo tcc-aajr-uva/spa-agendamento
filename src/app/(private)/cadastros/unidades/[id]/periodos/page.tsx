@@ -1,9 +1,8 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
-import { consultarUnidadeDosPeriodos, PERFIS_PERIODOS } from "@/lib/periodo-letivo/escopo-periodo";
-import { SecaoPeriodos, type ParametrosPeriodos } from "./secao-periodos";
+import { consultarUnidadeDosPeriodos, PERFIS_GESTAO_PERIODOS } from "@/lib/periodo-letivo/escopo-periodo";
+import type { ParametrosPeriodos } from "./secao-periodos";
 import { criarParametrosBusca } from "@/lib/url/parametros-busca";
 
 type Props = {
@@ -16,22 +15,13 @@ export default function PeriodosPage(props: Props) {
 }
 
 async function Conteudo({ params, searchParams }: Props) {
-  const autor = await exigirUsuario([...PERFIS_PERIODOS]);
+  const autor = await exigirUsuario([...PERFIS_GESTAO_PERIODOS]);
   const { id } = await params;
   const unidade = await consultarUnidadeDosPeriodos(id, autor);
   if (!unidade) notFound();
-  if (autor.perfil !== "SUPERVISOR") {
-    const consulta = await searchParams;
-    const parametros = criarParametrosBusca(consulta);
-    const caminho = `/cadastros/unidades/${id}`;
-    redirect(`${caminho}${parametros.size ? `?${parametros}` : ""}#periodos`);
-  }
-  return (
-    <div className="space-y-6">
-      <Link className="underline" prefetch={false} href="/cadastros/periodos">Voltar para minhas unidades</Link>
-      <h1 className="text-2xl font-bold">{unidade.nome}</h1>
-      <SecaoPeriodos unidadeId={id} autor={autor} caminhoLista={`/cadastros/unidades/${id}/periodos`} searchParams={searchParams} />
-    </div>
-  );
+  const consulta = await searchParams;
+  const parametros = criarParametrosBusca(consulta);
+  const caminho = `/cadastros/unidades/${id}`;
+  return redirect(`${caminho}${parametros.size ? `?${parametros}` : ""}#periodos`);
 }
 
