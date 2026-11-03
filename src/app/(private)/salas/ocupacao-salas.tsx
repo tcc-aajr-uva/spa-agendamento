@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { chaveSala, DIAS_DA_SEMANA, estaOcupando, formatarHora, horarioNaGrade } from "@/lib/agendamento/regras";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { prisma } from "@/lib/prisma";
+import { Cartao } from "../cartao";
 
 type Props = {
   unidadeId: string;
@@ -44,67 +47,66 @@ export async function OcupacaoSalas({ unidadeId, dia, unidades, link }: Props) {
   );
 
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-lg font-bold">Ocupação</h2>
-      {unidades && (
-        <nav aria-label="Unidade" className="flex flex-wrap gap-2">
-          {unidades.map((opcao) => (
-            <Link
-              key={opcao.id}
-              href={link({ unidade: opcao.id, pagina: 1 })}
-              aria-current={opcao.id === unidadeId ? "true" : undefined}
-              className={`rounded border px-2 py-1 ${opcao.id === unidadeId ? "font-bold" : ""}`}
-            >
-              {opcao.nome}
-            </Link>
-          ))}
-        </nav>
-      )}
-      <nav aria-label="Dia da semana" className="flex flex-wrap gap-2">
-        {DIAS_EXIBIDOS.map((opcao) => (
-          <Link
-            key={opcao}
-            href={link({ dia: opcao })}
-            aria-current={opcao === dia ? "true" : undefined}
-            className={`w-12 rounded border py-1 text-center ${opcao === dia ? "font-bold" : ""}`}
-          >
-            {DIAS_DA_SEMANA[opcao].slice(0, 3)}
-          </Link>
-        ))}
-      </nav>
-      {unidade.salas.length === 0 ? (
-        <p>Nenhuma sala ativa nesta unidade.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="border-collapse text-sm">
-            <caption className="sr-only">Ocupação das salas na {DIAS_DA_SEMANA[dia]}</caption>
-            <thead>
-              <tr>
-                <th scope="col" className="border px-2 py-1">Horário</th>
-                {unidade.salas.map((sala) => (
-                  <th key={sala.id} scope="col" className="w-24 min-w-24 border px-2 py-1">{sala.nome}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {horarios.map((hora) => (
-                <tr key={hora}>
-                  <th scope="row" className="border px-2 py-1">{formatarHora(hora)}</th>
-                  {unidade.salas.map((sala) => {
-                    const status = ocupacao.get(chaveSala(sala.id, dia, hora));
-                    const texto = !status ? "Livre" : status === "PENDENTE" ? "Pendente" : "Ocupada";
-                    return (
-                      <td key={sala.id} className={`border px-2 py-1 text-center ${status ? "font-bold" : "opacity-70"}`}>
-                        {texto}
-                      </td>
-                    );
-                  })}
-                </tr>
+    <Cartao titulo="Ocupação">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {unidades ? (
+          <Tabs value={unidadeId}>
+            <TabsList aria-label="Unidade">
+              {unidades.map((opcao) => (
+                <TabsTrigger key={opcao.id} value={opcao.id} nativeButton={false} render={<Link href={link({ unidade: opcao.id, pagina: 1 })} scroll={false} />}>
+                  {opcao.nome}
+                </TabsTrigger>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TabsList>
+          </Tabs>
+        ) : (
+          <span />
+        )}
+        <Tabs value={dia}>
+          <TabsList aria-label="Dia da semana">
+            {DIAS_EXIBIDOS.map((opcao) => (
+              <TabsTrigger key={opcao} value={opcao} nativeButton={false} render={<Link href={link({ dia: opcao })} scroll={false} />}>
+                {DIAS_DA_SEMANA[opcao].slice(0, 3)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>
+      {unidade.salas.length === 0 ? (
+        <p className="text-muted-foreground">Nenhuma sala ativa nesta unidade.</p>
+      ) : (
+        <Table className="border-separate border-spacing-1 text-sm">
+          <caption className="sr-only">Ocupação das salas na {DIAS_DA_SEMANA[dia]}</caption>
+          <TableHeader>
+            <TableRow className="border-0 hover:bg-transparent">
+              <TableHead scope="col" className="h-auto w-16 px-1 text-sm font-normal text-muted-foreground">Horário</TableHead>
+              {unidade.salas.map((sala) => (
+                <TableHead key={sala.id} scope="col" className="h-auto min-w-20 px-1 text-center text-sm font-normal text-muted-foreground">{sala.nome}</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {horarios.map((hora) => (
+              <TableRow key={hora} className="border-0 hover:bg-transparent">
+                <TableHead scope="row" className="h-auto px-1 text-sm font-normal text-muted-foreground">{formatarHora(hora)}</TableHead>
+                {unidade.salas.map((sala) => {
+                  const status = ocupacao.get(chaveSala(sala.id, dia, hora));
+                  const [texto, cor] = !status
+                    ? ["Livre", "bg-muted text-muted-foreground"]
+                    : status === "PENDENTE"
+                      ? ["Pendente", "bg-secondary text-secondary-foreground"]
+                      : ["Ocupada", "bg-primary text-primary-foreground"];
+                  return (
+                    <TableCell key={sala.id} className={`rounded-md px-1 py-1 text-center ${cor}`}>
+                      {texto}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
-    </section>
+    </Cartao>
   );
 }

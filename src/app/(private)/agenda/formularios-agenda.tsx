@@ -1,44 +1,13 @@
 "use client";
 
 import { createContext, type ReactNode, useActionState, useContext, useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { DIAS_DA_SEMANA, formatarHora } from "@/lib/agendamento/regras";
-import { adicionarHorario, type EstadoAgenda, removerHorario, trocarHorario } from "./actions";
+import { CampoSelect } from "../campo-select";
+import { type EstadoAgenda, trocarHorario } from "./actions";
 
 type Grade = { dias: number[]; horas: number[] };
-
-export function FormularioNovoHorario({ dias, horas }: Grade) {
-  const [estado, enviar, enviando] = useActionState(adicionarHorario, {});
-
-  return (
-    <form action={enviar} className="flex flex-wrap items-end gap-3">
-      <SeletoresHorario dias={dias} horas={horas} />
-      <button disabled={enviando} className="rounded border px-3 py-1">
-        {enviando ? "Salvando…" : "Adicionar horário"}
-      </button>
-      <p aria-live="polite" className={`w-full ${estado.erro ? "text-red-400" : ""}`}>
-        {estado.erro ?? estado.mensagem}
-      </p>
-    </form>
-  );
-}
-
-export function BotaoRemoverHorario({ horarioId, descricao }: { horarioId: string; descricao: string }) {
-  const [estado, enviar, enviando] = useActionState(removerHorario, {});
-
-  return (
-    <form action={enviar} className="inline">
-      <input type="hidden" name="horarioId" value={horarioId} />
-      <button disabled={enviando} aria-label={`Remover ${descricao}`} className="rounded border px-2 text-sm">
-        {enviando ? "…" : "Remover"}
-      </button>
-      {estado.erro && (
-        <span role="alert" className="ml-2 text-sm text-red-400">
-          {estado.erro}
-        </span>
-      )}
-    </form>
-  );
-}
 
 type Horario = { id: string; diaSemana: number; horaInicio: number; descricao: string };
 
@@ -49,9 +18,13 @@ export function AvisosDaAgenda({ children }: { children: ReactNode }) {
   return (
     <AvisoDaAgenda value={setMensagem}>
       <div className="flex flex-col gap-6">
-        <p aria-live="polite" className={mensagem ? "" : "sr-only"}>
-          {mensagem}
-        </p>
+        <div aria-live="polite">
+          {mensagem && (
+            <Alert variant="success">
+              <AlertDescription>{mensagem}</AlertDescription>
+            </Alert>
+          )}
+        </div>
         {children}
       </div>
     </AvisoDaAgenda>
@@ -69,54 +42,56 @@ export function BotaoTrocarHorario({ horario, dias, horas }: { horario: Horario 
 
   if (!aberto) {
     return (
-      <button type="button" onClick={() => setAberto(true)} aria-label={`Trocar ${horario.descricao}`} className="rounded border px-2 text-sm">
+      <Button variant="outline" size="sm" onClick={() => setAberto(true)} aria-label={`Trocar ${horario.descricao}`}>
         Trocar
-      </button>
+      </Button>
     );
   }
 
   return (
-    <form action={enviar} className="flex flex-wrap items-end gap-2">
-      <input type="hidden" name="horarioId" value={horario.id} />
-      <SeletoresHorario dias={dias} horas={horas} dia={horario.diaSemana} hora={horario.horaInicio} />
-      <button disabled={enviando} className="rounded border px-2 text-sm">
-        {enviando ? "Salvando…" : `Salvar troca de ${horario.descricao}`}
-      </button>
-      <button type="button" onClick={() => setAberto(false)} className="rounded border px-2 text-sm">
-        Voltar
-      </button>
-      {estado.erro && (
-        <span role="alert" className="text-sm text-red-400">
-          {estado.erro}
-        </span>
-      )}
-    </form>
+    <div className="order-last basis-full pt-2">
+      <form action={enviar} className="flex flex-col gap-3">
+        <input type="hidden" name="horarioId" value={horario.id} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SeletoresHorario id={`trocar-${horario.id}`} dias={dias} horas={horas} dia={horario.diaSemana} hora={horario.horaInicio} />
+        </div>
+        <div className="flex gap-2">
+          <Button type="submit" size="sm" disabled={enviando}>
+            {enviando ? "Salvando…" : "Salvar troca"}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setAberto(false)}>
+            Voltar
+          </Button>
+        </div>
+        {estado.erro && (
+          <Alert variant="destructive" aria-live="polite">
+            <AlertDescription className="text-destructive">{estado.erro}</AlertDescription>
+          </Alert>
+        )}
+      </form>
+    </div>
   );
 }
 
-function SeletoresHorario({ dias, horas, dia, hora }: Grade & { dia?: number; hora?: number }) {
+export function SeletoresHorario({ id, dias, horas, dia, hora }: Grade & { id: string; dia?: number; hora?: number }) {
   return (
     <>
-      <label className="flex flex-col gap-1">
-        Dia
-        <select name="diaSemana" required defaultValue={dia} className="rounded border bg-transparent px-2 py-1">
-          {dias.map((opcao) => (
-            <option key={opcao} value={opcao}>
-              {DIAS_DA_SEMANA[opcao]}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="flex flex-col gap-1">
-        Horário
-        <select name="horaInicio" required defaultValue={hora} className="rounded border bg-transparent px-2 py-1">
-          {horas.map((opcao) => (
-            <option key={opcao} value={opcao}>
-              {formatarHora(opcao)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <CampoSelect
+        id={`${id}-dia`}
+        nome="diaSemana"
+        rotulo="Dia"
+        opcoes={dias.map((opcao) => ({ value: String(opcao), label: DIAS_DA_SEMANA[opcao] }))}
+        valor={dia === undefined ? undefined : String(dia)}
+        obrigatorio
+      />
+      <CampoSelect
+        id={`${id}-hora`}
+        nome="horaInicio"
+        rotulo="Horário"
+        opcoes={horas.map((opcao) => ({ value: String(opcao), label: formatarHora(opcao) }))}
+        valor={hora === undefined ? undefined : String(hora)}
+        obrigatorio
+      />
     </>
   );
 }
