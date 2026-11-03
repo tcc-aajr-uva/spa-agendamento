@@ -3,10 +3,11 @@
 import { z } from "zod";
 import { cancelarPorToken } from "@/lib/agendamento/cancelar";
 import { ErroDeRegra } from "@/lib/erros";
+import { TAMANHO_CODIGO, TAMANHO_TOKEN } from "@/lib/token-constantes";
 
 const cancelamentoSchema = z.object({
-  token: z.string().length(43),
-  codigo: z.string().trim().toUpperCase().length(6),
+  token: z.string().length(TAMANHO_TOKEN),
+  codigo: z.string().trim().toUpperCase().length(TAMANHO_CODIGO),
 });
 
 export type EstadoCancelamento = {

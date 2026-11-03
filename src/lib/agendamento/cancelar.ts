@@ -4,8 +4,9 @@ import { ErroDeRegra } from "@/lib/erros";
 import { hashToken } from "@/lib/token";
 import { executarEmTransacao } from "@/lib/transacao";
 import { liberarAgendamento } from "./liberar-agendamento";
+import type { StatusAgendamento } from "@/generated/prisma/client";
 
-const STATUS_CANCELAVEIS = ["PENDENTE", "CONFIRMADO"];
+const STATUS_CANCELAVEIS: ReadonlySet<StatusAgendamento> = new Set<StatusAgendamento>(["PENDENTE", "CONFIRMADO"]);
 
 function codigosIguais(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
@@ -34,12 +35,12 @@ export async function cancelarPorToken(token: string, codigo: string): Promise<v
       registro.tipo !== "CANCELAMENTO" ||
       registro.usadoEm !== null ||
       registro.expiraEm <= new Date() ||
-      !codigosIguais(registro.codigo, codigo.trim().toUpperCase())
+      !codigosIguais(registro.codigo, codigo)
     ) {
       throw invalido;
     }
 
-    if (!STATUS_CANCELAVEIS.includes(registro.agendamento.status)) {
+    if (!STATUS_CANCELAVEIS.has(registro.agendamento.status)) {
       throw new ErroDeRegra("SEM_PERMISSAO", "Este agendamento não pode mais ser cancelado por aqui. Procure a secretaria.");
     }
 

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { cancelarAgendamentoAction, type EstadoCancelamento } from "./actions";
+import { TAMANHO_CODIGO } from "@/lib/token-constantes";
 
 const estadoInicial: EstadoCancelamento = { status: "inicial" };
 
@@ -20,7 +21,7 @@ export function FormularioCancelamento({ token }: { token: string }) {
         <input
           name="codigo"
           required
-          maxLength={6}
+          maxLength={TAMANHO_CODIGO}
           autoComplete="off"
           autoCapitalize="characters"
           className="rounded border p-2 uppercase tracking-widest"
