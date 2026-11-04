@@ -8,7 +8,7 @@ import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { dataDoPeriodo, situacaoDoPeriodo, situacaoPeriodoSchema } from "./dados-periodo";
 import { filtroDeUnidadesDosPeriodos } from "./escopo-periodo";
 
-const ITENS_POR_PAGINA = 20;
+const ITENS_POR_PAGINA = 10;
 
 const paginaSchema = z.coerce.number().int().min(1).max(1_000_000).catch(1);
 const filtrosSchema = z.object({ pagina: paginaSchema, situacao: situacaoPeriodoSchema.catch("TODOS") });

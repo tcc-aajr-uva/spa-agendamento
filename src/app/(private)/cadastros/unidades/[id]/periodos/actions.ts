@@ -4,11 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { ErroDeRegra } from "@/lib/erros";
-import { datasPeriodoSchema } from "@/lib/periodo-letivo/dados-periodo";
+import { chaveDoPeriodo, datasPeriodoSchema } from "@/lib/periodo-letivo/dados-periodo";
 import { PERFIS_GESTAO_PERIODOS } from "@/lib/periodo-letivo/escopo-periodo";
-import { criarPeriodo as criar, atualizarPeriodo as atualizar, excluirPeriodo as excluir } from "@/lib/periodo-letivo/salvar-periodo";
+import { criarPeriodo as criar, atualizarPeriodo as atualizar, excluirPeriodo as excluir, VersaoDesatualizadaDoPeriodo } from "@/lib/periodo-letivo/salvar-periodo";
 
-export type EstadoPeriodo = { erro?: string };
+export type EstadoPeriodo = { erro?: string; versaoEmConflito?: string; indisponivel?: boolean };
 
 export async function criarPeriodo(unidadeId: string, _estado: EstadoPeriodo, formData: FormData): Promise<EstadoPeriodo> {
   const autor = await exigirUsuario([...PERFIS_GESTAO_PERIODOS]);
@@ -26,13 +26,10 @@ export async function criarPeriodo(unidadeId: string, _estado: EstadoPeriodo, fo
 export async function atualizarPeriodo(unidadeId: string, id: string, _estado: EstadoPeriodo, formData: FormData): Promise<EstadoPeriodo> {
   const autor = await exigirUsuario([...PERFIS_GESTAO_PERIODOS]);
   try {
-    await atualizar(unidadeId, id, dadosDoFormulario(formData), lerVersao(formData), autor);
+    const versao = lerVersao(formData);
+    await atualizar(unidadeId, id, dadosDoFormulario(formData), versao, autor);
   } catch (erro) {
-    if (erro instanceof ErroDeRegra) {
-      if (erro.codigo === "CONFLITO_CONCORRENTE") revalidar(unidadeId, id);
-      return { erro: erro.message };
-    }
-    throw erro;
+    return tratarErro(erro, formData);
   }
   revalidar(unidadeId, id);
   redirect(`/cadastros/unidades/${unidadeId}?periodoSalvo=${id}&confirmacaoPeriodo=${Date.now()}#periodos`);
@@ -43,14 +40,21 @@ export async function excluirPeriodo(unidadeId: string, id: string, _estado: Est
   try {
     await excluir(unidadeId, id, lerVersao(formData), autor);
   } catch (erro) {
-    if (erro instanceof ErroDeRegra) {
-      if (erro.codigo === "CONFLITO_CONCORRENTE") revalidar(unidadeId, id);
-      return { erro: erro.message };
-    }
-    throw erro;
+    return tratarErro(erro, formData);
   }
   revalidar(unidadeId, id);
   redirect(`/cadastros/unidades/${unidadeId}?excluido=${id}&confirmacaoPeriodo=${Date.now()}#periodos`);
+}
+
+function tratarErro(erro: unknown, formData: FormData): EstadoPeriodo {
+  if (erro instanceof VersaoDesatualizadaDoPeriodo) {
+    return { versaoEmConflito: chaveDoPeriodo(lerVersao(formData)) };
+  }
+  if (erro instanceof ErroDeRegra) {
+    if (erro.codigo === "NAO_ENCONTRADO") return { indisponivel: true };
+    return { erro: erro.message };
+  }
+  throw erro;
 }
 
 function dadosDoFormulario(formData: FormData) {

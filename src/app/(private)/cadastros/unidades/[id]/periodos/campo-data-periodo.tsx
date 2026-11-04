@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState, type Ref } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
@@ -15,7 +15,9 @@ type Props = {
   rotulo: string;
   valor: string;
   desabilitado: boolean;
-  invalido: boolean;
+  erro?: string;
+  referencia?: Ref<HTMLButtonElement>;
+  aoDesfocar: () => void;
   aoAlterar: (valor: string) => void;
 };
 
@@ -23,7 +25,7 @@ const PRIMEIRA_DATA = parseISO("0001-01-01");
 const ULTIMA_DATA = parseISO("9999-12-31");
 const INTERVALO_ANOS = 10;
 
-export function CampoDataPeriodo({ nome, rotulo, valor, desabilitado, invalido, aoAlterar }: Props) {
+export function CampoDataPeriodo({ nome, rotulo, valor, desabilitado, erro, referencia, aoDesfocar, aoAlterar }: Props) {
   const [aberto, definirAberto] = useState(false);
   const [anoAtual] = useState(() => new Date().getFullYear());
   const data = valor ? parseISO(valor) : undefined;
@@ -32,18 +34,20 @@ export function CampoDataPeriodo({ nome, rotulo, valor, desabilitado, invalido, 
   const ultimoAno = Math.min(9999, Math.max(anoAtual + INTERVALO_ANOS, anoSelecionado));
   const inicioNavegacao = parseISO(`${String(primeiroAno).padStart(4, "0")}-01-01`);
   const fimNavegacao = parseISO(`${String(ultimoAno).padStart(4, "0")}-12-31`);
-  const id = `periodo-${nome}`;
+  const id = useId();
 
   return (
-    <Field data-invalid={invalido}>
+    <Field data-invalid={Boolean(erro)}>
       <FieldLabel htmlFor={id}>{rotulo}</FieldLabel>
       <input type="hidden" name={nome} value={valor} disabled={desabilitado} />
-      <Popover open={aberto} onOpenChange={definirAberto}>
+      <Popover open={aberto && !desabilitado} onOpenChange={definirAberto}>
         <PopoverTrigger
           id={id}
+          ref={referencia}
+          onBlur={aoDesfocar}
           disabled={desabilitado}
-          aria-invalid={invalido}
-          aria-describedby={invalido ? `${id}-erro` : undefined}
+          aria-invalid={Boolean(erro)}
+          aria-describedby={erro ? `${id}-erro` : undefined}
           data-empty={!valor}
           render={<Button type="button" variant="outline" className="h-auto w-full justify-start px-3 py-2 text-left leading-5 font-normal shadow-xs data-[empty=true]:text-muted-foreground" />}
         >
@@ -62,13 +66,14 @@ export function CampoDataPeriodo({ nome, rotulo, valor, desabilitado, invalido, 
             disabled={desabilitado ? true : [{ before: PRIMEIRA_DATA }, { after: ULTIMA_DATA }]}
             autoFocus
             onSelect={(selecionada) => {
+              if (desabilitado) return;
               aoAlterar(selecionada ? format(selecionada, "yyyy-MM-dd") : "");
               definirAberto(false);
             }}
           />
         </PopoverContent>
       </Popover>
-      {invalido && <FieldError id={`${id}-erro`}>Selecione a {rotulo.toLowerCase()}.</FieldError>}
+      {erro && <FieldError id={`${id}-erro`}>{erro}</FieldError>}
     </Field>
   );
 }
