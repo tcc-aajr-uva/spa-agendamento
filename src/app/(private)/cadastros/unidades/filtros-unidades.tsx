@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -25,11 +25,17 @@ export function FiltrosUnidades({ buscaInicial, statusInicial, permitirInativas 
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [busca, setBusca] = useState(buscaInicial);
-  const [status, setStatus] = useState(statusInicial);
+  const [rascunhoBusca, setRascunhoBusca] = useState<string | null>(null);
+  const busca = rascunhoBusca ?? buscaInicial;
   const [atualizando, iniciarAtualizacao] = useTransition();
-  const buscaAnterior = useRef(buscaInicial);
-  const statusAtual = useRef(statusInicial);
+  const buscaAnterior = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    return () => {
+      buscaAnterior.current = null;
+      setRascunhoBusca(null);
+    };
+  }, []);
 
   const atualizar = useCallback(
     (proximaBusca: string, proximoStatus: Status) => {
@@ -46,23 +52,15 @@ export function FiltrosUnidades({ buscaInicial, statusInicial, permitirInativas 
   );
 
   useEffect(() => {
-    if (buscaAnterior.current === busca) return;
-    buscaAnterior.current = busca;
-    const temporizador = window.setTimeout(() => atualizar(busca, statusAtual.current), 450);
+    if (rascunhoBusca === null || buscaAnterior.current === rascunhoBusca) return;
+    buscaAnterior.current = rascunhoBusca;
+    const temporizador = window.setTimeout(() => atualizar(rascunhoBusca, statusInicial), 450);
     return () => window.clearTimeout(temporizador);
-  }, [atualizar, busca]);
-
-  const alterarStatus = (novoStatus: Status) => {
-    setStatus(novoStatus);
-    statusAtual.current = novoStatus;
-    atualizar(busca, novoStatus);
-  };
+  }, [atualizar, rascunhoBusca, statusInicial]);
 
   const limpar = () => {
     buscaAnterior.current = "";
-    statusAtual.current = "ATIVAS";
-    setBusca("");
-    setStatus("ATIVAS");
+    setRascunhoBusca("");
     iniciarAtualizacao(() => router.replace(pathname, { scroll: false }));
   };
 
@@ -74,7 +72,7 @@ export function FiltrosUnidades({ buscaInicial, statusInicial, permitirInativas 
           className="h-auto px-3 py-2 text-sm leading-5 shadow-xs"
           id="busca-unidades"
           name="busca"
-          onChange={(evento) => setBusca(evento.target.value)}
+          onChange={(evento) => setRascunhoBusca(evento.target.value)}
           placeholder="Nome da unidade"
           type="search"
           value={busca}
@@ -87,9 +85,9 @@ export function FiltrosUnidades({ buscaInicial, statusInicial, permitirInativas 
             name="status"
             items={OPCOES_STATUS}
             onValueChange={(valor) => {
-              if (valor !== null) alterarStatus(valor);
+              if (valor !== null) atualizar(busca, valor);
             }}
-            value={status}
+            value={statusInicial}
           >
             <SelectTrigger id="status-unidades" className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
               <SelectValue />
@@ -104,7 +102,7 @@ export function FiltrosUnidades({ buscaInicial, statusInicial, permitirInativas 
           </Select>
         </Field>
       )}
-      <Button className="h-auto px-4 py-2 leading-5 shadow-xs" variant="outline" disabled={!busca && status === "ATIVAS"} onClick={limpar} type="button">
+      <Button className="h-auto px-4 py-2 leading-5 shadow-xs" variant="outline" disabled={!busca && statusInicial === "ATIVAS"} onClick={limpar} type="button">
         Limpar filtros
       </Button>
       {atualizando && <span className="text-sm" aria-live="polite">Atualizando…</span>}
