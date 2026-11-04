@@ -36,7 +36,7 @@ export async function atualizarPeriodo(
     });
     if (agendamento) throw periodoEmUso();
     const atualizacao = await tx.periodoLetivo.updateMany({ where: { id, unidadeId, ...converterDatas(versao) }, data: datas });
-    if (atualizacao.count !== 1) throw conflito();
+    if (atualizacao.count !== 1) throw new VersaoDesatualizadaDoPeriodo();
   });
 }
 
@@ -49,7 +49,7 @@ export async function excluirPeriodo(unidadeId: string, id: string, versao: Data
     }
     if (await periodoEstaEmUso(periodo, tx)) throw periodoEmUso();
     const exclusao = await tx.periodoLetivo.deleteMany({ where: { id, unidadeId, ...converterDatas(versao) } });
-    if (exclusao.count !== 1) throw conflito();
+    if (exclusao.count !== 1) throw new VersaoDesatualizadaDoPeriodo();
   });
 }
 
@@ -81,7 +81,7 @@ async function carregarParaAlterar(tx: Transacao, unidadeId: string, id: string,
   const periodo = await tx.periodoLetivo.findFirst({ where: { id, unidadeId }, select: { id: true, unidadeId: true, inicio: true, fim: true } });
   if (!periodo) throw new ErroDeRegra("NAO_ENCONTRADO", "Período não encontrado nesta unidade.");
   const datas = { inicio: dataDoPeriodo(periodo.inicio), fim: dataDoPeriodo(periodo.fim) };
-  if (chaveDoPeriodo(datas) !== chaveDoPeriodo(versao)) throw conflito();
+  if (chaveDoPeriodo(datas) !== chaveDoPeriodo(versao)) throw new VersaoDesatualizadaDoPeriodo();
   return periodo;
 }
 
@@ -97,6 +97,8 @@ function periodoEmUso() {
   return new ErroDeRegra("DADOS_INVALIDOS", "Este período possui configurações de atendimento ou agendamentos e não pode ser alterado ou excluído.");
 }
 
-function conflito() {
-  return new ErroDeRegra("CONFLITO_CONCORRENTE", "Este período foi alterado em outra sessão. Carregue a versão mais recente.");
+export class VersaoDesatualizadaDoPeriodo extends ErroDeRegra {
+  constructor() {
+    super("CONFLITO_CONCORRENTE", "Este período foi alterado em outra sessão.");
+  }
 }
