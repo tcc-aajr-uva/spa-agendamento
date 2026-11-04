@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -26,13 +26,17 @@ export function FiltrosUnidades({ buscaInicial, statusInicial, permitirInativas 
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [rascunhoBusca, setRascunhoBusca] = useState<string | null>(null);
+  const [buscaAplicadaAnterior, setBuscaAplicadaAnterior] = useState(buscaInicial);
   const busca = rascunhoBusca ?? buscaInicial;
   const [atualizando, iniciarAtualizacao] = useTransition();
-  const buscaAnterior = useRef<string | null>(null);
+
+  if (buscaAplicadaAnterior !== buscaInicial) {
+    setBuscaAplicadaAnterior(buscaInicial);
+    if (rascunhoBusca?.trim() === buscaInicial) setRascunhoBusca(null);
+  }
 
   useLayoutEffect(() => {
     return () => {
-      buscaAnterior.current = null;
       setRascunhoBusca(null);
     };
   }, []);
@@ -52,15 +56,13 @@ export function FiltrosUnidades({ buscaInicial, statusInicial, permitirInativas 
   );
 
   useEffect(() => {
-    if (rascunhoBusca === null || buscaAnterior.current === rascunhoBusca) return;
-    buscaAnterior.current = rascunhoBusca;
+    if (atualizando || rascunhoBusca === null || rascunhoBusca.trim() === buscaInicial) return;
     const temporizador = window.setTimeout(() => atualizar(rascunhoBusca, statusInicial), 450);
     return () => window.clearTimeout(temporizador);
-  }, [atualizar, rascunhoBusca, statusInicial]);
+  }, [atualizando, atualizar, buscaInicial, rascunhoBusca, statusInicial]);
 
   const limpar = () => {
-    buscaAnterior.current = "";
-    setRascunhoBusca("");
+    setRascunhoBusca(null);
     iniciarAtualizacao(() => router.replace(pathname, { scroll: false }));
   };
 
@@ -71,6 +73,7 @@ export function FiltrosUnidades({ buscaInicial, statusInicial, permitirInativas 
         <Input
           className="h-auto px-3 py-2 text-sm leading-5 shadow-xs"
           id="busca-unidades"
+          maxLength={120}
           name="busca"
           onChange={(evento) => setRascunhoBusca(evento.target.value)}
           placeholder="Nome da unidade"
