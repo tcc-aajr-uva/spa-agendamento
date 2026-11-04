@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore, type ReactNode } from "react";
+import { useLayoutEffect, useSyncExternalStore, type ReactNode } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -21,32 +21,45 @@ function abaInicial() {
   return "dados";
 }
 
+function definirAbaNaUrl(aba: "dados" | "periodos") {
+  const url = new URL(window.location.href);
+  url.hash = aba === "periodos" ? "periodos" : "";
+  window.history.replaceState(
+    null,
+    "",
+    `${url.pathname}${url.search}${url.hash}`,
+  );
+  window.dispatchEvent(new HashChangeEvent("hashchange"));
+}
+
 export function AbasUnidade({
+  bloqueada,
   dados,
   periodos,
 }: {
+  bloqueada: boolean;
   dados: ReactNode;
   periodos: ReactNode;
 }) {
   const aba = useSyncExternalStore(observarNavegacao, abaDaUrl, abaInicial);
 
+  useLayoutEffect(() => {
+    if (bloqueada && window.location.hash === "#periodos") {
+      definirAbaNaUrl("dados");
+    }
+  }, [bloqueada]);
+
   function alterarAba(valor: unknown) {
+    if (bloqueada) return;
     if (valor !== "dados" && valor !== "periodos") return;
-    const url = new URL(window.location.href);
-    url.hash = valor === "periodos" ? "periodos" : "";
-    window.history.replaceState(
-      null,
-      "",
-      `${url.pathname}${url.search}${url.hash}`,
-    );
-    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    definirAbaNaUrl(valor);
   }
 
   return (
-    <Tabs value={aba} onValueChange={alterarAba} className="gap-6">
+    <Tabs value={bloqueada ? "dados" : aba} onValueChange={alterarAba} className="gap-6">
       <TabsList aria-label="Cadastro da unidade">
-        <TabsTrigger value="dados">Dados da unidade</TabsTrigger>
-        <TabsTrigger value="periodos">Períodos letivos</TabsTrigger>
+        <TabsTrigger disabled={bloqueada} value="dados">Dados da unidade</TabsTrigger>
+        <TabsTrigger disabled={bloqueada} value="periodos">Períodos letivos</TabsTrigger>
       </TabsList>
       <TabsContent value="dados" keepMounted className="space-y-6">
         {dados}

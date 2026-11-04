@@ -9,9 +9,7 @@ import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { consultarUnidadeGerenciavel } from "@/lib/unidade/consultar-unidade";
 import { PERFIS_UNIDADES, podeAlterarAtivacaoDeUnidade } from "@/lib/unidade/escopo-unidade";
 import { alterarAtivacao, atualizarUnidade } from "../actions";
-import { FormularioUnidade } from "../formulario-unidade";
-import { AbasUnidade } from "./abas-unidade";
-import { ControleAtivacaoUnidade } from "./controle-ativacao";
+import { EdicaoUnidade } from "./edicao-unidade";
 import { NotificacaoUnidadeCriada } from "./notificacao-unidade-criada";
 import { SecaoPeriodos, type ParametrosPeriodos } from "./periodos/secao-periodos";
 
@@ -50,25 +48,18 @@ async function ConteudoUnidade({ params, searchParams }: Props) {
         <p className="text-sm text-muted-foreground">Altere as regras de funcionamento e de agendamento da unidade.</p>
       </div>
 
-      <AbasUnidade
-        dados={
-          <>
-            <FormularioUnidade
-              acao={atualizarUnidade.bind(null, unidade.id)}
-              podeAlterarDadosAdministrativos={autor.perfil !== "SECRETARIA"}
-              rotuloBotao="Salvar alterações"
-              valores={{ ...unidade, atualizadoEm: unidade.atualizadoEm.toISOString() }}
-            />
-            {podeAlterarAtivacaoDeUnidade(autor) && (
-              <ControleAtivacaoUnidade acao={alterarAtivacao.bind(null, unidade.id)} ativa={unidade.ativa} />
-            )}
-          </>
-        }
+      <EdicaoUnidade
+        acaoAlterarAtivacao={alterarAtivacao.bind(null, unidade.id)}
+        acaoAtualizar={atualizarUnidade.bind(null, unidade.id)}
+        ativa={unidade.ativa}
+        podeAlterarAtivacao={podeAlterarAtivacaoDeUnidade(autor)}
+        podeAlterarDadosAdministrativos={autor.perfil !== "SECRETARIA"}
         periodos={
           <Suspense fallback={<p>Carregando períodos letivos…</p>}>
             <SecaoPeriodos unidadeId={id} autor={autor} caminhoLista={`/cadastros/unidades/${id}`} searchParams={searchParams} />
           </Suspense>
         }
+        valores={{ ...unidade, atualizadoEm: unidade.atualizadoEm.toISOString() }}
       />
     </div>
   );

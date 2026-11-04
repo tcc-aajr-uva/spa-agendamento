@@ -6,27 +6,27 @@ import { z } from "zod";
 
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { ErroDeRegra } from "@/lib/erros";
-import { unidadeIdSchema, type DadosUnidade } from "@/lib/unidade/dados-unidade";
+import { unidadeIdSchema } from "@/lib/unidade/dados-unidade";
 import { PERFIS_UNIDADES } from "@/lib/unidade/escopo-unidade";
 import {
+  VersaoDesatualizadaDaUnidade,
   alterarAtivacaoUnidade,
   atualizarUnidade as salvarAtualizacaoUnidade,
   criarUnidade as salvarNovaUnidade,
 } from "@/lib/unidade/salvar-unidade";
-
-export type EstadoUnidade = {
-  erro?: string;
-  sucesso?: string;
-  versaoSucesso?: number;
-};
+import type { EstadoUnidade } from "./estado-unidade";
+import { camposDoFormData, formularioUnidadeSchema } from "./formulario-unidade-schema";
 
 export async function criarUnidade(_estado: EstadoUnidade, formData: FormData): Promise<EstadoUnidade> {
   const autor = await exigirUsuario(["ADMINISTRADOR"]);
+  const entrada = formularioUnidadeSchema.safeParse(camposDoFormData(formData));
+  if (!entrada.success) return erroDeValidacao(entrada.error.issues[0]?.message);
+
   let unidadeId: string;
   try {
-    unidadeId = await salvarNovaUnidade(dadosDoFormulario(formData), autor);
+    unidadeId = await salvarNovaUnidade(entrada.data.dados, autor);
   } catch (erro) {
-    if (erro instanceof ErroDeRegra) return { erro: erro.message };
+    if (erro instanceof ErroDeRegra) return { status: "erro", mensagem: erro.message };
     throw erro;
   }
   revalidatePath("/cadastros/unidades");
@@ -40,18 +40,27 @@ export async function atualizarUnidade(
 ): Promise<EstadoUnidade> {
   const autor = await exigirUsuario([...PERFIS_UNIDADES]);
   const id = unidadeIdSchema.safeParse(unidadeId);
-  if (!id.success) return { erro: "Unidade inválida." };
-  const versao = z.iso.datetime().safeParse(String(formData.get("atualizadoEm") ?? ""));
-  if (!versao.success) return { erro: "A versão da unidade é inválida. Atualize a página e tente novamente." };
+  if (!id.success) return { status: "erro", mensagem: "Unidade inválida." };
+  const entrada = formularioUnidadeSchema.safeParse(camposDoFormData(formData));
+  if (!entrada.success) return erroDeValidacao(entrada.error.issues[0]?.message);
+  if (!entrada.data.atualizadoEm) {
+    return { status: "erro", mensagem: "A versão da unidade é inválida. Atualize a página e tente novamente." };
+  }
 
   try {
-    await salvarAtualizacaoUnidade(id.data, dadosDoFormulario(formData), new Date(versao.data), autor);
+    const versaoAtualizada = await salvarAtualizacaoUnidade(
+      id.data,
+      entrada.data.dados,
+      new Date(entrada.data.atualizadoEm),
+      autor,
+    );
     revalidarUnidade(id.data);
-    return { sucesso: "Unidade atualizada.", versaoSucesso: Date.now() };
+    return { status: "sucesso", mensagem: "Unidade atualizada.", identificador: versaoAtualizada.toISOString() };
   } catch (erro) {
     if (erro instanceof ErroDeRegra) {
-      if (erro.codigo === "CONFLITO_CONCORRENTE") revalidarUnidade(id.data);
-      return { erro: erro.message };
+      return erro instanceof VersaoDesatualizadaDaUnidade
+        ? { status: "conflito", mensagem: erro.message }
+        : { status: "erro", mensagem: erro.message };
     }
     throw erro;
   }
@@ -66,47 +75,38 @@ export async function alterarAtivacao(
   const entrada = z
     .object({ unidadeId: unidadeIdSchema, operacao: z.enum(["ATIVAR", "INATIVAR"]) })
     .safeParse({ unidadeId, operacao: String(formData.get("operacao") ?? "") });
-  if (!entrada.success) return { erro: "Operação inválida." };
+  if (!entrada.success) return { status: "erro", mensagem: "Operação inválida." };
 
+  const versao = z.iso.datetime().safeParse(formData.get("atualizadoEm"));
+  if (!versao.success) {
+    return erroDeValidacao("A versão da unidade é inválida. Atualize a página e tente novamente.");
+  }
   const ativa = entrada.data.operacao === "ATIVAR";
   try {
-    await alterarAtivacaoUnidade(entrada.data.unidadeId, ativa, autor);
+    const versaoAtualizada = await alterarAtivacaoUnidade(
+      entrada.data.unidadeId,
+      ativa,
+      new Date(versao.data),
+      autor,
+    );
     revalidarUnidade(entrada.data.unidadeId);
     return {
-      sucesso: ativa ? "Unidade ativada." : "Unidade inativada.",
-      versaoSucesso: Date.now(),
+      status: "sucesso",
+      mensagem: ativa ? "Unidade ativada." : "Unidade inativada.",
+      identificador: versaoAtualizada.toISOString(),
     };
   } catch (erro) {
-    if (erro instanceof ErroDeRegra) return { erro: erro.message };
+    if (erro instanceof ErroDeRegra) {
+      return erro instanceof VersaoDesatualizadaDaUnidade
+        ? { status: "conflito", mensagem: erro.message, versaoEnviada: versao.data }
+        : { status: "erro", mensagem: erro.message };
+    }
     throw erro;
   }
 }
 
-function dadosDoFormulario(formData: FormData): DadosUnidade {
-  return {
-    nome: String(formData.get("nome") ?? ""),
-    permitePaciente: valorBooleano(formData, "permitePaciente"),
-    permiteEstagiario: valorBooleano(formData, "permiteEstagiario"),
-    permiteSecretaria: valorBooleano(formData, "permiteSecretaria"),
-    agendamentoAberto: valorBooleano(formData, "agendamentoAberto"),
-    horaAbertura: converterHoraEmMinutos(formData.get("horaAbertura")),
-    horaFechamento: converterHoraEmMinutos(formData.get("horaFechamento")),
-    duracaoBlocoMin: Number(formData.get("duracaoBlocoMin")),
-  };
-}
-
-function valorBooleano(formData: FormData, campo: string): boolean {
-  const valor = formData.get(campo);
-  return valor === "on" || valor === "true";
-}
-
-function converterHoraEmMinutos(valor: FormDataEntryValue | null): number {
-  const partes = String(valor ?? "").match(/^(\d{2}):(\d{2})$/);
-  if (!partes) return Number.NaN;
-  const horas = Number(partes[1]);
-  const minutos = Number(partes[2]);
-  if (horas > 23 || minutos > 59) return Number.NaN;
-  return horas * 60 + minutos;
+function erroDeValidacao(mensagem?: string): EstadoUnidade {
+  return { status: "erro", mensagem: mensagem ?? "Dados inválidos." };
 }
 
 function revalidarUnidade(unidadeId: string) {
