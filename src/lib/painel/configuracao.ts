@@ -1,0 +1,1 @@
+export const HORAS_PERTO_DE_VENCER = 12;

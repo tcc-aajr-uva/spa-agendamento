@@ -1,36 +1,57 @@
-import { exigirUsuario, filtroDeEscopo } from "@/lib/auth/autorizacao";
-import { prisma } from "@/lib/prisma";
-import { PaginaModulo } from "../pagina-modulo";
-import { perfisDaRota } from "../menu";
+import { Suspense } from "react";
 
-export default function PainelPage() {
+import { exigirUsuario } from "@/lib/auth/autorizacao";
+import type { Parametros } from "@/lib/painel/filtros-ocupacao";
+import { listarEsperaPorEquipe } from "@/lib/painel/lista-espera";
+import { listarPendentesPertoDeVencer } from "@/lib/painel/pendentes";
+import { obterResumoDoPainel } from "@/lib/painel/resumo";
+import { PaginaModulo } from "../pagina-modulo";
+import { CartaoResumo } from "./cartao-resumo";
+import { ListaEsperaPorEquipe } from "./lista-espera-por-equipe";
+import { ListaPendentes } from "./lista-pendentes";
+import { Ocupacao } from "./ocupacao";
+
+export default function PaginaPainel({ searchParams }: { searchParams: Promise<Parametros> }) {
   return (
-    <PaginaModulo
-      titulo="Painel"
-      card="#4"
-      pendente="ocupação das salas, pendentes perto de vencer (pendenteVencendo) com confirmar/liberar e lista de espera por equipe."
-    >
-      <Resumo />
+    <PaginaModulo titulo="Painel">
+      <ConteudoDoPainel parametros={searchParams} />
     </PaginaModulo>
   );
 }
 
-async function Resumo() {
-  const usuario = await exigirUsuario(perfisDaRota("/painel"));
-  const escopo = filtroDeEscopo(usuario);
-  const [porStatus, naLista] = await Promise.all([
-    prisma.agendamento.groupBy({ by: ["status"], where: escopo, _count: { _all: true } }),
-    prisma.listaEspera.count({ where: { ...escopo, status: "AGUARDANDO" } }),
+async function ConteudoDoPainel({ parametros }: { parametros: Promise<Parametros> }) {
+  const usuario = await exigirUsuario(["SECRETARIA", "COORDENACAO", "ADMINISTRADOR"]);
+  const agora = new Date();
+  const [resumo, pendentes, espera] = await Promise.all([
+    obterResumoDoPainel(usuario, agora),
+    listarPendentesPertoDeVencer(usuario, agora),
+    listarEsperaPorEquipe(usuario),
   ]);
 
   return (
-    <ul className="list-disc pl-4">
-      {porStatus.map((linha) => (
-        <li key={linha.status}>
-          {linha.status}: {linha._count._all}
-        </li>
-      ))}
-      <li>Na lista de espera: {naLista}</li>
-    </ul>
+    <div className="flex flex-col gap-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <CartaoResumo
+          titulo="Pendentes"
+          valor={resumo.pendentes}
+          detalhe={`${resumo.pertoDeVencer} perto de vencer`}
+          destaque
+        />
+        <CartaoResumo titulo="Confirmados" valor={resumo.confirmados} detalhe="aguardando a 1ª sessão" />
+        <CartaoResumo titulo="Em atendimento" valor={resumo.emAtendimento} detalhe="sessões semanais" />
+        <CartaoResumo titulo="Na lista de espera" valor={resumo.naListaDeEspera} detalhe="aguardando chamada" />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <ListaPendentes pendentes={pendentes} />
+        </div>
+        <ListaEsperaPorEquipe linhas={espera} />
+      </div>
+
+      <Suspense fallback={<p className="text-muted-foreground">Carregando ocupação…</p>}>
+        <Ocupacao usuario={usuario} agora={agora} parametros={parametros} />
+      </Suspense>
+    </div>
   );
 }
