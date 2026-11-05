@@ -151,6 +151,7 @@ CREATE TABLE "Equipe" (
     "supervisorId" TEXT,
     "ativa" BOOLEAN NOT NULL DEFAULT true,
     "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "atualizadoEm" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Equipe_pkey" PRIMARY KEY ("id")
 );

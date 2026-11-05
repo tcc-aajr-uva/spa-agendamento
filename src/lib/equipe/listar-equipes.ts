@@ -6,6 +6,8 @@ import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { prisma } from "@/lib/prisma";
 import { filtroDeEquipesVisiveis, podeGerenciarEquipes } from "./escopo-equipe";
 
+const ITENS_POR_PAGINA = 10;
+
 const filtrosSchema = z.object({
   busca: z.string().trim().max(120).catch(""),
   unidadeId: z.union([z.cuid2(), z.literal("")]).catch(""),
@@ -24,13 +26,13 @@ export async function listarEquipes(entrada: z.input<typeof filtrosSchema>, auto
     ...(status !== "TODAS" ? { ativa: status === "ATIVAS" } : {}),
   };
   const total = await prisma.equipe.count({ where });
-  const totalPaginas = Math.max(1, Math.ceil(total / 20));
+  const totalPaginas = Math.max(1, Math.ceil(total / ITENS_POR_PAGINA));
   const pagina = Math.min(filtros.pagina, totalPaginas);
   const equipes = await prisma.equipe.findMany({
     where,
     orderBy: [{ unidade: { nome: "asc" } }, { nome: "asc" }, { id: "asc" }],
-    skip: (pagina - 1) * 20,
-    take: 20,
+    skip: (pagina - 1) * ITENS_POR_PAGINA,
+    take: ITENS_POR_PAGINA,
     select: {
       id: true, nome: true, ativa: true,
       unidade: { select: { nome: true, ativa: true } },

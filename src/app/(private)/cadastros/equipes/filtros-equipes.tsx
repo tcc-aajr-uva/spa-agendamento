@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -35,63 +35,44 @@ export function FiltrosEquipes({ buscaInicial, unidadeInicial, statusInicial, pe
       label: `${unidade.nome}${unidade.ativa ? "" : " (inativa)"}`,
     })),
   ];
-  const origem = `${router.bfcacheId}:${pathname}?${searchParams.toString()}`;
-  const recebidos: Filtros = { busca: buscaInicial, unidadeId: unidadeInicial, status: statusInicial };
-  const [estado, setEstado] = useState({ origem, filtros: recebidos, destinos: [] as string[], geracao: 0 });
-  if (estado.origem !== origem) {
-    const indiceDaBuscaConfirmada = estado.destinos.indexOf(origem);
-    const respostaDaBusca = indiceDaBuscaConfirmada >= 0;
-    setEstado({
-      origem,
-      filtros: respostaDaBusca ? estado.filtros : recebidos,
-      destinos: respostaDaBusca ? estado.destinos.slice(indiceDaBuscaConfirmada + 1) : [],
-      geracao: respostaDaBusca ? estado.geracao : estado.geracao + 1,
-    });
-  }
-  const filtros = estado.filtros;
+  const [rascunhoBusca, setRascunhoBusca] = useState<string | null>(null);
+  const [buscaAplicadaAnterior, setBuscaAplicadaAnterior] = useState(buscaInicial);
+  const busca = rascunhoBusca ?? buscaInicial;
   const [atualizando, iniciarAtualizacao] = useTransition();
-  const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => {
-    if (temporizador.current !== null) clearTimeout(temporizador.current);
-  }, [estado.geracao]);
-
-  function cancelarBuscaPendente() {
-    if (temporizador.current !== null) {
-      clearTimeout(temporizador.current);
-      temporizador.current = null;
-    }
+  if (buscaAplicadaAnterior !== buscaInicial) {
+    setBuscaAplicadaAnterior(buscaInicial);
+    if (rascunhoBusca?.trim() === buscaInicial) setRascunhoBusca(null);
   }
 
-  function navegar(proximos: Filtros) {
-    const parametros = new URLSearchParams();
-    if (proximos.busca.trim()) parametros.set("busca", proximos.busca.trim());
-    if (proximos.unidadeId) parametros.set("unidadeId", proximos.unidadeId);
-    if (permitirInativas && proximos.status !== "ATIVAS") parametros.set("status", proximos.status);
+  useLayoutEffect(() => {
+    return () => setRascunhoBusca(null);
+  }, []);
+
+  const atualizar = useCallback(({ busca, unidadeId, status }: Filtros) => {
+    const parametros = new URLSearchParams(searchParams.toString());
+    parametros.delete("pagina");
+    if (busca.trim()) parametros.set("busca", busca.trim());
+    else parametros.delete("busca");
+    if (unidadeId) parametros.set("unidadeId", unidadeId);
+    else parametros.delete("unidadeId");
+    if (permitirInativas && status !== "ATIVAS") parametros.set("status", status);
+    else parametros.delete("status");
     const consulta = parametros.toString();
-    const caminho = consulta ? `/cadastros/equipes?${consulta}` : "/cadastros/equipes";
-    const destino = `${router.bfcacheId}:/cadastros/equipes?${consulta}`;
-    setEstado((atual) => atual.origem === destino ? atual : ({
-      ...atual,
-      destinos: [...atual.destinos.filter((pendente) => pendente !== destino), destino],
-    }));
-    iniciarAtualizacao(() => router.replace(caminho, { scroll: false }));
-  }
+    iniciarAtualizacao(() => router.replace(consulta ? `${pathname}?${consulta}` : pathname, { scroll: false }));
+  }, [pathname, permitirInativas, router, searchParams]);
 
-  function alterarBusca(busca: string) {
-    const proximos = { ...filtros, busca };
-    setEstado((atual) => ({ ...atual, filtros: proximos }));
-    cancelarBuscaPendente();
-    temporizador.current = setTimeout(() => {
-      temporizador.current = null;
-      navegar(proximos);
+  useEffect(() => {
+    if (atualizando || rascunhoBusca === null || rascunhoBusca.trim() === buscaInicial) return;
+    const temporizador = window.setTimeout(() => {
+      atualizar({ busca: rascunhoBusca, unidadeId: unidadeInicial, status: statusInicial });
     }, 450);
-  }
+    return () => window.clearTimeout(temporizador);
+  }, [atualizando, atualizar, buscaInicial, rascunhoBusca, statusInicial, unidadeInicial]);
 
-  function aplicar(proximos: Filtros) {
-    cancelarBuscaPendente();
-    setEstado((atual) => ({ ...atual, filtros: proximos }));
-    navegar(proximos);
+  function limpar() {
+    setRascunhoBusca(null);
+    iniciarAtualizacao(() => router.replace(pathname, { scroll: false }));
   }
 
   return (
@@ -103,10 +84,10 @@ export function FiltrosEquipes({ buscaInicial, unidadeInicial, statusInicial, pe
           id="busca-equipes"
           maxLength={120}
           name="busca"
-          onChange={(evento) => alterarBusca(evento.target.value)}
+          onChange={(evento) => setRascunhoBusca(evento.target.value)}
           placeholder="Nome da equipe"
           type="search"
-          value={filtros.busca}
+          value={busca}
         />
       </Field>
       <Field className="w-full gap-3 sm:w-80">
@@ -114,8 +95,8 @@ export function FiltrosEquipes({ buscaInicial, unidadeInicial, statusInicial, pe
         <Select
           items={opcoesUnidades}
           name="unidadeId"
-          onValueChange={(valor) => aplicar({ ...filtros, unidadeId: valor ?? "" })}
-          value={filtros.unidadeId}
+          onValueChange={(valor) => atualizar({ busca, unidadeId: valor ?? "", status: statusInicial })}
+          value={unidadeInicial}
         >
           <SelectTrigger id="unidade-equipes" className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
             <SelectValue placeholder="Todas do meu escopo" />
@@ -136,9 +117,9 @@ export function FiltrosEquipes({ buscaInicial, unidadeInicial, statusInicial, pe
             items={OPCOES_STATUS}
             name="status"
             onValueChange={(valor) => {
-              if (valor !== null) aplicar({ ...filtros, status: valor });
+              if (valor !== null) atualizar({ busca, unidadeId: unidadeInicial, status: valor });
             }}
-            value={filtros.status}
+            value={statusInicial}
           >
             <SelectTrigger id="status-equipes" className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
               <SelectValue />
@@ -152,8 +133,8 @@ export function FiltrosEquipes({ buscaInicial, unidadeInicial, statusInicial, pe
         </Field>
       )}
       <Button className="h-auto px-4 py-2 leading-5 shadow-xs" variant="outline" type="button"
-        disabled={!filtros.busca && !filtros.unidadeId && filtros.status === "ATIVAS"}
-        onClick={() => aplicar({ busca: "", unidadeId: "", status: "ATIVAS" })}>
+        disabled={!busca && !unidadeInicial && statusInicial === "ATIVAS"}
+        onClick={limpar}>
         Limpar filtros
       </Button>
       {atualizando && <span className="text-sm" aria-live="polite">Atualizando…</span>}

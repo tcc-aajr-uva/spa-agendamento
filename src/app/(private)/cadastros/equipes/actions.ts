@@ -6,9 +6,9 @@ import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { ErroDeRegra } from "@/lib/erros";
 import { versaoEquipeSchema } from "@/lib/equipe/dados-equipe";
 import { PERFIS_GESTAO_EQUIPES } from "@/lib/equipe/escopo-equipe";
-import { criarEquipe as salvarNovaEquipe, atualizarEquipe as salvarEquipe, alterarAtivacaoEquipe } from "@/lib/equipe/salvar-equipe";
+import { criarEquipe as salvarNovaEquipe, atualizarEquipe as salvarEquipe, alterarAtivacaoEquipe, VersaoDesatualizadaDaEquipe } from "@/lib/equipe/salvar-equipe";
 
-export type EstadoEquipe = { erro?: string; sucesso?: string; versaoSucesso?: number };
+import type { EstadoEquipe } from "./estado-equipe";
 
 export async function criarEquipe(_estado: EstadoEquipe, formData: FormData): Promise<EstadoEquipe> {
   const autor = await exigirUsuario([...PERFIS_GESTAO_EQUIPES]);
@@ -16,46 +16,53 @@ export async function criarEquipe(_estado: EstadoEquipe, formData: FormData): Pr
   try {
     id = await salvarNovaEquipe({ ...dadosDoFormulario(formData), unidadeId: texto(formData, "unidadeId") }, autor);
   } catch (erro) {
-    if (erro instanceof ErroDeRegra) return { erro: erro.message };
+    if (erro instanceof ErroDeRegra) return { status: "erro", mensagem: erro.message };
     throw erro;
   }
   revalidarEquipes();
-  redirect(`/cadastros/equipes/${id}`);
+  redirect(`/cadastros/equipes/${id}?equipeCriada=1`);
 }
 
-export async function atualizarEquipe(id: string, estado: EstadoEquipe, formData: FormData): Promise<EstadoEquipe> {
+export async function atualizarEquipe(id: string, _estado: EstadoEquipe, formData: FormData): Promise<EstadoEquipe> {
   const autor = await exigirUsuario([...PERFIS_GESTAO_EQUIPES]);
   try {
-    await salvarEquipe(id, dadosDoFormulario(formData), lerVersao(formData), autor);
+    const versaoSalva = await salvarEquipe(id, dadosDoFormulario(formData), lerVersao(formData), autor);
     revalidarEquipes(id);
-    return { sucesso: "Equipe atualizada.", versaoSucesso: (estado.versaoSucesso ?? 0) + 1 };
+    return { status: "sucesso", mensagem: "Equipe atualizada.", identificador: versaoSalva.toISOString() };
   } catch (erro) {
     if (erro instanceof ErroDeRegra) {
-      if (erro.codigo === "CONFLITO_CONCORRENTE") revalidarEquipes(id);
-      return { erro: erro.message, versaoSucesso: estado.versaoSucesso };
+      return tratarErroDeAlteracao(erro, formData, id);
     }
     throw erro;
   }
 }
 
-export async function alterarAtivacao(id: string, estado: EstadoEquipe, formData: FormData): Promise<EstadoEquipe> {
+export async function alterarAtivacao(id: string, _estado: EstadoEquipe, formData: FormData): Promise<EstadoEquipe> {
   const autor = await exigirUsuario([...PERFIS_GESTAO_EQUIPES]);
   const operacao = texto(formData, "operacao");
-  if (operacao !== "ATIVAR" && operacao !== "INATIVAR") return { erro: "Operação inválida.", versaoSucesso: estado.versaoSucesso };
+  if (operacao !== "ATIVAR" && operacao !== "INATIVAR") return { status: "erro", mensagem: "Operação inválida." };
   try {
-    await alterarAtivacaoEquipe(id, operacao === "ATIVAR", lerVersao(formData), autor);
+    const versaoSalva = await alterarAtivacaoEquipe(id, operacao === "ATIVAR", lerVersao(formData), autor);
     revalidarEquipes(id);
     return {
-      sucesso: operacao === "ATIVAR" ? "Equipe ativada." : "Equipe inativada.",
-      versaoSucesso: (estado.versaoSucesso ?? 0) + 1,
+      status: "sucesso",
+      mensagem: operacao === "ATIVAR" ? "Equipe ativada." : "Equipe inativada.",
+      identificador: versaoSalva.toISOString(),
     };
   } catch (erro) {
     if (erro instanceof ErroDeRegra) {
-      if (erro.codigo === "CONFLITO_CONCORRENTE") revalidarEquipes(id);
-      return { erro: erro.message, versaoSucesso: estado.versaoSucesso };
+      return tratarErroDeAlteracao(erro, formData, id);
     }
     throw erro;
   }
+}
+
+function tratarErroDeAlteracao(erro: ErroDeRegra, formData: FormData, id: string): EstadoEquipe {
+  if (erro instanceof VersaoDesatualizadaDaEquipe) {
+    revalidarEquipes(id);
+    return { status: "conflito", mensagem: erro.message, versaoEnviada: lerVersao(formData).toISOString() };
+  }
+  return { status: "erro", mensagem: erro.message };
 }
 
 function texto(formData: FormData, campo: string) {
@@ -67,15 +74,9 @@ function dadosDoFormulario(formData: FormData) {
 }
 
 function lerVersao(formData: FormData) {
-  let entrada: unknown;
-  try {
-    entrada = JSON.parse(texto(formData, "versao"));
-  } catch {
-    throw new ErroDeRegra("DADOS_INVALIDOS", "Versão inválida. Atualize a página.");
-  }
-  const resultado = versaoEquipeSchema.safeParse(entrada);
+  const resultado = versaoEquipeSchema.safeParse(formData.get("atualizadoEm"));
   if (!resultado.success) throw new ErroDeRegra("DADOS_INVALIDOS", "Versão inválida. Atualize a página.");
-  return resultado.data;
+  return new Date(resultado.data);
 }
 
 function revalidarEquipes(id?: string) {
