@@ -88,7 +88,7 @@ function EdicaoUsuarioInterna({ valores, ativo, podeAlterarAcesso, acaoAtualizar
 
   return (
     <div className="space-y-6">
-      <AlertasFormularioUsuario conflito={conflito} isDirty={isDirty} ocupado={ocupado}
+      <AlertasFormularioUsuario conflito={conflito} ocupado={ocupado}
         recarregando={recarregando} carregarVersao={carregarVersao} erroVersao={errors.atualizadoEm?.message}
         erroSalvar={estado.status === "erro" && edicaoAceita !== estado ? estado.mensagem : undefined}
         erroAtivacao={ativacao.status === "erro" && ativacaoAceita !== ativacao ? ativacao.mensagem : undefined} />

@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useLayoutEffect, useState } from "react";
-import { CircleAlertIcon, CopyIcon, InfoIcon } from "lucide-react";
+import { useActionState, useEffect, useLayoutEffect, useState } from "react";
+import { CircleAlertIcon, CopyIcon } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/toast";
 import type { EstadoAcessoUsuario } from "@/lib/usuario/estado-acesso";
 import type { EstadoGerenciamentoConvite } from "../../actions";
 
@@ -26,8 +27,22 @@ export function AcoesConvite(props: Props) {
 function AcoesConviteInternas({ acao, estadoAcesso }: Props) {
   const [estado, executar, executando] = useActionState(acao, {});
 
+  useEffect(() => {
+    if (!estado.mensagem) return;
+
+    toast.add({ title: estado.mensagem, type: "success", timeout: 5_000 });
+  }, [estado]);
+
   return (
     <div className="space-y-3">
+      {estado.erro && (
+        <Alert variant="destructive">
+          <CircleAlertIcon aria-hidden="true" />
+          <AlertTitle>Não foi possível gerenciar o convite</AlertTitle>
+          <AlertDescription>{estado.erro}</AlertDescription>
+        </Alert>
+      )}
+
       <form action={executar} className="flex flex-wrap gap-2">
         <Button
           disabled={executando}
@@ -49,23 +64,8 @@ function AcoesConviteInternas({ acao, estadoAcesso }: Props) {
           </Button>
         )}
       </form>
-
-      {estado.mensagem && (
-        <Alert>
-          <InfoIcon aria-hidden="true" />
-          <AlertTitle>Convite atualizado</AlertTitle>
-          <AlertDescription>{estado.mensagem}</AlertDescription>
-        </Alert>
-      )}
       {estado.linkConvite && (
         <LinkConviteGerado key={estado.linkConvite} expiraEm={estado.expiraEm} linkConvite={estado.linkConvite} />
-      )}
-      {estado.erro && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível gerenciar o convite</AlertTitle>
-          <AlertDescription>{estado.erro}</AlertDescription>
-        </Alert>
       )}
     </div>
   );

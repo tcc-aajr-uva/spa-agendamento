@@ -84,7 +84,7 @@ async function ConteudoUsuario({ params, searchParams }: Props) {
           ) : undefined
         }
         convite={
-          <Card className="sm:[--card-spacing:--spacing(6)]">
+          <Card className="sm:[--card-spacing:--spacing(6)] has-data-[slot=card-footer]:pb-(--card-spacing)">
             <CardHeader>
               <CardTitle>Acesso ao sistema</CardTitle>
               <CardDescription>Gere ou revogue o convite usado para definir a senha inicial.</CardDescription>

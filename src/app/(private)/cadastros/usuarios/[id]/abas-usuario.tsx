@@ -1,8 +1,10 @@
 "use client";
 
-import { useLayoutEffect, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+export const DestinoAlertasAtendimento = createContext<HTMLDivElement | null>(null);
 
 function observarNavegacao(atualizar: () => void) {
   window.addEventListener("hashchange", atualizar);
@@ -36,6 +38,8 @@ export function AbasUsuario({
 }) {
   const temAtendimento = atendimento !== undefined && atendimento !== null;
   const aba = useSyncExternalStore(observarNavegacao, () => abaDaUrl(temAtendimento), abaInicial);
+  const [destinoAlertas, definirDestinoAlertas] = useState<HTMLDivElement | null>(null);
+  const abaAtiva = bloqueada ? "dados" : aba;
 
   useLayoutEffect(() => {
     if (!bloqueada || !window.location.hash) return;
@@ -54,7 +58,8 @@ export function AbasUsuario({
   }
 
   return (
-    <Tabs value={bloqueada ? "dados" : aba} onValueChange={alterarAba} className="gap-6">
+    <Tabs value={abaAtiva} onValueChange={alterarAba} className="gap-6">
+      {temAtendimento && <div ref={definirDestinoAlertas} className="empty:hidden" />}
       <TabsList aria-label="Cadastro do usuário">
         <TabsTrigger disabled={bloqueada} value="dados">Dados do usuário</TabsTrigger>
         {temAtendimento && <TabsTrigger disabled={bloqueada} value="atendimento">Atendimento</TabsTrigger>}
@@ -65,7 +70,9 @@ export function AbasUsuario({
       </TabsContent>
       {temAtendimento && (
         <TabsContent value="atendimento" keepMounted>
-          {atendimento}
+          <DestinoAlertasAtendimento.Provider value={abaAtiva === "atendimento" ? destinoAlertas : null}>
+            {atendimento}
+          </DestinoAlertasAtendimento.Provider>
         </TabsContent>
       )}
       <TabsContent value="convite" keepMounted>

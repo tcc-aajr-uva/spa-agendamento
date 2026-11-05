@@ -83,7 +83,7 @@ export async function gerenciarConvite(
     revalidatePath(caminhoUsuario);
     const baseURL = process.env.BETTER_AUTH_URL;
     return {
-      mensagem: "Novo convite gerado. Compartilhe somente o link abaixo.",
+      mensagem: "Novo convite gerado.",
       linkConvite: baseURL ? new URL(resultado.linkConvite, baseURL).toString() : resultado.linkConvite,
       expiraEm: resultado.expiraEm.toISOString(),
     };

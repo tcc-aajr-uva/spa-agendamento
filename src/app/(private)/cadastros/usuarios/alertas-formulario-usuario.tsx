@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 
 type Props = {
   conflito: boolean;
-  isDirty: boolean;
   ocupado: boolean;
   recarregando: boolean;
   carregarVersao: () => void;
@@ -16,7 +15,7 @@ type Props = {
   erroVersao?: string;
 };
 
-export function AlertasFormularioUsuario({ conflito, isDirty, ocupado, recarregando, carregarVersao, erroSalvar, erroAtivacao, erroVersao }: Props) {
+export function AlertasFormularioUsuario({ conflito, ocupado, recarregando, carregarVersao, erroSalvar, erroAtivacao, erroVersao }: Props) {
   if (!conflito && !erroSalvar && !erroAtivacao && !erroVersao) return null;
 
   return (
@@ -36,7 +35,7 @@ export function AlertasFormularioUsuario({ conflito, isDirty, ocupado, recarrega
             <p>
               O usuário foi atualizado depois que você abriu esta tela.
               <br />
-              {isDirty ? "Ao carregar a versão mais recente, seu rascunho será descartado." : "Carregue a versão mais recente para continuar."}
+              Carregue a versão mais recente para continuar.
             </p>
           </AlertDescription>
           <AlertAction className="static col-span-2 mt-2 flex justify-end sm:absolute sm:top-1/2 sm:right-2 sm:mt-0 sm:-translate-y-1/2">

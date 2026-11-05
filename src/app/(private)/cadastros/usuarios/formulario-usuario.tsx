@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useId, useLayoutEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CircleAlertIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegen
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { toast } from "@/components/ui/toast";
 import type { PerfilCriavel } from "@/lib/usuario/hierarquia";
 import { rotuloDoPerfil } from "@/lib/usuario/rotulos";
 import { CampoVinculosUsuario, type OpcaoVinculoUsuario } from "./campo-vinculos-usuario";
@@ -35,6 +36,7 @@ function FormularioUsuarioInterno({ acao, configuracoes, cadastrarOutro }: Props
   const router = useRouter();
   const id = useId();
   const [estado, enviar, enviando] = useActionState(acao, { status: "inicial" });
+  const criacaoNotificada = useRef(false);
   const [erroOculto, ocultarErro] = useState<EstadoCriacaoUsuario | null>(null);
   const { control, register, handleSubmit, setValue, clearErrors, formState: { errors, isSubmitting } } =
     useForm<CamposCriacaoUsuario>({
@@ -51,6 +53,13 @@ function FormularioUsuarioInterno({ acao, configuracoes, cadastrarOutro }: Props
   const bloqueado = enviando || isSubmitting;
   const aoAlterar = () => { if (estado.status === "erro") ocultarErro(estado); };
   const aoEnviar = handleSubmit((dados) => startTransition(() => enviar(formDataDoUsuario(dados))));
+
+  useEffect(() => {
+    if (estado.status !== "sucesso" || criacaoNotificada.current) return;
+
+    criacaoNotificada.current = true;
+    toast.add({ title: "Usuário criado com sucesso", type: "success", timeout: 5_000 });
+  }, [estado.status]);
 
   if (estado.status === "sucesso") {
     return <ResultadoConvite linkConvite={estado.linkConvite} expiraEm={estado.expiraEm}
