@@ -1,36 +1,42 @@
 "use client";
 
-import { useActionState, useEffect, useId, useState } from "react";
-import { CircleAlertIcon } from "lucide-react";
+import { useId, useState } from "react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "@/components/ui/toast";
-import type { EstadoEdicaoUsuario } from "./actions";
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Props = {
-  acao: (estado: EstadoEdicaoUsuario, formData: FormData) => Promise<EstadoEdicaoUsuario>;
+  executar: (formData: FormData) => void;
+  executando: boolean;
   ativo: boolean;
+  atualizadoEm: string;
+  bloqueado: boolean;
+  bloqueadoPorRascunho: boolean;
 };
 
-export function ControleAtivacaoUsuario({ acao, ativo }: Props) {
-  const [estado, executar, executando] = useActionState(acao, {});
-  const [confirmacaoAberta, definirConfirmacaoAberta] = useState(false);
+export function ControleAtivacaoUsuario({ executar, executando, ativo, atualizadoEm, bloqueado, bloqueadoPorRascunho }: Props) {
+  const [versaoDaConfirmacao, definirVersaoDaConfirmacao] = useState<string | null>(null);
   const formularioId = useId();
-
-  useEffect(() => {
-    if (!estado.sucesso) return;
-    toast.add({ title: estado.sucesso, type: "success", timeout: 5_000 });
-  }, [estado]);
+  const confirmacaoAberta = ativo && !bloqueado && !executando && versaoDaConfirmacao === atualizadoEm;
 
   return (
-    <form id={formularioId} action={executar} onSubmit={() => definirConfirmacaoAberta(false)}>
-      <input name="operacao" type="hidden" value={ativo ? "INATIVAR" : "ATIVAR"} />
+    <form id={formularioId} action={executar} onSubmit={(evento) => {
+      if (bloqueado || executando || (ativo && !confirmacaoAberta)) evento.preventDefault();
+      definirVersaoDaConfirmacao(null);
+    }}>
+      <input type="hidden" name="atualizadoEm" value={confirmacaoAberta ? versaoDaConfirmacao : atualizadoEm} />
+      <input type="hidden" name="operacao" value={ativo ? "INATIVAR" : "ATIVAR"} />
       <Card className="sm:[--card-spacing:--spacing(6)]">
         <CardHeader>
           <CardTitle><h2>Situação do usuário</h2></CardTitle>
@@ -38,21 +44,18 @@ export function ControleAtivacaoUsuario({ acao, ativo }: Props) {
             {ativo
               ? "A inativação encerra as sessões e revoga os convites pendentes."
               : "Antes de ativar, confirme se os vínculos do usuário estão corretos."}
+            {bloqueadoPorRascunho && (
+              <span className="mt-2 block">
+                Salve ou desfaça as alterações no formulário para mudar a situação do usuário.
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
-        {estado.erro && (
-          <CardContent>
-            <Alert variant="destructive">
-              <CircleAlertIcon aria-hidden="true" />
-              <AlertTitle>Não foi possível alterar a situação</AlertTitle>
-              <AlertDescription>{estado.erro}</AlertDescription>
-            </Alert>
-          </CardContent>
-        )}
         <CardFooter className="justify-end">
           {ativo ? (
-            <AlertDialog open={confirmacaoAberta} onOpenChange={definirConfirmacaoAberta}>
-              <AlertDialogTrigger render={<Button variant="destructive" disabled={executando} type="button" />}>
+            <AlertDialog open={confirmacaoAberta}
+              onOpenChange={(aberta) => definirVersaoDaConfirmacao(aberta ? atualizadoEm : null)}>
+              <AlertDialogTrigger render={<Button variant="destructive" disabled={bloqueado} type="button" />}>
                 {executando ? "Processando…" : "Inativar usuário"}
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -64,14 +67,14 @@ export function ControleAtivacaoUsuario({ acao, ativo }: Props) {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel type="button">Cancelar</AlertDialogCancel>
-                  <AlertDialogAction variant="destructive" type="submit" form={formularioId} disabled={executando}>
+                  <AlertDialogAction variant="destructive" type="submit" form={formularioId} disabled={!confirmacaoAberta}>
                     Inativar usuário
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
           ) : (
-            <Button disabled={executando} type="submit">
+            <Button disabled={bloqueado} type="submit">
               {executando ? "Processando…" : "Ativar usuário"}
             </Button>
           )}

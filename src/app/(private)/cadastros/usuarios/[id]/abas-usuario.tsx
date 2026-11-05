@@ -1,8 +1,10 @@
 "use client";
 
-import { useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+export const DestinoAlertasAtendimento = createContext<HTMLDivElement | null>(null);
 
 function observarNavegacao(atualizar: () => void) {
   window.addEventListener("hashchange", atualizar);
@@ -27,16 +29,28 @@ export function AbasUsuario({
   dados,
   atendimento,
   convite,
+  bloqueada,
 }: {
   dados: ReactNode;
   atendimento?: ReactNode;
   convite: ReactNode;
+  bloqueada: boolean;
 }) {
   const temAtendimento = atendimento !== undefined && atendimento !== null;
   const aba = useSyncExternalStore(observarNavegacao, () => abaDaUrl(temAtendimento), abaInicial);
+  const [destinoAlertas, definirDestinoAlertas] = useState<HTMLDivElement | null>(null);
+  const abaAtiva = bloqueada ? "dados" : aba;
+
+  useLayoutEffect(() => {
+    if (!bloqueada || !window.location.hash) return;
+    const url = new URL(window.location.href);
+    url.hash = "";
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  }, [bloqueada]);
 
   function alterarAba(valor: unknown) {
-    if (valor !== "dados" && valor !== "convite" && (valor !== "atendimento" || !temAtendimento)) return;
+    if (bloqueada || (valor !== "dados" && valor !== "convite" && (valor !== "atendimento" || !temAtendimento))) return;
     const url = new URL(window.location.href);
     url.hash = valor === "dados" ? "" : valor;
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
@@ -44,18 +58,21 @@ export function AbasUsuario({
   }
 
   return (
-    <Tabs value={aba} onValueChange={alterarAba} className="gap-6">
+    <Tabs value={abaAtiva} onValueChange={alterarAba} className="gap-6">
+      {temAtendimento && <div ref={definirDestinoAlertas} className="empty:hidden" />}
       <TabsList aria-label="Cadastro do usuário">
-        <TabsTrigger value="dados">Dados do usuário</TabsTrigger>
-        {temAtendimento && <TabsTrigger value="atendimento">Atendimento</TabsTrigger>}
-        <TabsTrigger value="convite">Convite</TabsTrigger>
+        <TabsTrigger disabled={bloqueada} value="dados">Dados do usuário</TabsTrigger>
+        {temAtendimento && <TabsTrigger disabled={bloqueada} value="atendimento">Atendimento</TabsTrigger>}
+        <TabsTrigger disabled={bloqueada} value="convite">Convite</TabsTrigger>
       </TabsList>
       <TabsContent value="dados" keepMounted className="space-y-6">
         {dados}
       </TabsContent>
       {temAtendimento && (
         <TabsContent value="atendimento" keepMounted>
-          {atendimento}
+          <DestinoAlertasAtendimento.Provider value={abaAtiva === "atendimento" ? destinoAlertas : null}>
+            {atendimento}
+          </DestinoAlertasAtendimento.Provider>
         </TabsContent>
       )}
       <TabsContent value="convite" keepMounted>

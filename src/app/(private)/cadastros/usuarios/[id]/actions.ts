@@ -8,60 +8,52 @@ import { ErroDeRegra } from "@/lib/erros";
 import { alterarAtivacaoUsuario } from "@/lib/usuario/alterar-ativacao-usuario";
 import { atualizarUsuarioGerenciavel } from "@/lib/usuario/atualizar-usuario";
 import { usuarioIdSchema } from "@/lib/usuario/dados-usuario";
+import { VersaoDesatualizadaDoUsuario } from "@/lib/usuario/versao-usuario";
 import { perfisDaRota } from "../../../menu";
+import type { EstadoEdicaoUsuario } from "../estado-usuario";
+import { camposDoFormData, formularioEdicaoUsuarioSchema, versaoUsuarioSchema } from "../formulario-usuario-schema";
 
-const operacaoAtivacaoSchema = z.enum(["ATIVAR", "INATIVAR"]);
-
-export type EstadoEdicaoUsuario = {
-  erro?: string;
-  sucesso?: string;
-};
-
-export async function atualizarUsuario(
-  usuarioId: string,
-  _estado: EstadoEdicaoUsuario,
-  formData: FormData,
-): Promise<EstadoEdicaoUsuario> {
+export async function atualizarUsuario(usuarioId: string, _estado: EstadoEdicaoUsuario, formData: FormData): Promise<EstadoEdicaoUsuario> {
   const autor = await exigirUsuario(perfisDaRota("/cadastros"));
-  const id = usuarioIdSchema.safeParse(usuarioId);
-  if (!id.success) return { erro: "Usuário inválido." };
+  if (!usuarioIdSchema.safeParse(usuarioId).success) return { status: "erro", mensagem: "Usuário inválido." };
+  const entrada = formularioEdicaoUsuarioSchema.safeParse({
+    ...camposDoFormData(formData), atualizadoEm: formData.get("atualizadoEm"),
+  });
+  if (!entrada.success) return { status: "erro", mensagem: entrada.error.issues[0].message };
 
-  try {
-    await atualizarUsuarioGerenciavel(
-      id.data,
-      {
-        nome: String(formData.get("nome") ?? ""),
-        unidadeIds: textos(formData, "unidadeIds"),
-        equipeIds: textos(formData, "equipeIds"),
-      },
-      autor,
-    );
-    revalidarUsuario(id.data);
-    return { sucesso: "Usuário atualizado." };
-  } catch (erro) {
-    if (erro instanceof ErroDeRegra) return { erro: erro.message };
-    throw erro;
-  }
+  const { atualizadoEm, ...dados } = entrada.data;
+  return executarAlteracao(usuarioId, atualizadoEm, "Usuário atualizado.", () =>
+    atualizarUsuarioGerenciavel(usuarioId, dados, new Date(atualizadoEm), autor),
+  );
 }
 
-export async function alterarAtivacao(
-  usuarioId: string,
-  _estado: EstadoEdicaoUsuario,
-  formData: FormData,
-): Promise<EstadoEdicaoUsuario> {
+export async function alterarAtivacao(usuarioId: string, _estado: EstadoEdicaoUsuario, formData: FormData): Promise<EstadoEdicaoUsuario> {
   const autor = await exigirUsuario(perfisDaRota("/cadastros"));
-  const entrada = z
-    .object({ usuarioId: usuarioIdSchema, operacao: operacaoAtivacaoSchema })
-    .safeParse({ usuarioId, operacao: String(formData.get("operacao") ?? "") });
-  if (!entrada.success) return { erro: "Operação inválida." };
+  const entrada = z.object({
+    usuarioId: usuarioIdSchema, operacao: z.enum(["ATIVAR", "INATIVAR"]), atualizadoEm: versaoUsuarioSchema,
+  }).safeParse({ usuarioId, operacao: formData.get("operacao"), atualizadoEm: formData.get("atualizadoEm") });
+  if (!entrada.success) return { status: "erro", mensagem: "Operação ou versão inválida. Atualize a página." };
 
-  const ativo = entrada.data.operacao === "ATIVAR";
+  const { atualizadoEm, operacao } = entrada.data;
+  const ativo = operacao === "ATIVAR";
+  return executarAlteracao(usuarioId, atualizadoEm, ativo ? "Usuário ativado." : "Usuário inativado.", () =>
+    alterarAtivacaoUsuario(usuarioId, ativo, new Date(atualizadoEm), autor),
+  );
+}
+
+async function executarAlteracao(
+  id: string, versao: string, mensagem: string, executar: () => Promise<Date>,
+): Promise<EstadoEdicaoUsuario> {
   try {
-    await alterarAtivacaoUsuario(entrada.data.usuarioId, ativo, autor);
-    revalidarUsuario(entrada.data.usuarioId);
-    return { sucesso: ativo ? "Usuário ativado." : "Usuário inativado." };
+    const atualizadoEm = await executar();
+    revalidarUsuario(id);
+    return { status: "sucesso", mensagem, identificador: atualizadoEm.toISOString() };
   } catch (erro) {
-    if (erro instanceof ErroDeRegra) return { erro: erro.message };
+    if (erro instanceof VersaoDesatualizadaDoUsuario) {
+      revalidatePath(`/cadastros/usuarios/${id}`);
+      return { status: "conflito", versaoEnviada: new Date(versao).toISOString() };
+    }
+    if (erro instanceof ErroDeRegra) return { status: "erro", mensagem: erro.message };
     throw erro;
   }
 }
@@ -73,8 +65,4 @@ function revalidarUsuario(usuarioId: string) {
   revalidatePath("/cadastros/equipes");
   revalidatePath("/cadastros/equipes/[id]", "page");
   revalidatePath("/cadastros/equipes/nova");
-}
-
-function textos(formData: FormData, campo: string): string[] {
-  return formData.getAll(campo).map(String);
 }

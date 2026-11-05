@@ -3,6 +3,7 @@ import "server-only";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { executarEmTransacao, type Transacao } from "@/lib/transacao";
+import { VersaoDesatualizadaDoUsuario } from "./versao-usuario";
 import {
   atualizacaoUsuarioSchema,
   perfisCriaveisSchema,
@@ -22,21 +23,23 @@ import {
 export async function atualizarUsuarioGerenciavel(
   usuarioId: string,
   entrada: AtualizacaoUsuario,
+  versao: Date,
   autor: ContextoAutorizacao,
-): Promise<void> {
+): Promise<Date> {
   const resultado = atualizacaoUsuarioSchema.safeParse(entrada);
   if (!resultado.success) {
     throw new ErroDeRegra("DADOS_INVALIDOS", resultado.error.issues[0]?.message ?? "Dados inválidos.");
   }
 
-  await executarEmTransacao(async (tx) => {
+  return executarEmTransacao(async (tx) => {
     const usuario = await tx.usuario.findFirst({
       where: { id: usuarioId, ...filtroDeUsuariosGerenciaveis(autor) },
-      select: { perfil: true, ativo: true },
+      select: { perfil: true, ativo: true, atualizadoEm: true },
     });
     if (!usuario) {
       throw new ErroDeRegra("SEM_PERMISSAO", "Você não pode alterar este usuário.");
     }
+    if (usuario.atualizadoEm.getTime() !== versao.getTime()) throw new VersaoDesatualizadaDoUsuario();
 
     const perfil = perfisCriaveisSchema.safeParse(usuario.perfil);
     if (!perfil.success) {
@@ -54,7 +57,10 @@ export async function atualizarUsuarioGerenciavel(
       usuarioId,
     );
 
-    await tx.usuario.update({ where: { id: usuarioId }, data: { nome: dados.nome } });
+    const gravacao = await tx.usuario.updateMany({
+      where: { id: usuarioId, atualizadoEm: versao }, data: { nome: dados.nome },
+    });
+    if (gravacao.count !== 1) throw new VersaoDesatualizadaDoUsuario();
     if (perfil.data === "COORDENACAO" || perfil.data === "SECRETARIA") {
       await sincronizarUnidadesDiretas(tx, usuarioId, vinculos.unidadeIds, autor);
     } else {
@@ -62,6 +68,8 @@ export async function atualizarUsuarioGerenciavel(
       await desativarUnidadesSemVinculosAtivosDeEquipe(tx, usuarioId);
       if (perfil.data === "ESTAGIARIO") await validarUnicaUnidadeDoEstagiario(tx, usuarioId);
     }
+    const salvo = await tx.usuario.findUniqueOrThrow({ where: { id: usuarioId }, select: { atualizadoEm: true } });
+    return salvo.atualizadoEm;
   });
 }
 

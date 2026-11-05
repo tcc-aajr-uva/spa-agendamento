@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -25,26 +24,30 @@ export function FiltrosUsuarios({ buscaInicial, statusInicial }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [busca, setBusca] = useState(buscaInicial);
-  const [status, setStatus] = useState(statusInicial);
+  const [rascunhoBusca, setRascunhoBusca] = useState<string | null>(null);
+  const [buscaAplicadaAnterior, setBuscaAplicadaAnterior] = useState(buscaInicial);
+  const busca = rascunhoBusca ?? buscaInicial;
   const [atualizando, iniciarAtualizacao] = useTransition();
-  const buscaAnterior = useRef(buscaInicial);
-  const statusAtual = useRef(statusInicial);
+
+  if (buscaAplicadaAnterior !== buscaInicial) {
+    setBuscaAplicadaAnterior(buscaInicial);
+    if (rascunhoBusca?.trim() === buscaInicial) setRascunhoBusca(null);
+  }
+
+  useLayoutEffect(() => {
+    return () => {
+      setRascunhoBusca(null);
+    };
+  }, []);
 
   const atualizar = useCallback(
-    (proximaBusca: string, proximoStatus: string) => {
+    (proximaBusca: string, proximoStatus: Status) => {
       const parametros = new URLSearchParams(searchParams.toString());
       parametros.delete("pagina");
-      if (proximaBusca.trim()) {
-        parametros.set("busca", proximaBusca.trim());
-      } else {
-        parametros.delete("busca");
-      }
-      if (proximoStatus === "ATIVOS") {
-        parametros.delete("status");
-      } else {
-        parametros.set("status", proximoStatus);
-      }
+      if (proximaBusca.trim()) parametros.set("busca", proximaBusca.trim());
+      else parametros.delete("busca");
+      if (proximoStatus === "ATIVOS") parametros.delete("status");
+      else parametros.set("status", proximoStatus);
       const consulta = parametros.toString();
       iniciarAtualizacao(() => router.replace(consulta ? `${pathname}?${consulta}` : pathname, { scroll: false }));
     },
@@ -52,23 +55,13 @@ export function FiltrosUsuarios({ buscaInicial, statusInicial }: Props) {
   );
 
   useEffect(() => {
-    if (buscaAnterior.current === busca) return;
-    buscaAnterior.current = busca;
-    const temporizador = window.setTimeout(() => atualizar(busca, statusAtual.current), 450);
+    if (atualizando || rascunhoBusca === null || rascunhoBusca.trim() === buscaInicial) return;
+    const temporizador = window.setTimeout(() => atualizar(rascunhoBusca, statusInicial), 450);
     return () => window.clearTimeout(temporizador);
-  }, [atualizar, busca]);
-
-  const alterarStatus = (novoStatus: Status) => {
-    setStatus(novoStatus);
-    statusAtual.current = novoStatus;
-    atualizar(busca, novoStatus);
-  };
+  }, [atualizando, atualizar, buscaInicial, rascunhoBusca, statusInicial]);
 
   const limpar = () => {
-    buscaAnterior.current = "";
-    statusAtual.current = "ATIVOS";
-    setBusca("");
-    setStatus("ATIVOS");
+    setRascunhoBusca(null);
     iniciarAtualizacao(() => router.replace(pathname, { scroll: false }));
   };
 
@@ -79,39 +72,41 @@ export function FiltrosUsuarios({ buscaInicial, statusInicial }: Props) {
         <Input
           className="h-auto px-3 py-2 text-sm leading-5 shadow-xs"
           id="busca-usuarios"
+          maxLength={120}
           name="busca"
-          onChange={(evento) => setBusca(evento.target.value)}
+          onChange={(evento) => setRascunhoBusca(evento.target.value)}
           placeholder="Nome ou e-mail"
           type="search"
           value={busca}
         />
       </Field>
+
       <Field className="w-full gap-3 sm:w-80">
         <FieldLabel className="leading-5" htmlFor="status-usuarios">Situação</FieldLabel>
         <Select
-          items={OPCOES_STATUS}
           name="status"
-          onValueChange={(valor) => { if (valor !== null) alterarStatus(valor); }}
-          value={status}
+          items={OPCOES_STATUS}
+          onValueChange={(valor) => {
+            if (valor !== null) atualizar(busca, valor);
+          }}
+          value={statusInicial}
         >
           <SelectTrigger id="status-usuarios" className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {OPCOES_STATUS.map((opcao) => (
-              <SelectItem key={opcao.value} value={opcao.value}>{opcao.label}</SelectItem>
+              <SelectItem key={opcao.value} value={opcao.value}>
+                {opcao.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </Field>
-      <Button className="h-auto px-4 py-2 leading-5 shadow-xs" variant="outline" disabled={!busca && status === "ATIVOS"} onClick={limpar} type="button">
+      <Button className="h-auto px-4 py-2 leading-5 shadow-xs" variant="outline" disabled={!busca && statusInicial === "ATIVOS"} onClick={limpar} type="button">
         Limpar filtros
       </Button>
-      {atualizando && (
-        <span className="text-sm" aria-live="polite">
-          Atualizando…
-        </span>
-      )}
+      {atualizando && <span className="text-sm" aria-live="polite">Atualizando…</span>}
     </div>
   );
 }
