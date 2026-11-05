@@ -66,6 +66,13 @@ export async function atribuirSupervisor(
       where: { usuarioId, unidadeId: equipe.unidadeId }, data: { ativo: false },
     });
   }
+  if (supervisorId !== null) anteriores.add(supervisorId);
+  if (anteriores.size > 0) {
+    await tx.usuario.updateMany({
+      where: { id: { in: [...anteriores] } },
+      data: { atualizadoEm: new Date() },
+    });
+  }
 }
 
 export function validarFormatoDosVinculos(

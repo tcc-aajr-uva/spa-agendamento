@@ -1,73 +1,57 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { CircleAlertIcon, InfoIcon, XIcon } from "lucide-react";
+import { useId, type FormEventHandler } from "react";
+import { InfoIcon } from "lucide-react";
+import type { UseFormReturn } from "react-hook-form";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { toast } from "@/components/ui/toast";
-import type { EstadoEdicaoUsuario } from "./actions";
+import { CampoVinculosUsuario, type OpcaoVinculoUsuario } from "../campo-vinculos-usuario";
+import type { CamposEdicaoUsuario } from "../formulario-usuario-schema";
 
-type Opcao = { id: string; unidadeId: string; nome: string; disponivel: boolean };
-
-type Props = {
-  acao: (estado: EstadoEdicaoUsuario, formData: FormData) => Promise<EstadoEdicaoUsuario>;
-  nome: string;
-  opcoes: Opcao[];
+export type OpcoesEdicaoUsuario = {
+  opcoes: OpcaoVinculoUsuario[];
   tipoVinculo: "unidadeIds" | "equipeIds";
-  vinculosIniciais: string[];
   restringirEquipesAUmaUnidade: boolean;
   possuiVinculosForaDoEscopo: boolean;
 };
 
-export function FormularioEdicaoUsuario({
-  acao,
-  nome,
-  opcoes,
-  tipoVinculo,
-  vinculosIniciais,
-  restringirEquipesAUmaUnidade,
-  possuiVinculosForaDoEscopo,
-}: Props) {
-  const [estado, enviar, enviando] = useActionState(acao, {});
-  const [vinculos, setVinculos] = useState(vinculosIniciais);
-  const [vinculoParaAdicionar, setVinculoParaAdicionar] = useState("");
-  const unidadeSelecionada = opcoes.find((opcao) => vinculos.includes(opcao.id))?.unidadeId;
-  const opcoesDisponiveis = opcoes.filter(
-    (opcao) =>
-      opcao.disponivel &&
-      !vinculos.includes(opcao.id) &&
-      (!restringirEquipesAUmaUnidade || unidadeSelecionada === undefined || opcao.unidadeId === unidadeSelecionada),
-  );
-  const itensDisponiveis = opcoesDisponiveis.map((opcao) => ({ value: opcao.id, label: opcao.nome }));
-
-  useEffect(() => {
-    if (!estado.sucesso) return;
-    toast.add({ title: estado.sucesso, type: "success", timeout: 5_000 });
-  }, [estado]);
+export function FormularioEdicaoUsuario({ formulario, acao, aoEnviar, aoAlterar, valores, vinculos, bloqueado, enviando, opcoes,
+  tipoVinculo, restringirEquipesAUmaUnidade, possuiVinculosForaDoEscopo }: OpcoesEdicaoUsuario & {
+  formulario: UseFormReturn<CamposEdicaoUsuario>;
+  acao: (formData: FormData) => void;
+  aoEnviar: FormEventHandler<HTMLFormElement>;
+  aoAlterar: () => void;
+  valores: CamposEdicaoUsuario;
+  vinculos: string[];
+  bloqueado: boolean;
+  enviando: boolean;
+}) {
+  const id = useId();
+  const { register, setValue, formState: { errors, defaultValues } } = formulario;
 
   return (
-    <form action={enviar}>
+    <form action={acao} noValidate onSubmit={aoEnviar}>
+      <input type="hidden" name="atualizadoEm" value={defaultValues?.atualizadoEm ?? valores.atualizadoEm} />
       <Card className="sm:[--card-spacing:--spacing(6)]">
-        <CardContent className="space-y-6">
+        <CardContent>
           <FieldGroup className="gap-8">
             <FieldSet>
               <FieldLegend className="text-base font-semibold">Dados pessoais</FieldLegend>
               <FieldDescription>Atualize o nome usado para identificar o usuário.</FieldDescription>
-              <Field>
-                <FieldLabel htmlFor="usuario-edicao-nome">Nome</FieldLabel>
-                <Input id="usuario-edicao-nome" className="h-auto px-3 py-2 leading-5 shadow-xs"
-                  defaultValue={nome} maxLength={120} minLength={2} name="nome" required />
+              <Field data-invalid={!!errors.nome}>
+                <FieldLabel htmlFor={id}>Nome</FieldLabel>
+                <Input id={id} className="h-auto px-3 py-2 leading-5 shadow-xs" disabled={bloqueado}
+                  defaultValue={valores.nome} maxLength={120} required aria-invalid={!!errors.nome}
+                  aria-describedby={errors.nome ? `${id}-erro` : undefined} {...register("nome", { onChange: aoAlterar })} />
+                <FieldError id={`${id}-erro`} errors={[errors.nome]} />
               </Field>
             </FieldSet>
-
             <Separator />
-
             <FieldSet>
               <FieldLegend className="text-base font-semibold">Vínculos no seu escopo</FieldLegend>
               <FieldDescription>Gerencie as {tipoVinculo === "unidadeIds" ? "unidades" : "equipes"} disponíveis para este usuário.</FieldDescription>
@@ -78,58 +62,18 @@ export function FormularioEdicaoUsuario({
                   <AlertDescription>Eles não são exibidos nesta tela e serão preservados.</AlertDescription>
                 </Alert>
               )}
-              <Field>
-                <FieldLabel htmlFor="usuario-edicao-vinculo">Adicionar vínculo</FieldLabel>
-                <Select
-                  disabled={itensDisponiveis.length === 0}
-                  items={itensDisponiveis}
-                  onValueChange={(valor) => {
-                    if (valor) setVinculos((atuais) => [...atuais, valor]);
-                    setVinculoParaAdicionar("");
-                  }}
-                  value={vinculoParaAdicionar}
-                >
-                  <SelectTrigger id="usuario-edicao-vinculo" className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
-                    <SelectValue placeholder="Selecione para adicionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {itensDisponiveis.map((opcao) => <SelectItem key={opcao.value} value={opcao.value}>{opcao.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <div className="space-y-2">
-                {vinculos.map((id) => {
-                  const opcao = opcoes.find((candidata) => candidata.id === id);
-                  if (!opcao) return null;
-                  return (
-                    <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2" key={id}>
-                      <input name={tipoVinculo} type="hidden" value={id} />
-                      <span className="text-sm font-medium">{opcao.nome}</span>
-                      <Button aria-label={`Remover ${opcao.nome}`} size="sm" variant="ghost"
-                        onClick={() => setVinculos((atuais) => atuais.filter((vinculoId) => vinculoId !== id))} type="button">
-                        <XIcon aria-hidden="true" /> Remover
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-              {vinculos.length === 0 && (
-                <FieldDescription>O usuário ficará sem vínculos dentro do seu escopo.</FieldDescription>
-              )}
+              <CampoVinculosUsuario opcoes={opcoes} vinculos={vinculos} tipo={tipoVinculo}
+                mesmaUnidade={restringirEquipesAUmaUnidade} bloqueado={bloqueado} erro={errors[tipoVinculo]?.message}
+                aoAlterar={(ids) => {
+                  setValue(tipoVinculo, ids, { shouldDirty: true, shouldValidate: true });
+                  aoAlterar();
+                }} />
+              {vinculos.length === 0 && <FieldDescription>O usuário ficará sem vínculos dentro do seu escopo.</FieldDescription>}
             </FieldSet>
           </FieldGroup>
-
-          {estado.erro && (
-            <Alert variant="destructive">
-              <CircleAlertIcon aria-hidden="true" />
-              <AlertTitle>Não foi possível salvar o usuário</AlertTitle>
-              <AlertDescription>{estado.erro}</AlertDescription>
-            </Alert>
-          )}
         </CardContent>
         <CardFooter className="justify-end">
-          <Button size="lg" disabled={enviando} type="submit">
+          <Button size="lg" disabled={bloqueado} type="submit">
             {enviando ? "Salvando…" : "Salvar alterações"}
           </Button>
         </CardFooter>

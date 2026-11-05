@@ -13,7 +13,7 @@ import {
 import { determinarEstadoAcesso } from "@/lib/usuario/estado-acesso";
 import { perfisCriadosPor } from "@/lib/usuario/hierarquia";
 
-const ITENS_POR_PAGINA = 20;
+const ITENS_POR_PAGINA = 10;
 
 const filtrosSchema = z.object({
   pagina: z.coerce.number().int().min(1).catch(1),

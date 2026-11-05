@@ -6,20 +6,16 @@ import { z } from "zod";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { ErroDeRegra } from "@/lib/erros";
 import { criarUsuarioComConvite } from "@/lib/usuario/criar-usuario";
-import { perfisCriaveisSchema, usuarioIdSchema } from "@/lib/usuario/dados-usuario";
+import { usuarioIdSchema } from "@/lib/usuario/dados-usuario";
 import { gerarNovoConvite, revogarConvite } from "@/lib/usuario/gerenciar-convite";
+import type { EstadoCriacaoUsuario } from "./estado-usuario";
+import { camposDoFormData, formularioCriacaoUsuarioSchema } from "./formulario-usuario-schema";
 
 const PERFIS_AUTORIZADOS = ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "SUPERVISOR"] as const;
 const gerenciarConviteSchema = z.object({
   usuarioId: usuarioIdSchema,
   operacao: z.enum(["GERAR", "REVOGAR"]),
 });
-
-export type EstadoCriacaoUsuario = {
-  erro?: string;
-  linkConvite?: string;
-  expiraEm?: string;
-};
 
 export type EstadoGerenciamentoConvite = {
   erro?: string;
@@ -33,18 +29,14 @@ export async function criarUsuario(
   formData: FormData,
 ): Promise<EstadoCriacaoUsuario> {
   const autor = await exigirUsuario([...PERFIS_AUTORIZADOS]);
-  const perfil = perfisCriaveisSchema.safeParse(String(formData.get("perfil") ?? ""));
-  if (!perfil.success) return { erro: "Selecione um perfil válido." };
+  const entrada = formularioCriacaoUsuarioSchema.safeParse({
+    ...camposDoFormData(formData), perfil: formData.get("perfil"), email: formData.get("email"),
+  });
+  if (!entrada.success) return { status: "erro", mensagem: entrada.error.issues[0].message };
 
   try {
     const resultado = await criarUsuarioComConvite(
-      {
-        nome: String(formData.get("nome") ?? ""),
-        email: String(formData.get("email") ?? ""),
-        perfil: perfil.data,
-        unidadeIds: textos(formData, "unidadeIds"),
-        equipeIds: textos(formData, "equipeIds"),
-      },
+      entrada.data,
       autor,
     );
     revalidatePath("/cadastros/usuarios");
@@ -55,11 +47,12 @@ export async function criarUsuario(
 
     const baseURL = process.env.BETTER_AUTH_URL;
     return {
+      status: "sucesso",
       linkConvite: baseURL ? new URL(resultado.linkConvite, baseURL).toString() : resultado.linkConvite,
       expiraEm: resultado.expiraEm.toISOString(),
     };
   } catch (erro) {
-    if (erro instanceof ErroDeRegra) return { erro: erro.message };
+    if (erro instanceof ErroDeRegra) return { status: "erro", mensagem: erro.message };
     throw erro;
   }
 }
@@ -98,8 +91,4 @@ export async function gerenciarConvite(
     if (erro instanceof ErroDeRegra) return { erro: erro.message };
     throw erro;
   }
-}
-
-function textos(formData: FormData, campo: string): string[] {
-  return formData.getAll(campo).map(String);
 }

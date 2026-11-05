@@ -22,6 +22,7 @@ export async function consultarUsuarioGerenciavel(usuarioId: string, autor: Cont
       email: true,
       perfil: true,
       ativo: true,
+      atualizadoEm: true,
       accounts: {
         where: { providerId: "credential" },
         take: 1,
@@ -61,6 +62,7 @@ export async function consultarUsuarioGerenciavel(usuarioId: string, autor: Cont
     email: usuario.email,
     perfil: perfil.data,
     ativo: usuario.ativo,
+    atualizadoEm: usuario.atualizadoEm,
     estadoAcesso: determinarEstadoAcesso(usuario, agora),
     podeAlterarAcesso: podeAlterarAcessoDoUsuario(autor, todasAsUnidades),
     possuiVinculosForaDoEscopo: perfilPorUnidade

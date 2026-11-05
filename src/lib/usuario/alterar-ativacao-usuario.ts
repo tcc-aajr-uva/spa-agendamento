@@ -9,23 +9,26 @@ import {
   podeAlterarAcessoDoUsuario,
 } from "@/lib/usuario/escopo-usuario";
 import { atribuirSupervisor } from "@/lib/usuario/vinculos-usuario";
+import { VersaoDesatualizadaDoUsuario } from "./versao-usuario";
 
 export async function alterarAtivacaoUsuario(
   usuarioId: string,
   ativo: boolean,
+  versao: Date,
   autor: ContextoAutorizacao,
   agora = new Date(),
-): Promise<void> {
+): Promise<Date> {
   if (autor.perfil !== "ADMINISTRADOR" && autor.perfil !== "COORDENACAO") {
     throw new ErroDeRegra("SEM_PERMISSAO", "Seu perfil não pode alterar o acesso global de usuários.");
   }
 
-  await executarEmTransacao(async (tx) => {
+  return executarEmTransacao(async (tx) => {
     const usuario = await tx.usuario.findFirst({
       where: { id: usuarioId, ...filtroDeUsuariosGerenciaveis(autor) },
       select: {
         perfil: true,
         ativo: true,
+        atualizadoEm: true,
         unidades: {
           where: { ativo: true, unidade: { ativa: true } },
           select: { unidadeId: true },
@@ -46,7 +49,13 @@ export async function alterarAtivacaoUsuario(
         "Somente uma coordenação responsável por todas as unidades do usuário pode alterar seu acesso.",
       );
     }
-    if (usuario.ativo === ativo) return;
+    if (usuario.atualizadoEm.getTime() !== versao.getTime()) throw new VersaoDesatualizadaDoUsuario();
+    if (usuario.ativo === ativo) return usuario.atualizadoEm;
+
+    const gravacao = await tx.usuario.updateMany({
+      where: { id: usuarioId, atualizadoEm: versao }, data: { ativo },
+    });
+    if (gravacao.count !== 1) throw new VersaoDesatualizadaDoUsuario();
 
     if (ativo) {
       await prepararVinculosParaAtivacao(tx, usuarioId, perfil.data);
@@ -62,7 +71,8 @@ export async function alterarAtivacaoUsuario(
       }
     }
 
-    await tx.usuario.update({ where: { id: usuarioId }, data: { ativo } });
+    const salvo = await tx.usuario.findUniqueOrThrow({ where: { id: usuarioId }, select: { atualizadoEm: true } });
+    return salvo.atualizadoEm;
   });
 }
 
