@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ChevronRightIcon } from "lucide-react";
 
+import { CabecalhoListagem } from "@/components/cabecalho-listagem";
+import { EstadoVazioTabela } from "@/components/estado-vazio-tabela";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PaginacaoLista } from "@/components/paginacao-lista";
@@ -43,17 +45,15 @@ async function Conteudo({ searchParams }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold">Equipes</h1>
-          <p className="text-sm text-muted-foreground">Consulte as equipes do seu escopo de atuação.</p>
-        </div>
-        {resultado.podeGerenciar && (
+      <CabecalhoListagem
+        titulo="Equipes"
+        descricao="Consulte as equipes do seu escopo de atuação."
+        acao={resultado.podeGerenciar && (
           <Button size="lg" nativeButton={false} render={<Link href="/cadastros/equipes/nova" prefetch={false} />}>
             Nova equipe
           </Button>
         )}
-      </div>
+      />
       <FiltrosEquipes
         buscaInicial={resultado.busca}
         unidadeInicial={resultado.unidadeId}
@@ -74,14 +74,11 @@ async function Conteudo({ searchParams }: Props) {
           </TableHeader>
           <TableBody>
             {resultado.equipes.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-32 whitespace-normal text-center">
-                  <div className="space-y-1">
-                    <p className="font-medium">Nenhuma equipe encontrada.</p>
-                    <p className="text-muted-foreground">Altere ou limpe os filtros para tentar novamente.</p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <EstadoVazioTabela
+                colunas={5}
+                titulo="Nenhuma equipe encontrada."
+                descricao="Altere ou limpe os filtros para tentar novamente."
+              />
             ) : resultado.equipes.map((equipe) => (
               <TableRow key={equipe.id} className="relative">
                 <TableHead scope="row" className="min-w-44 max-w-sm whitespace-normal wrap-break-word px-4 py-4">

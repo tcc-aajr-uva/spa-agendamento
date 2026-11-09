@@ -33,7 +33,7 @@ function FormularioEquipeInterno({ acao, ...opcoes }: Props) {
   return (
     <div className="space-y-6">
       <AlertasFormularioEquipe
-        conflito={controle.possuiConflito} isDirty={controle.possuiRascunho}
+        conflito={controle.possuiConflito}
         ocupado={controle.ocupado} recarregando={controle.atualizandoVersao}
         carregarVersao={controle.descartarAlteracoes} erroSalvar={controle.mensagemErroGeral}
       />

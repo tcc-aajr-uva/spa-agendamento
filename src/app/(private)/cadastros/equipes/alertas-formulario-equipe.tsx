@@ -1,13 +1,10 @@
 "use client";
 
-import { CircleAlertIcon, TriangleAlertIcon } from "lucide-react";
-
-import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
+import { AlertaConflito } from "@/components/alerta-conflito";
 
 type Props = {
   conflito: boolean;
-  isDirty: boolean;
   ocupado: boolean;
   recarregando: boolean;
   carregarVersao: () => void;
@@ -16,50 +13,28 @@ type Props = {
   erroVersao?: string;
 };
 
-export function AlertasFormularioEquipe({ conflito, isDirty, ocupado, recarregando, carregarVersao, erroSalvar, erroAtivacao, erroVersao }: Props) {
+export function AlertasFormularioEquipe({ conflito, ocupado, recarregando, carregarVersao, erroSalvar, erroAtivacao, erroVersao }: Props) {
   if (!conflito && !erroSalvar && !erroAtivacao && !erroVersao) return null;
 
   return (
     <div className="space-y-3">
       {erroVersao && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível salvar a equipe</AlertTitle>
-          <AlertDescription>{erroVersao}</AlertDescription>
-        </Alert>
+        <AlertaErroOperacao titulo="Não foi possível salvar a equipe" mensagem={erroVersao} />
       )}
       {conflito && (
-        <Alert className="has-data-[slot=alert-action]:pr-2.5 sm:has-data-[slot=alert-action]:pr-32" variant="warning">
-          <TriangleAlertIcon aria-hidden="true" />
-          <AlertTitle>Equipe alterada em outra sessão</AlertTitle>
-          <AlertDescription>
-            <p>
-              A equipe foi atualizada depois que você abriu esta tela.
-              <br />
-              {isDirty ? "Ao carregar a versão mais recente, seu rascunho será descartado." : "Carregue a versão mais recente para continuar."}
-            </p>
-          </AlertDescription>
-          <AlertAction className="static col-span-2 mt-2 flex justify-end sm:absolute sm:top-1/2 sm:right-2 sm:mt-0 sm:-translate-y-1/2">
-            <Button className="h-auto max-w-full rounded-sm px-4 py-2 whitespace-normal" variant="outline" type="button"
-              disabled={ocupado || recarregando} onClick={carregarVersao}>
-              {recarregando ? "Carregando…" : "Carregar"}
-            </Button>
-          </AlertAction>
-        </Alert>
+        <AlertaConflito
+          titulo="Equipe alterada em outra sessão"
+          descricao="A equipe foi atualizada depois que você abriu esta tela."
+          carregando={recarregando}
+          bloqueado={ocupado}
+          onCarregar={carregarVersao}
+        />
       )}
       {erroSalvar && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível salvar a equipe</AlertTitle>
-          <AlertDescription>{erroSalvar}</AlertDescription>
-        </Alert>
+        <AlertaErroOperacao titulo="Não foi possível salvar a equipe" mensagem={erroSalvar} />
       )}
       {erroAtivacao && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível alterar a situação</AlertTitle>
-          <AlertDescription>{erroAtivacao}</AlertDescription>
-        </Alert>
+        <AlertaErroOperacao titulo="Não foi possível alterar a situação" mensagem={erroAtivacao} />
       )}
     </div>
   );

@@ -29,7 +29,7 @@ export async function consultarUsuarioGerenciavel(usuarioId: string, autor: Cont
         select: { id: true },
       },
       convites: {
-        orderBy: { criadoEm: "desc" },
+        orderBy: [{ criadoEm: "desc" }, { id: "desc" }],
         take: 1,
         select: { expiraEm: true, usadoEm: true, revogadoEm: true },
       },
