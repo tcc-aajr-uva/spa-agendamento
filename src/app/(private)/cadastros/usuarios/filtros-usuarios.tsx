@@ -3,24 +3,17 @@
 import { CampoBuscaCadastro, FiltroSelecaoCadastro } from "@/components/campos-filtros-cadastro";
 import { useFiltrosCadastro } from "@/components/use-filtros-cadastro";
 import { Button } from "@/components/ui/button";
-
-type Status = "ATIVOS" | "INATIVOS" | "TODOS";
-
-const OPCOES_STATUS: { value: Status; label: string }[] = [
-  { value: "ATIVOS", label: "Ativos" },
-  { value: "INATIVOS", label: "Inativos" },
-  { value: "TODOS", label: "Todos" },
-];
+import { OPCOES_SITUACAO_USUARIO, type SituacaoListagemUsuario } from "@/lib/usuario/situacao-listagem";
 
 type Props = {
   buscaInicial: string;
-  statusInicial: Status;
+  statusInicial: SituacaoListagemUsuario;
 };
 
 export function FiltrosUsuarios({ buscaInicial, statusInicial }: Props) {
   const { busca, setRascunhoBusca, atualizando, atualizar, limpar } = useFiltrosCadastro({
     buscaInicial,
-    filtros: { status: statusInicial === "ATIVOS" ? "" : statusInicial },
+    filtros: { status: statusInicial === "TODOS" ? "" : statusInicial },
   });
 
   return (
@@ -36,13 +29,13 @@ export function FiltrosUsuarios({ buscaInicial, statusInicial }: Props) {
         id="status-usuarios"
         nome="status"
         rotulo="Situação"
-        opcoes={OPCOES_STATUS}
+        opcoes={OPCOES_SITUACAO_USUARIO}
         valor={statusInicial}
         aoAlterar={(valor) => {
-          if (valor !== null) atualizar(busca, { status: valor === "ATIVOS" ? "" : valor });
+          if (valor !== null) atualizar(busca, { status: valor === "TODOS" ? "" : valor });
         }}
       />
-      <Button className="h-auto px-4 py-2 leading-5 shadow-xs" variant="outline" disabled={!busca && statusInicial === "ATIVOS"} onClick={limpar} type="button">
+      <Button className="h-auto px-4 py-2 leading-5 shadow-xs" variant="outline" disabled={!busca && statusInicial === "TODOS"} onClick={limpar} type="button">
         Limpar filtros
       </Button>
       {atualizando && <span className="text-sm" aria-live="polite">Atualizando…</span>}

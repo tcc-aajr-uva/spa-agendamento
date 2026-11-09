@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { listarUsuarios } from "@/lib/usuario/listar-usuarios";
 import { rotuloDoEstadoAcesso, rotuloDoPerfil } from "@/lib/usuario/rotulos";
+import { situacaoListagemUsuarioSchema } from "@/lib/usuario/situacao-listagem";
 import { perfisDaRota } from "../../menu";
 import { FiltrosUsuarios } from "./filtros-usuarios";
 
@@ -44,7 +45,7 @@ async function ListaUsuarios({ searchParams }: Props) {
   const busca = valorUnico(parametros.busca) ?? "";
   const pagina = valorUnico(parametros.pagina) ?? "1";
   const statusInformado = valorUnico(parametros.status);
-  const status = statusInformado === "INATIVOS" || statusInformado === "TODOS" ? statusInformado : "ATIVOS";
+  const status = situacaoListagemUsuarioSchema.parse(statusInformado);
   const resultado = await listarUsuarios({ busca, pagina, status }, autor);
 
   return (
@@ -57,7 +58,7 @@ async function ListaUsuarios({ searchParams }: Props) {
             <TableRow className="bg-muted/50">
               <TableHead scope="col" className="px-4">Usuário</TableHead>
               <TableHead scope="col">Perfil</TableHead>
-              <TableHead scope="col">Acesso</TableHead>
+              <TableHead scope="col">Situação</TableHead>
               <TableHead scope="col">Vínculos</TableHead>
               <TableHead scope="col" className="w-10 px-4" aria-label="Detalhes do usuário" />
             </TableRow>
@@ -67,7 +68,7 @@ async function ListaUsuarios({ searchParams }: Props) {
               <EstadoVazioTabela
                 colunas={5}
                 titulo="Nenhum usuário encontrado."
-                descricao={busca || status !== "ATIVOS"
+                descricao={busca || status !== "TODOS"
                   ? "Altere ou limpe os filtros para tentar novamente."
                   : "Crie o primeiro usuário disponível para o seu perfil."}
               />
