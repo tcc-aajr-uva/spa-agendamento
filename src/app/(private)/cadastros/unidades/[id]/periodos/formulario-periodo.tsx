@@ -2,11 +2,12 @@
 
 import { startTransition, useActionState, useEffect, useId, useLayoutEffect, useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CircleAlertIcon, LockKeyholeIcon, TriangleAlertIcon } from "lucide-react";
+import { LockKeyholeIcon, TriangleAlertIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 
+import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
 import { AlertaConflito } from "@/components/alerta-conflito";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -137,18 +138,10 @@ function FormularioPeriodoInterno({
         />
       )}
       {erroSalvar && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível salvar o período</AlertTitle>
-          <AlertDescription>{erroSalvar}</AlertDescription>
-        </Alert>
+        <AlertaErroOperacao titulo="Não foi possível salvar o período" mensagem={erroSalvar} />
       )}
       {estadoExclusao.erro && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível excluir o período</AlertTitle>
-          <AlertDescription>{estadoExclusao.erro}</AlertDescription>
-        </Alert>
+        <AlertaErroOperacao titulo="Não foi possível excluir o período" mensagem={estadoExclusao.erro} />
       )}
       <form action={podeSalvar ? enviar : undefined} noValidate onSubmit={(evento) => {
         if (bloquearEnvio) {

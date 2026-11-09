@@ -2,11 +2,10 @@
 
 import { useActionState, useContext, useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { CircleAlertIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
 import { AlertaConflito } from "@/components/alerta-conflito";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
@@ -72,11 +71,7 @@ function CamposAtendimento({ valores, estado, enviar, enviando }: Omit<Props, "a
         destinoAlertas,
       )}
       {destinoAlertas && estado.erro && !conflito && createPortal(
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível salvar a configuração</AlertTitle>
-          <AlertDescription>{estado.erro}</AlertDescription>
-        </Alert>,
+        <AlertaErroOperacao titulo="Não foi possível salvar a configuração" mensagem={estado.erro} />,
         destinoAlertas,
       )}
       <input name="versao" type="hidden" value={base.versao ?? ""} />

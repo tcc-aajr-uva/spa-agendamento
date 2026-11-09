@@ -1,9 +1,7 @@
 "use client";
 
-import { CircleAlertIcon } from "lucide-react";
-
+import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
 import { AlertaConflito } from "@/components/alerta-conflito";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type Props = {
   atualizandoVersao: boolean;
@@ -25,11 +23,7 @@ export function AlertasFormularioUnidade({
   return (
     <div className="space-y-3">
       {mensagemErroVersao && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível salvar a unidade</AlertTitle>
-          <AlertDescription>{mensagemErroVersao}</AlertDescription>
-        </Alert>
+        <AlertaErroOperacao titulo="Não foi possível salvar a unidade" mensagem={mensagemErroVersao} />
       )}
 
       {possuiConflito && (
@@ -42,11 +36,7 @@ export function AlertasFormularioUnidade({
       )}
 
       {mensagensErrosGerais.map((mensagem, indice) => (
-        <Alert key={`${indice}-${mensagem}`} variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível concluir a operação</AlertTitle>
-          <AlertDescription>{mensagem}</AlertDescription>
-        </Alert>
+        <AlertaErroOperacao key={`${indice}-${mensagem}`} titulo="Não foi possível concluir a operação" mensagem={mensagem} />
       ))}
     </div>
   );

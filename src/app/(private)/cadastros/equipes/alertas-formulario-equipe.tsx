@@ -1,9 +1,7 @@
 "use client";
 
-import { CircleAlertIcon } from "lucide-react";
-
+import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
 import { AlertaConflito } from "@/components/alerta-conflito";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type Props = {
   conflito: boolean;
@@ -21,11 +19,7 @@ export function AlertasFormularioEquipe({ conflito, ocupado, recarregando, carre
   return (
     <div className="space-y-3">
       {erroVersao && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível salvar a equipe</AlertTitle>
-          <AlertDescription>{erroVersao}</AlertDescription>
-        </Alert>
+        <AlertaErroOperacao titulo="Não foi possível salvar a equipe" mensagem={erroVersao} />
       )}
       {conflito && (
         <AlertaConflito
@@ -37,18 +31,10 @@ export function AlertasFormularioEquipe({ conflito, ocupado, recarregando, carre
         />
       )}
       {erroSalvar && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível salvar a equipe</AlertTitle>
-          <AlertDescription>{erroSalvar}</AlertDescription>
-        </Alert>
+        <AlertaErroOperacao titulo="Não foi possível salvar a equipe" mensagem={erroSalvar} />
       )}
       {erroAtivacao && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível alterar a situação</AlertTitle>
-          <AlertDescription>{erroAtivacao}</AlertDescription>
-        </Alert>
+        <AlertaErroOperacao titulo="Não foi possível alterar a situação" mensagem={erroAtivacao} />
       )}
     </div>
   );

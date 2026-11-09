@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CircleAlertIcon, CircleCheckIcon, CopyIcon } from "lucide-react";
+import { CircleCheckIcon, CopyIcon } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,11 +41,7 @@ export function ResultadoConvite({ expiraEm, linkConvite, cadastrarOutro, voltar
           O convite poderá ser usado uma única vez e expira em {formatarData(expiraEm)}.
         </p>
         {erroCopia && (
-          <Alert variant="destructive">
-            <CircleAlertIcon aria-hidden="true" />
-            <AlertTitle>Não foi possível copiar o link</AlertTitle>
-            <AlertDescription>Selecione o link acima e copie manualmente.</AlertDescription>
-          </Alert>
+          <AlertaErroOperacao titulo="Não foi possível copiar o link" mensagem="Selecione o link acima e copie manualmente." />
         )}
       </CardContent>
       <CardFooter className="flex-wrap justify-end gap-2">

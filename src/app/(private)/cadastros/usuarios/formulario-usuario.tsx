@@ -2,11 +2,10 @@
 
 import { startTransition, useActionState, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CircleAlertIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
@@ -69,11 +68,7 @@ function FormularioUsuarioInterno({ acao, configuracoes, cadastrarOutro }: Props
   return (
     <div className="space-y-6">
       {estado.status === "erro" && erroOculto !== estado && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível criar o usuário</AlertTitle>
-          <AlertDescription>{estado.mensagem}</AlertDescription>
-        </Alert>
+        <AlertaErroOperacao titulo="Não foi possível criar o usuário" mensagem={estado.mensagem} />
       )}
       <form action={enviar} noValidate onSubmit={(evento) => {
         if (bloqueado || opcoes.length === 0) evento.preventDefault();

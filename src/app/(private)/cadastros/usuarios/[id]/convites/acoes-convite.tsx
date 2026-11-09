@@ -1,9 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useLayoutEffect, useState } from "react";
-import { CircleAlertIcon, CopyIcon } from "lucide-react";
+import { CopyIcon } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,11 +36,7 @@ function AcoesConviteInternas({ acao, estadoAcesso }: Props) {
   return (
     <div className="space-y-3">
       {estado.erro && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível gerenciar o convite</AlertTitle>
-          <AlertDescription>{estado.erro}</AlertDescription>
-        </Alert>
+        <AlertaErroOperacao titulo="Não foi possível gerenciar o convite" mensagem={estado.erro} />
       )}
 
       <form action={executar} className="flex flex-wrap gap-2">
@@ -95,11 +91,7 @@ function LinkConviteGerado({ linkConvite, expiraEm }: { linkConvite: string; exp
         <Input className="h-auto px-3 py-2 leading-5 shadow-xs" aria-label="Link do convite" readOnly value={linkConvite} />
         {expiraEm && <p className="text-sm text-muted-foreground">Expira em {new Date(expiraEm).toLocaleString("pt-BR")}.</p>}
         {erroCopia && (
-          <Alert variant="destructive">
-            <CircleAlertIcon aria-hidden="true" />
-            <AlertTitle>Não foi possível copiar o link</AlertTitle>
-            <AlertDescription>Selecione o link e copie manualmente.</AlertDescription>
-          </Alert>
+          <AlertaErroOperacao titulo="Não foi possível copiar o link" mensagem="Selecione o link e copie manualmente." />
         )}
       </CardContent>
       <CardFooter className="justify-end">
