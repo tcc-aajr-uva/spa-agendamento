@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useState, useTransition } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useFiltrosCadastro } from "@/components/use-filtros-cadastro";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -9,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Status = "ATIVAS" | "INATIVAS" | "TODAS";
-type Filtros = { busca: string; unidadeId: string; status: Status };
 
 const OPCOES_STATUS: { value: Status; label: string }[] = [
   { value: "ATIVAS", label: "Ativas" },
@@ -25,9 +23,6 @@ type Props = {
 };
 
 export function FiltrosEquipes({ buscaInicial, unidadeInicial, statusInicial, permitirInativas, unidades }: Props) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const opcoesUnidades = [
     { value: "", label: "Todas do meu escopo" },
     ...unidades.map((unidade) => ({
@@ -35,45 +30,10 @@ export function FiltrosEquipes({ buscaInicial, unidadeInicial, statusInicial, pe
       label: `${unidade.nome}${unidade.ativa ? "" : " (inativa)"}`,
     })),
   ];
-  const [rascunhoBusca, setRascunhoBusca] = useState<string | null>(null);
-  const [buscaAplicadaAnterior, setBuscaAplicadaAnterior] = useState(buscaInicial);
-  const busca = rascunhoBusca ?? buscaInicial;
-  const [atualizando, iniciarAtualizacao] = useTransition();
-
-  if (buscaAplicadaAnterior !== buscaInicial) {
-    setBuscaAplicadaAnterior(buscaInicial);
-    if (rascunhoBusca?.trim() === buscaInicial) setRascunhoBusca(null);
-  }
-
-  useLayoutEffect(() => {
-    return () => setRascunhoBusca(null);
-  }, []);
-
-  const atualizar = useCallback(({ busca, unidadeId, status }: Filtros) => {
-    const parametros = new URLSearchParams(searchParams.toString());
-    parametros.delete("pagina");
-    if (busca.trim()) parametros.set("busca", busca.trim());
-    else parametros.delete("busca");
-    if (unidadeId) parametros.set("unidadeId", unidadeId);
-    else parametros.delete("unidadeId");
-    if (permitirInativas && status !== "ATIVAS") parametros.set("status", status);
-    else parametros.delete("status");
-    const consulta = parametros.toString();
-    iniciarAtualizacao(() => router.replace(consulta ? `${pathname}?${consulta}` : pathname, { scroll: false }));
-  }, [pathname, permitirInativas, router, searchParams]);
-
-  useEffect(() => {
-    if (atualizando || rascunhoBusca === null || rascunhoBusca.trim() === buscaInicial) return;
-    const temporizador = window.setTimeout(() => {
-      atualizar({ busca: rascunhoBusca, unidadeId: unidadeInicial, status: statusInicial });
-    }, 450);
-    return () => window.clearTimeout(temporizador);
-  }, [atualizando, atualizar, buscaInicial, rascunhoBusca, statusInicial, unidadeInicial]);
-
-  function limpar() {
-    setRascunhoBusca(null);
-    iniciarAtualizacao(() => router.replace(pathname, { scroll: false }));
-  }
+  const { busca, setRascunhoBusca, atualizando, atualizar, limpar } = useFiltrosCadastro({
+    buscaInicial,
+    filtros: { status: permitirInativas && statusInicial !== "ATIVAS" ? statusInicial : "", unidadeId: unidadeInicial },
+  });
 
   return (
     <div className="flex flex-wrap items-end gap-3">
@@ -95,7 +55,7 @@ export function FiltrosEquipes({ buscaInicial, unidadeInicial, statusInicial, pe
         <Select
           items={opcoesUnidades}
           name="unidadeId"
-          onValueChange={(valor) => atualizar({ busca, unidadeId: valor ?? "", status: statusInicial })}
+          onValueChange={(valor) => atualizar(busca, { unidadeId: valor ?? "" })}
           value={unidadeInicial}
         >
           <SelectTrigger id="unidade-equipes" className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
@@ -117,7 +77,7 @@ export function FiltrosEquipes({ buscaInicial, unidadeInicial, statusInicial, pe
             items={OPCOES_STATUS}
             name="status"
             onValueChange={(valor) => {
-              if (valor !== null) atualizar({ busca, unidadeId: unidadeInicial, status: valor });
+              if (valor !== null) atualizar(busca, { status: valor === "ATIVAS" ? "" : valor });
             }}
             value={statusInicial}
           >

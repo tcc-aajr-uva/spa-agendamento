@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useState, useTransition } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useFiltrosCadastro } from "@/components/use-filtros-cadastro";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -21,49 +20,10 @@ type Props = {
 };
 
 export function FiltrosUsuarios({ buscaInicial, statusInicial }: Props) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [rascunhoBusca, setRascunhoBusca] = useState<string | null>(null);
-  const [buscaAplicadaAnterior, setBuscaAplicadaAnterior] = useState(buscaInicial);
-  const busca = rascunhoBusca ?? buscaInicial;
-  const [atualizando, iniciarAtualizacao] = useTransition();
-
-  if (buscaAplicadaAnterior !== buscaInicial) {
-    setBuscaAplicadaAnterior(buscaInicial);
-    if (rascunhoBusca?.trim() === buscaInicial) setRascunhoBusca(null);
-  }
-
-  useLayoutEffect(() => {
-    return () => {
-      setRascunhoBusca(null);
-    };
-  }, []);
-
-  const atualizar = useCallback(
-    (proximaBusca: string, proximoStatus: Status) => {
-      const parametros = new URLSearchParams(searchParams.toString());
-      parametros.delete("pagina");
-      if (proximaBusca.trim()) parametros.set("busca", proximaBusca.trim());
-      else parametros.delete("busca");
-      if (proximoStatus === "ATIVOS") parametros.delete("status");
-      else parametros.set("status", proximoStatus);
-      const consulta = parametros.toString();
-      iniciarAtualizacao(() => router.replace(consulta ? `${pathname}?${consulta}` : pathname, { scroll: false }));
-    },
-    [pathname, router, searchParams],
-  );
-
-  useEffect(() => {
-    if (atualizando || rascunhoBusca === null || rascunhoBusca.trim() === buscaInicial) return;
-    const temporizador = window.setTimeout(() => atualizar(rascunhoBusca, statusInicial), 450);
-    return () => window.clearTimeout(temporizador);
-  }, [atualizando, atualizar, buscaInicial, rascunhoBusca, statusInicial]);
-
-  const limpar = () => {
-    setRascunhoBusca(null);
-    iniciarAtualizacao(() => router.replace(pathname, { scroll: false }));
-  };
+  const { busca, setRascunhoBusca, atualizando, atualizar, limpar } = useFiltrosCadastro({
+    buscaInicial,
+    filtros: { status: statusInicial === "ATIVOS" ? "" : statusInicial },
+  });
 
   return (
     <div className="flex flex-wrap items-end gap-3">
@@ -87,7 +47,7 @@ export function FiltrosUsuarios({ buscaInicial, statusInicial }: Props) {
           name="status"
           items={OPCOES_STATUS}
           onValueChange={(valor) => {
-            if (valor !== null) atualizar(busca, valor);
+            if (valor !== null) atualizar(busca, { status: valor === "ATIVOS" ? "" : valor });
           }}
           value={statusInicial}
         >
