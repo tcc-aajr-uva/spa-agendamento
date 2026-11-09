@@ -1,66 +1,28 @@
 "use client";
 
-import { useSyncExternalStore, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AbasCadastro } from "@/components/abas-cadastro";
 
-function observarNavegacao(atualizar: () => void) {
-  window.addEventListener("hashchange", atualizar);
-  window.addEventListener("popstate", atualizar);
-  return () => {
-    window.removeEventListener("hashchange", atualizar);
-    window.removeEventListener("popstate", atualizar);
-  };
-}
-
-function abaDaUrl(temAtendimento: boolean) {
-  if (window.location.hash === "#convite") return "convite";
-  if (temAtendimento && window.location.hash === "#atendimento") return "atendimento";
-  return "dados";
-}
-
-function abaInicial() {
-  return "dados";
-}
-
-export function AbasUsuario({
-  dados,
-  atendimento,
-  convite,
-}: {
+type Props = {
   dados: ReactNode;
   atendimento?: ReactNode;
   convite: ReactNode;
-}) {
+  bloqueada: boolean;
+};
+
+export function AbasUsuario({ dados, atendimento, convite, bloqueada }: Props) {
   const temAtendimento = atendimento !== undefined && atendimento !== null;
-  const aba = useSyncExternalStore(observarNavegacao, () => abaDaUrl(temAtendimento), abaInicial);
-
-  function alterarAba(valor: unknown) {
-    if (valor !== "dados" && valor !== "convite" && (valor !== "atendimento" || !temAtendimento)) return;
-    const url = new URL(window.location.href);
-    url.hash = valor === "dados" ? "" : valor;
-    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-    window.dispatchEvent(new HashChangeEvent("hashchange"));
-  }
-
   return (
-    <Tabs value={aba} onValueChange={alterarAba} className="gap-6">
-      <TabsList aria-label="Cadastro do usuário">
-        <TabsTrigger value="dados">Dados do usuário</TabsTrigger>
-        {temAtendimento && <TabsTrigger value="atendimento">Atendimento</TabsTrigger>}
-        <TabsTrigger value="convite">Convite</TabsTrigger>
-      </TabsList>
-      <TabsContent value="dados" keepMounted className="space-y-6">
-        {dados}
-      </TabsContent>
-      {temAtendimento && (
-        <TabsContent value="atendimento" keepMounted>
-          {atendimento}
-        </TabsContent>
-      )}
-      <TabsContent value="convite" keepMounted>
-        {convite}
-      </TabsContent>
-    </Tabs>
+    <AbasCadastro
+      abaPadrao="dados"
+      rotulo="Cadastro do usuário"
+      bloqueada={bloqueada}
+      abas={[
+        { valor: "dados", rotulo: "Dados do usuário", conteudo: dados, className: "space-y-6" },
+        ...(temAtendimento ? [{ valor: "atendimento", rotulo: "Atendimento", conteudo: atendimento, alertas: true }] : []),
+        { valor: "convite", rotulo: "Convite", conteudo: convite },
+      ]}
+    />
   );
 }

@@ -10,7 +10,7 @@ export async function consultarEquipe(equipeId: string, autor: ContextoAutorizac
   return prisma.equipe.findFirst({
     where: { id: equipeId, AND: [filtroDeEquipesVisiveis(autor)] },
     select: {
-      id: true, nome: true, unidadeId: true, ativa: true, supervisorId: true,
+      id: true, nome: true, unidadeId: true, ativa: true, supervisorId: true, atualizadoEm: true,
       unidade: { select: { nome: true, ativa: true } },
       supervisor: { select: { nome: true, ativo: true } },
     },

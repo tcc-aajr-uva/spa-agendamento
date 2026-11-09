@@ -3,7 +3,6 @@ import "server-only";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { horarioNaGrade } from "@/lib/agendamento/regras";
 import { ErroDeRegra } from "@/lib/erros";
-import { prisma } from "@/lib/prisma";
 import { executarEmTransacao, type Transacao, violouUnicidade } from "@/lib/transacao";
 import { dadosUnidadeSchema, type DadosUnidade } from "@/lib/unidade/dados-unidade";
 import {
@@ -33,10 +32,10 @@ export async function atualizarUnidade(
   entrada: DadosUnidade,
   versao: Date,
   autor: ContextoAutorizacao,
-): Promise<void> {
+): Promise<Date> {
   const dados = validar(entrada);
   try {
-    await executarEmTransacao(async (tx) => {
+    return await executarEmTransacao(async (tx) => {
       const unidade = await tx.unidade.findFirst({
         where: { id: unidadeId, AND: [filtroDeUnidadesGerenciaveis(autor)] },
         select: {
@@ -53,7 +52,7 @@ export async function atualizarUnidade(
       });
       if (!unidade) throw new ErroDeRegra("SEM_PERMISSAO", "Você não pode alterar esta unidade.");
       if (unidade.atualizadoEm.getTime() !== versao.getTime()) {
-        throw conflitoDeAtualizacao();
+        throw new VersaoDesatualizadaDaUnidade();
       }
 
       validarCamposDaSecretaria(autor, unidade, dados);
@@ -63,7 +62,12 @@ export async function atualizarUnidade(
         where: { id: unidade.id, atualizadoEm: versao },
         data: dados,
       });
-      if (atualizacao.count !== 1) throw conflitoDeAtualizacao();
+      if (atualizacao.count !== 1) throw new VersaoDesatualizadaDaUnidade();
+      const unidadeAtualizada = await tx.unidade.findUniqueOrThrow({
+        where: { id: unidade.id },
+        select: { atualizadoEm: true },
+      });
+      return unidadeAtualizada.atualizadoEm;
     });
   } catch (erro) {
     tratarNomeRepetido(erro);
@@ -71,25 +75,42 @@ export async function atualizarUnidade(
   }
 }
 
-function conflitoDeAtualizacao(): ErroDeRegra {
-  return new ErroDeRegra(
-    "CONFLITO_CONCORRENTE",
-    "Esta unidade foi alterada em outra sessão. Carregue a versão mais recente antes de salvar novamente.",
-  );
+export class VersaoDesatualizadaDaUnidade extends ErroDeRegra {
+  constructor() {
+    super("CONFLITO_CONCORRENTE", "Esta unidade foi alterada em outra sessão.");
+  }
 }
 
 export async function alterarAtivacaoUnidade(
   unidadeId: string,
   ativa: boolean,
+  versao: Date,
   autor: ContextoAutorizacao,
-): Promise<void> {
+): Promise<Date> {
   if (!podeAlterarAtivacaoDeUnidade(autor)) {
     throw new ErroDeRegra("SEM_PERMISSAO", "Somente o administrador pode alterar a situação da unidade.");
   }
-  const unidade = await prisma.unidade.findUnique({ where: { id: unidadeId }, select: { id: true, ativa: true } });
-  if (!unidade) throw new ErroDeRegra("NAO_ENCONTRADO", "Unidade não encontrada.");
-  if (unidade.ativa === ativa) return;
-  await prisma.unidade.update({ where: { id: unidade.id }, data: { ativa } });
+  return executarEmTransacao(async (tx) => {
+    const unidade = await tx.unidade.findUnique({
+      where: { id: unidadeId },
+      select: { ativa: true, atualizadoEm: true },
+    });
+    if (!unidade) throw new ErroDeRegra("NAO_ENCONTRADO", "Unidade não encontrada.");
+    if (unidade.atualizadoEm.getTime() !== versao.getTime()) throw new VersaoDesatualizadaDaUnidade();
+    if (unidade.ativa === ativa) return unidade.atualizadoEm;
+
+    const atualizacao = await tx.unidade.updateMany({
+      where: { id: unidadeId, atualizadoEm: versao },
+      data: { ativa },
+    });
+    if (atualizacao.count !== 1) throw new VersaoDesatualizadaDaUnidade();
+
+    const unidadeAtualizada = await tx.unidade.findUniqueOrThrow({
+      where: { id: unidadeId },
+      select: { atualizadoEm: true },
+    });
+    return unidadeAtualizada.atualizadoEm;
+  });
 }
 
 function validar(entrada: DadosUnidade) {

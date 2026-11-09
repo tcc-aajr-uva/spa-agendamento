@@ -10,7 +10,6 @@ import { ROTULOS_SITUACAO_PERIODO } from "@/lib/periodo-letivo/dados-periodo";
 import { PERFIS_GESTAO_PERIODOS } from "@/lib/periodo-letivo/escopo-periodo";
 import { atualizarPeriodo, excluirPeriodo } from "../actions";
 import { FormularioPeriodo } from "../formulario-periodo";
-import { ControleExclusaoPeriodo } from "../controle-exclusao";
 
 type Props = { params: Promise<{ id: string; periodoId: string }> };
 
@@ -24,9 +23,10 @@ async function Conteudo({ params }: Props) {
   const periodo = await consultarPeriodo(id, periodoId, autor);
   if (!periodo) notFound();
   const valores = { inicio: periodo.inicio, fim: periodo.fim };
+  const caminhoLista = `/cadastros/unidades/${id}#periodos`;
   return (
     <div className="space-y-6">
-      <Button variant="ghost" nativeButton={false} render={<Link prefetch={false} href={`/cadastros/unidades/${id}#periodos`} />}>
+      <Button variant="ghost" nativeButton={false} render={<Link prefetch={false} href={caminhoLista} />}>
         <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
         Voltar para unidade
       </Button>
@@ -37,10 +37,12 @@ async function Conteudo({ params }: Props) {
         </Badge>
       </div>
       <FormularioPeriodo acao={atualizarPeriodo.bind(null, id, periodoId)} valores={valores}
-        unidade={periodo.unidade.nome} somenteLeitura={!periodo.podeEditar} emUso={periodo.emUso} />
-      {periodo.podeGerenciar && <ControleExclusaoPeriodo
-        acao={excluirPeriodo.bind(null, id, periodoId)} valores={valores} motivosBloqueio={periodo.motivosBloqueioExclusao}
-      />}
+        caminhoLista={caminhoLista}
+        unidade={periodo.unidade.nome} somenteLeitura={!periodo.podeEditar} emUso={periodo.emUso}
+        exclusao={periodo.podeGerenciar ? {
+          acao: excluirPeriodo.bind(null, id, periodoId),
+          motivosBloqueio: periodo.motivosBloqueioExclusao,
+        } : undefined} />
     </div>
   );
 }

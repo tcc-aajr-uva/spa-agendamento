@@ -1,257 +1,245 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
-import { CircleAlertIcon, TriangleAlertIcon } from "lucide-react";
+import {
+  startTransition,
+  useActionState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
+import { useForm, useWatch } from "react-hook-form";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast";
-import { formatarHora } from "@/lib/agendamento/regras";
 
-import type { EstadoUnidade } from "./actions";
+import { AlertasFormularioUnidade } from "./alertas-formulario-unidade";
+import { CamposFormularioUnidade } from "./campos-formulario-unidade";
+import { ESTADO_INICIAL_UNIDADE, type EstadoUnidade } from "./estado-unidade";
+import {
+  chaveDosValores,
+  formDataDosDados,
+  formularioUnidadeSchema,
+  valoresDoFormulario,
+  type CamposFormularioUnidade as CamposFormulario,
+  type DadosFormularioUnidade,
+  type ValoresUnidade,
+} from "./formulario-unidade-schema";
 
-export type ValoresUnidade = {
-  nome: string;
-  permitePaciente: boolean;
-  permiteEstagiario: boolean;
-  permiteSecretaria: boolean;
-  agendamentoAberto: boolean;
-  horaAbertura: number;
-  horaFechamento: number;
-  duracaoBlocoMin: number;
-  atualizadoEm?: string;
-};
+export type { ValoresUnidade } from "./formulario-unidade-schema";
+
+export type AcaoUnidade = (
+  estado: EstadoUnidade,
+  formData: FormData,
+) => Promise<EstadoUnidade>;
 
 type Props = {
-  acao: (estado: EstadoUnidade, formData: FormData) => Promise<EstadoUnidade>;
-  valores?: ValoresUnidade;
+  acao: AcaoUnidade;
+  valores: ValoresUnidade;
   rotuloBotao: string;
   podeAlterarDadosAdministrativos?: boolean;
 };
 
-const VALORES_PADRAO: ValoresUnidade = {
-  nome: "",
-  permitePaciente: true,
-  permiteEstagiario: true,
-  permiteSecretaria: true,
-  agendamentoAberto: false,
-  horaAbertura: 480,
-  horaFechamento: 1260,
-  duracaoBlocoMin: 50,
-};
+export function FormularioUnidade(props: Props) {
+  const [chaveDoFormulario, setChaveDoFormulario] = useState(0);
 
-export function FormularioUnidade({
+  useLayoutEffect(() => {
+    return () => setChaveDoFormulario((chaveAtual) => chaveAtual + 1);
+  }, []);
+
+  return <FormularioUnidadeInterno key={chaveDoFormulario} {...props} />;
+}
+
+function FormularioUnidadeInterno({
   acao,
-  valores = VALORES_PADRAO,
+  valores,
   rotuloBotao,
   podeAlterarDadosAdministrativos = true,
 }: Props) {
-  const [estado, enviar, enviando] = useActionState(acao, {});
-  const ultimaNotificacao = useRef<number | undefined>(undefined);
-
-  useEffect(() => {
-    if (!estado.sucesso || estado.versaoSucesso === undefined || ultimaNotificacao.current === estado.versaoSucesso) return;
-    ultimaNotificacao.current = estado.versaoSucesso;
-    toast.add({ title: estado.sucesso, type: "success", timeout: 5_000 });
-  }, [estado.sucesso, estado.versaoSucesso]);
+  const controle = useControleFormularioUnidade({ acao, valores });
 
   return (
-    <FormularioEditavel
-      key={estado.versaoSucesso}
-      estado={estado}
-      enviar={enviar}
-      enviando={enviando}
-      podeAlterarDadosAdministrativos={podeAlterarDadosAdministrativos}
-      rotuloBotao={rotuloBotao}
-      valores={valores}
-    />
+    <div className="space-y-6">
+      <AlertasFormularioUnidade
+        atualizandoVersao={controle.atualizandoVersao}
+        mensagemErroVersao={controle.mensagemErroVersao}
+        mensagensErrosGerais={
+          controle.mensagemErroGeral ? [controle.mensagemErroGeral] : undefined
+        }
+        onCarregarVersao={controle.descartarAlteracoes}
+        possuiConflito={controle.possuiConflito}
+      />
+      <FormularioUnidadeControlado
+        controle={controle}
+        podeAlterarDadosAdministrativos={podeAlterarDadosAdministrativos}
+        rotuloBotao={rotuloBotao}
+      />
+    </div>
   );
 }
 
-function FormularioEditavel({
-  estado,
-  enviar,
-  enviando,
+export function useControleFormularioUnidade({
+  acao,
   valores,
-  rotuloBotao,
-  podeAlterarDadosAdministrativos,
-}: {
-  estado: EstadoUnidade;
-  enviar: (formData: FormData) => void;
-  enviando: boolean;
-  valores: ValoresUnidade;
-  rotuloBotao: string;
-  podeAlterarDadosAdministrativos: boolean;
-}) {
-  const [alterado, setAlterado] = useState(false);
+}: Pick<Props, "acao" | "valores">) {
+  const router = useRouter();
+  const [estado, enviar, enviando] = useActionState(acao, ESTADO_INICIAL_UNIDADE);
+  const [atualizandoVersao, iniciarAtualizacao] = useTransition();
+  const ultimaNotificacao = useRef<string | undefined>(undefined);
+  const [estadoComErroOculto, setEstadoComErroOculto] =
+    useState<EstadoUnidade | null>(null);
+  const [versaoAntesDoDescarte, setVersaoAntesDoDescarte] =
+    useState<string | null>(null);
   const chaveRecebida = chaveDosValores(valores);
-  const [chaveDaEdicao, setChaveDaEdicao] = useState(chaveRecebida);
-  const chaveExibida = alterado ? chaveDaEdicao : chaveRecebida;
-  const possuiAtualizacaoExterna = alterado && chaveDaEdicao !== chaveRecebida;
+  const {
+    control,
+    formState: { errors, isDirty },
+    handleSubmit,
+    register,
+    reset,
+  } = useForm<CamposFormulario, unknown, DadosFormularioUnidade>({
+    defaultValues: valoresDoFormulario(valores),
+    mode: "onSubmit",
+    reValidateMode: "onChange",
+    resolver: zodResolver(formularioUnidadeSchema),
+  });
+  const versaoEmEdicao = useWatch({ control, name: "atualizadoEm" });
+  const [atualizacaoExterna, setAtualizacaoExterna] = useState({
+    pendente: false,
+    versaoRecebida: valores.atualizadoEm,
+  });
+  if (atualizacaoExterna.versaoRecebida !== valores.atualizadoEm) {
+    const versaoDaPropriaAtualizacao =
+      estado.status === "sucesso" &&
+      estado.identificador === valores.atualizadoEm;
+    setAtualizacaoExterna({
+      pendente:
+        atualizacaoExterna.pendente ||
+        (isDirty && !versaoDaPropriaAtualizacao),
+      versaoRecebida: valores.atualizadoEm,
+    });
+  }
+  const possuiAtualizacaoExterna = atualizacaoExterna.pendente;
+
+  useEffect(() => {
+    if (isDirty) return;
+    reset(valoresDoFormulario(valores));
+  }, [chaveRecebida, isDirty, reset, valores]);
+
+  useEffect(() => {
+    if (
+      estado.status !== "sucesso" ||
+      ultimaNotificacao.current === estado.identificador
+    )
+      return;
+    ultimaNotificacao.current = estado.identificador;
+    reset(valoresDoFormulario(valores));
+    toast.add({ title: estado.mensagem, type: "success", timeout: 5_000 });
+  }, [chaveRecebida, estado, reset, valores]);
+
+  const ocultarErro = estadoComErroOculto === estado;
+  const descarteConcluido =
+    ocultarErro &&
+    versaoAntesDoDescarte !== null &&
+    valores.atualizadoEm !== versaoAntesDoDescarte;
+  const possuiConflito =
+    (estado.status === "conflito" && !descarteConcluido) ||
+    possuiAtualizacaoExterna;
+  const aoEnviar = handleSubmit((dadosValidados) => {
+    startTransition(() => enviar(formDataDosDados(dadosValidados)));
+  });
+
+  function descartarAlteracoes() {
+    setAtualizacaoExterna({
+      pendente: false,
+      versaoRecebida: valores.atualizadoEm,
+    });
+    setVersaoAntesDoDescarte(versaoEmEdicao);
+    reset(valoresDoFormulario(valores));
+    setEstadoComErroOculto(estado);
+    if (estado.status === "conflito") {
+      iniciarAtualizacao(() => router.refresh());
+    }
+  }
+
+  return {
+    aoAlterarFormulario() {
+      if (estado.status === "erro") setEstadoComErroOculto(estado);
+    },
+    aoEnviar,
+    atualizandoVersao,
+    control,
+    descartarAlteracoes,
+    enviar,
+    enviando,
+    errors,
+    mensagemErroGeral:
+      estado.status === "erro" && !ocultarErro ? estado.mensagem : undefined,
+    mensagemErroVersao: errors.atualizadoEm?.message,
+    possuiConflito,
+    possuiRascunho: isDirty,
+    register,
+  };
+}
+
+export type ControleFormularioUnidade = ReturnType<
+  typeof useControleFormularioUnidade
+>;
+
+export function FormularioUnidadeControlado({
+  bloqueioExterno = false,
+  controle,
+  rotuloBotao,
+  podeAlterarDadosAdministrativos = true,
+}: {
+  bloqueioExterno?: boolean;
+  controle: ControleFormularioUnidade;
+  rotuloBotao: string;
+  podeAlterarDadosAdministrativos?: boolean;
+}) {
+  const {
+    aoAlterarFormulario,
+    aoEnviar,
+    atualizandoVersao,
+    control,
+    enviar,
+    enviando,
+    errors,
+    possuiConflito,
+    register,
+  } = controle;
+  const bloqueado =
+    enviando || possuiConflito || atualizandoVersao || bloqueioExterno;
 
   return (
     <form
       action={enviar}
-      onChange={() => {
-        if (!alterado) setChaveDaEdicao(chaveRecebida);
-        setAlterado(true);
-      }}
+      onChange={aoAlterarFormulario}
+      onSubmit={aoEnviar}
+      noValidate
     >
       <Card className="sm:[--card-spacing:--spacing(6)]">
         <CardContent className="space-y-6">
-          <CamposUnidade
-            key={chaveExibida}
-            podeAlterarDadosAdministrativos={podeAlterarDadosAdministrativos}
-            valores={valores}
-          />
-
-          {possuiAtualizacaoExterna && (
-            <Alert variant="warning">
-              <TriangleAlertIcon aria-hidden="true" />
-              <AlertTitle>Unidade alterada em outra sessão</AlertTitle>
-              <AlertDescription className="space-y-3">
-                <p>Suas alterações locais foram preservadas.</p>
-                <Button className="h-auto max-w-full whitespace-normal text-left" variant="outline" onClick={() => setAlterado(false)} type="button">
-                  Descartar alterações locais e carregar a versão mais recente
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {estado.erro && (
-            <Alert variant="destructive">
-              <CircleAlertIcon aria-hidden="true" />
-              <AlertTitle>Não foi possível salvar a unidade</AlertTitle>
-              <AlertDescription>{estado.erro}</AlertDescription>
-            </Alert>
-          )}
-
+          <fieldset className="m-0 min-w-0 border-0 p-0" disabled={bloqueado}>
+            <CamposFormularioUnidade
+              bloqueada={bloqueado}
+              control={control}
+              errors={errors}
+              podeAlterarDadosAdministrativos={podeAlterarDadosAdministrativos}
+              register={register}
+            />
+          </fieldset>
         </CardContent>
         <CardFooter className="justify-end">
-          <Button size="lg" disabled={enviando} type="submit">
+          <Button size="lg" disabled={bloqueado} type="submit">
             {enviando ? "Salvando…" : rotuloBotao}
           </Button>
         </CardFooter>
       </Card>
     </form>
   );
-}
-
-function CamposUnidade({
-  valores,
-  podeAlterarDadosAdministrativos,
-}: {
-  valores: ValoresUnidade;
-  podeAlterarDadosAdministrativos: boolean;
-}) {
-  return (
-    <>
-      {valores.atualizadoEm && <input defaultValue={valores.atualizadoEm} name="atualizadoEm" type="hidden" />}
-      <FieldGroup className="gap-8">
-        <FieldSet>
-          <FieldLegend className="text-base font-semibold">Identificação</FieldLegend>
-          <FieldDescription>Informe o nome que identifica a unidade no sistema.</FieldDescription>
-          <Field>
-            <FieldLabel htmlFor="unidade-nome">Nome</FieldLabel>
-            <Input
-              className="h-auto px-3 py-2 leading-5 shadow-xs read-only:bg-muted"
-              id="unidade-nome"
-              defaultValue={valores.nome}
-              maxLength={120}
-              minLength={2}
-              name="nome"
-              readOnly={!podeAlterarDadosAdministrativos}
-              required
-            />
-          </Field>
-        </FieldSet>
-
-        <Separator />
-
-        <FieldSet>
-          <FieldLegend className="text-base font-semibold">Permissões de agendamento</FieldLegend>
-          <FieldDescription>Selecione os perfis que podem realizar agendamentos nesta unidade.</FieldDescription>
-          {!podeAlterarDadosAdministrativos && (
-            <FieldDescription>Somente a coordenação ou o administrador pode alterar estas permissões.</FieldDescription>
-          )}
-          <div className="grid gap-4 sm:grid-cols-3">
-            <OpcaoBooleana nome="permitePaciente" rotulo="Paciente" marcada={valores.permitePaciente} habilitada={podeAlterarDadosAdministrativos} />
-            <OpcaoBooleana nome="permiteEstagiario" rotulo="Estagiário" marcada={valores.permiteEstagiario} habilitada={podeAlterarDadosAdministrativos} />
-            <OpcaoBooleana nome="permiteSecretaria" rotulo="Secretaria" marcada={valores.permiteSecretaria} habilitada={podeAlterarDadosAdministrativos} />
-          </div>
-        </FieldSet>
-
-        <Separator />
-
-        <FieldSet>
-          <FieldLegend className="text-base font-semibold">Funcionamento</FieldLegend>
-          <FieldDescription>Defina a abertura de agendamentos, os horários de funcionamento e a duração dos blocos.</FieldDescription>
-          <OpcaoBooleana nome="agendamentoAberto" rotulo="Agendamento aberto" marcada={valores.agendamentoAberto} />
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field>
-              <FieldLabel htmlFor="unidade-abertura">Abertura</FieldLabel>
-              <InputGroup className="h-auto shadow-xs">
-                <InputGroupInput className="h-auto py-2 leading-5" id="unidade-abertura" defaultValue={formatarHora(valores.horaAbertura)} name="horaAbertura" required type="time" />
-              </InputGroup>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="unidade-fechamento">Fechamento</FieldLabel>
-              <InputGroup className="h-auto shadow-xs">
-                <InputGroupInput className="h-auto py-2 leading-5" id="unidade-fechamento" defaultValue={formatarHora(valores.horaFechamento)} name="horaFechamento" required type="time" />
-              </InputGroup>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="unidade-duracao">Duração do bloco</FieldLabel>
-              <InputGroup className="h-auto shadow-xs">
-                <InputGroupInput className="h-auto py-2 leading-5" id="unidade-duracao" aria-describedby="unidade-duracao-unidade" defaultValue={valores.duracaoBlocoMin} max={720} min={1} name="duracaoBlocoMin" required type="number" />
-                <InputGroupAddon align="inline-end">
-                  <InputGroupText id="unidade-duracao-unidade">min</InputGroupText>
-                </InputGroupAddon>
-              </InputGroup>
-            </Field>
-          </div>
-        </FieldSet>
-      </FieldGroup>
-    </>
-  );
-}
-
-function OpcaoBooleana({
-  nome,
-  rotulo,
-  marcada,
-  habilitada = true,
-}: {
-  nome: string;
-  rotulo: string;
-  marcada: boolean;
-  habilitada?: boolean;
-}) {
-  return (
-    <Field orientation="horizontal" data-disabled={!habilitada}>
-      {!habilitada && <input name={nome} type="hidden" value={String(marcada)} />}
-      <Checkbox id={`unidade-${nome}`} defaultChecked={marcada} disabled={!habilitada} name={habilitada ? nome : undefined} value="on" />
-      <FieldLabel htmlFor={`unidade-${nome}`}>{rotulo}</FieldLabel>
-    </Field>
-  );
-}
-
-function chaveDosValores(valores: ValoresUnidade): string {
-  return [
-    valores.nome,
-    valores.permitePaciente,
-    valores.permiteEstagiario,
-    valores.permiteSecretaria,
-    valores.agendamentoAberto,
-    valores.horaAbertura,
-    valores.horaFechamento,
-    valores.duracaoBlocoMin,
-    valores.atualizadoEm,
-  ].join(":");
 }

@@ -12,23 +12,27 @@ import {
 } from "@/lib/usuario/escopo-usuario";
 import { determinarEstadoAcesso } from "@/lib/usuario/estado-acesso";
 import { perfisCriadosPor } from "@/lib/usuario/hierarquia";
+import { situacaoListagemUsuarioSchema } from "@/lib/usuario/situacao-listagem";
+import { filtroDeSituacaoUsuario } from "@/lib/usuario/filtro-situacao-listagem";
 
-const ITENS_POR_PAGINA = 20;
+const ITENS_POR_PAGINA = 10;
 
 const filtrosSchema = z.object({
   pagina: z.coerce.number().int().min(1).catch(1),
   busca: z.string().trim().max(120).catch(""),
-  status: z.enum(["ATIVOS", "INATIVOS", "TODOS"]).catch("ATIVOS"),
+  status: situacaoListagemUsuarioSchema,
 });
 
 export type FiltrosUsuarios = z.input<typeof filtrosSchema>;
 
 export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAutorizacao, agora = new Date()) {
   const filtros = filtrosSchema.parse(entrada);
+  const situacao = await filtroDeSituacaoUsuario(filtros, autor, agora, ITENS_POR_PAGINA);
   const where: Prisma.UsuarioWhereInput = {
-    ...filtroDeUsuariosVisiveis(autor),
-    ...(filtros.status === "ATIVOS" ? { ativo: true } : {}),
-    ...(filtros.status === "INATIVOS" ? { ativo: false } : {}),
+    AND: [
+      filtroDeUsuariosVisiveis(autor),
+      situacao.where,
+    ],
     ...(filtros.busca
       ? {
           OR: [
@@ -40,11 +44,11 @@ export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAu
   };
 
   const [total, usuarios] = await Promise.all([
-    prisma.usuario.count({ where }),
+    situacao.total ?? prisma.usuario.count({ where }),
     prisma.usuario.findMany({
       where,
       orderBy: [{ nome: "asc" }, { id: "asc" }],
-      skip: (filtros.pagina - 1) * ITENS_POR_PAGINA,
+      skip: situacao.total === undefined ? (filtros.pagina - 1) * ITENS_POR_PAGINA : 0,
       take: ITENS_POR_PAGINA,
       select: {
         id: true,
@@ -58,7 +62,7 @@ export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAu
           select: { id: true },
         },
         convites: {
-          orderBy: { criadoEm: "desc" },
+          orderBy: [{ criadoEm: "desc" }, { id: "desc" }],
           take: 1,
           select: { expiraEm: true, usadoEm: true, revogadoEm: true },
         },

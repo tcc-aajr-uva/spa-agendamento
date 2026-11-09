@@ -9,8 +9,8 @@ import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { consultarEquipe, listarSupervisoresParaEquipe } from "@/lib/equipe/consultar-equipe";
 import { PERFIS_EQUIPES, podeGerenciarEquipes } from "@/lib/equipe/escopo-equipe";
 import { atualizarEquipe, alterarAtivacao } from "../actions";
-import { FormularioEquipe } from "../formulario-equipe";
-import { ControleAtivacaoEquipe } from "./controle-ativacao";
+import { EdicaoEquipe } from "./edicao-equipe";
+import { NotificacaoEquipeCriada } from "./notificacao-equipe-criada";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -35,9 +35,13 @@ async function Conteudo({ params }: Props) {
   if (!equipe) notFound();
   const supervisores = await listarSupervisoresParaEquipe(autor);
   const somenteLeitura = !podeGerenciarEquipes(autor);
-  const valores = { nome: equipe.nome, unidadeId: equipe.unidadeId, ativa: equipe.ativa, supervisorId: equipe.supervisorId };
+  const valores = {
+    nome: equipe.nome, unidadeId: equipe.unidadeId, ativa: equipe.ativa, supervisorId: equipe.supervisorId,
+    atualizadoEm: equipe.atualizadoEm.toISOString(),
+  };
   return (
     <div className="space-y-6">
+      <NotificacaoEquipeCriada />
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold">{equipe.nome}</h1>
@@ -47,15 +51,13 @@ async function Conteudo({ params }: Props) {
         </div>
         <p className="text-sm text-muted-foreground">Altere os dados de identificação e de supervisão da equipe.</p>
       </div>
-      <FormularioEquipe
-        acao={atualizarEquipe.bind(null, equipe.id)} valores={valores}
+      <EdicaoEquipe
+        acaoAtualizar={atualizarEquipe.bind(null, equipe.id)} valores={valores}
+        acaoAlterarAtivacao={alterarAtivacao.bind(null, equipe.id)}
         unidadeFixa={`${equipe.unidade.nome}${equipe.unidade.ativa ? "" : " (inativa)"}`}
         supervisores={supervisores} somenteLeitura={somenteLeitura}
         supervisorAtualNome={equipe.supervisor ? `${equipe.supervisor.nome}${equipe.supervisor.ativo ? "" : " (inativo)"}` : undefined}
       />
-      {!somenteLeitura && (
-        <ControleAtivacaoEquipe acao={alterarAtivacao.bind(null, equipe.id)} valores={valores} />
-      )}
     </div>
   );
 }

@@ -1,9 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { CircleAlertIcon, TriangleAlertIcon } from "lucide-react";
+import { useActionState, useContext, useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { DestinoAlertasAba, useBloqueioAba, useConflitoAba } from "@/components/abas-cadastro";
+import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
+import { AlertaConflito } from "@/components/alerta-conflito";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
@@ -34,48 +37,61 @@ export function FormularioAtendimento({ acao, ...props }: Props) {
 function CamposAtendimento({ valores, estado, enviar, enviando }: Omit<Props, "acao"> & {
   estado: EstadoAtendimento; enviar: (formData: FormData) => void; enviando: boolean;
 }) {
+  const router = useRouter();
+  const destinoAlertas = useContext(DestinoAlertasAba);
+  const [recarregando, iniciarRecarga] = useTransition();
+  const [conflitoAceito, aceitarConflito] = useState<EstadoAtendimento | null>(null);
   const [rascunho, setRascunho] = useState<{ base: Valores; liberado: boolean; limite: string } | null>(null);
   const base = rascunho?.base ?? valores;
   const liberado = rascunho?.liberado ?? valores.liberado;
   const limite = rascunho?.limite ?? String(valores.limitePacientes);
   const externo = rascunho !== null && base.versao !== valores.versao;
+  const conflitoServidor = estado.conflito && conflitoAceito !== estado;
+  const conflito = externo || !!conflitoServidor || recarregando;
+  const bloqueioDaAba = useBloqueioAba();
+  const bloqueado = enviando || conflito || bloqueioDaAba;
+  useConflitoAba(conflito);
+
+  function carregarVersao() {
+    iniciarRecarga(() => {
+      if (conflitoServidor) router.refresh();
+      aceitarConflito(estado);
+      setRascunho(null);
+    });
+  }
 
   return (
-    <form action={enviar} className="space-y-5 rounded-lg border bg-muted/20 p-4">
+    <form action={enviar} className="space-y-5 rounded-lg border bg-muted/20 p-4"
+      onSubmit={(evento) => { if (bloqueado) evento.preventDefault(); }}>
+      {destinoAlertas && conflito && createPortal(
+        <AlertaConflito
+          titulo="Configuração alterada em outra sessão"
+          descricao="A configuração foi atualizada depois que você abriu esta tela."
+          carregando={recarregando}
+          bloqueado={enviando}
+          onCarregar={carregarVersao}
+        />,
+        destinoAlertas,
+      )}
+      {destinoAlertas && estado.erro && !conflito && createPortal(
+        <AlertaErroOperacao titulo="Não foi possível salvar a configuração" mensagem={estado.erro} />,
+        destinoAlertas,
+      )}
       <input name="versao" type="hidden" value={base.versao ?? ""} />
       <Field orientation="horizontal">
-        <Checkbox id="atendimento-liberado" name="liberado" value="on" checked={liberado} disabled={enviando}
+        <Checkbox id="atendimento-liberado" name="liberado" value="on" checked={liberado} disabled={bloqueado}
           onCheckedChange={(marcado) => setRascunho({ base, liberado: marcado, limite })} />
         <FieldLabel htmlFor="atendimento-liberado">Liberado para atender</FieldLabel>
       </Field>
       <Field>
         <FieldLabel htmlFor="atendimento-limite">Limite de pacientes</FieldLabel>
         <Input id="atendimento-limite" className="h-auto px-3 py-2 leading-5 shadow-xs" name="limitePacientes" type="number"
-          min={0} max={2_147_483_647} step={1} required value={limite} disabled={enviando}
+          min={0} max={2_147_483_647} step={1} required value={limite} disabled={bloqueado}
           onChange={(evento) => setRascunho({ base, liberado, limite: evento.target.value })} />
         <FieldDescription>Com limite zero, o estagiário não recebe novos agendamentos nesta equipe. Bloquear o atendimento não cancela os agendamentos existentes.</FieldDescription>
       </Field>
-      {externo && (
-        <Alert variant="warning">
-          <TriangleAlertIcon aria-hidden="true" />
-          <AlertTitle>Configuração alterada em outra sessão</AlertTitle>
-          <AlertDescription className="space-y-3">
-            <p>Suas alterações locais foram preservadas.</p>
-            <Button variant="outline" type="button" disabled={enviando} onClick={() => setRascunho(null)}>
-              Descartar alterações locais e carregar a versão mais recente
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-      {estado.erro && (
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>Não foi possível salvar a configuração</AlertTitle>
-          <AlertDescription>{estado.erro}</AlertDescription>
-        </Alert>
-      )}
       <div className="flex justify-end">
-        <Button type="submit" disabled={enviando}>
+        <Button type="submit" disabled={bloqueado}>
           {enviando ? "Salvando…" : "Salvar configuração de atendimento"}
         </Button>
       </div>
