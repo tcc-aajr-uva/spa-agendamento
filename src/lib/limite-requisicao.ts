@@ -1,5 +1,7 @@
 import "server-only";
 
+import { headers } from "next/headers";
+
 import { ErroDeRegra } from "@/lib/erros";
 import { hashToken } from "@/lib/token";
 import { executarEmTransacao } from "@/lib/transacao";
@@ -40,6 +42,20 @@ export async function consumirLimiteRequisicoes(opcoes: OpcoesLimite, agora = ne
     });
     if (consumo.count === 1) return;
 
-    throw new ErroDeRegra("LIMITE_REQUISICOES", "Muitas tentativas. Aguarde um minuto e tente novamente.");
+    throw new ErroDeRegra("LIMITE_REQUISICOES", "Muitas tentativas. Aguarde alguns minutos e tente novamente.");
   });
+}
+
+export async function consumirLimiteDoCliente(opcoes: Omit<OpcoesLimite, "identificador">): Promise<void> {
+  await consumirLimiteRequisicoes({ ...opcoes, identificador: await identificarCliente() });
+}
+
+async function identificarCliente(): Promise<string> {
+  const cabecalhos = await headers();
+  return (
+    cabecalhos.get("x-vercel-forwarded-for") ??
+    cabecalhos.get("x-real-ip") ??
+    cabecalhos.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "endereco-indisponivel"
+  );
 }

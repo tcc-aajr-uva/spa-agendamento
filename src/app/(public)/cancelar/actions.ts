@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { cancelarPorToken } from "@/lib/agendamento/cancelar";
 import { ErroDeRegra } from "@/lib/erros";
+import { consumirLimiteDoCliente } from "@/lib/limite-requisicao";
 import { TAMANHO_CODIGO, TAMANHO_TOKEN } from "@/lib/token-constantes";
 
 const cancelamentoSchema = z.object({
@@ -28,6 +29,7 @@ export async function cancelarAgendamentoAction(
   }
 
   try {
+    await consumirLimiteDoCliente({ escopo: "cancelamento-publico", janelaMs: 10 * 60_000, maximo: 10 });
     await cancelarPorToken(dados.data.token, dados.data.codigo);
     return { status: "sucesso" };
   } catch (erro) {

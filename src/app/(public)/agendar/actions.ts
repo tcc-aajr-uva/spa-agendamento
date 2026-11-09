@@ -2,8 +2,9 @@
 
 import { criarAgendamento } from "@/lib/agendamento/criar-agendamento";
 import { DIAS_DA_SEMANA, formatarHora } from "@/lib/agendamento/regras";
-import { obterUsuarioAtual } from "@/lib/auth/sessao";
+import { obterUsuarioAtual, type ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
+import { consumirLimiteDoCliente } from "@/lib/limite-requisicao";
 import { adicionarListaEspera } from "@/lib/lista-espera/adicionar-lista-espera";
 
 export type EstadoInscricao = {
@@ -15,6 +16,7 @@ export type EstadoInscricao = {
 
 export async function agendar(_estado: EstadoInscricao, formData: FormData): Promise<EstadoInscricao> {
   return tratarErros(async () => {
+    const usuario = await obterUsuarioComLimite();
     const resultado = await criarAgendamento(
       {
         unidadeId: texto(formData, "unidadeId"),
@@ -23,7 +25,7 @@ export async function agendar(_estado: EstadoInscricao, formData: FormData): Pro
         horaInicio: texto(formData, "horaInicio"),
         paciente: lerPaciente(formData),
       },
-      await obterUsuarioAtual(),
+      usuario,
     );
     const inicio = resultado.dataInicio.toLocaleDateString("pt-BR", { timeZone: "UTC" });
     return {
@@ -36,16 +38,25 @@ export async function agendar(_estado: EstadoInscricao, formData: FormData): Pro
 
 export async function entrarNaLista(_estado: EstadoInscricao, formData: FormData): Promise<EstadoInscricao> {
   return tratarErros(async () => {
+    const usuario = await obterUsuarioComLimite();
     const resultado = await adicionarListaEspera(
       {
         unidadeId: texto(formData, "unidadeId"),
         equipeId: texto(formData, "equipeId"),
         paciente: lerPaciente(formData),
       },
-      await obterUsuarioAtual(),
+      usuario,
     );
     return { mensagem: `Você entrou na lista de espera na posição ${resultado.posicao}.` };
   });
+}
+
+async function obterUsuarioComLimite(): Promise<ContextoAutorizacao | null> {
+  const usuario = await obterUsuarioAtual();
+  if (!usuario) {
+    await consumirLimiteDoCliente({ escopo: "inscricao-publica", janelaMs: 10 * 60_000, maximo: 5 });
+  }
+  return usuario;
 }
 
 async function tratarErros(operacao: () => Promise<EstadoInscricao>): Promise<EstadoInscricao> {
