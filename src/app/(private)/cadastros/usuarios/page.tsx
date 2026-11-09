@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ChevronRightIcon } from "lucide-react";
 
 import { CabecalhoListagem } from "@/components/cabecalho-listagem";
+import { EstadoVazioTabela } from "@/components/estado-vazio-tabela";
 import { PaginacaoLista } from "@/components/paginacao-lista";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,18 +64,13 @@ async function ListaUsuarios({ searchParams }: Props) {
           </TableHeader>
           <TableBody>
             {resultado.usuarios.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-32 whitespace-normal text-center">
-                  <div className="space-y-1">
-                    <p className="font-medium">Nenhum usuário encontrado.</p>
-                    <p className="text-muted-foreground">
-                      {busca || status !== "ATIVOS"
-                        ? "Altere ou limpe os filtros para tentar novamente."
-                        : "Crie o primeiro usuário disponível para o seu perfil."}
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <EstadoVazioTabela
+                colunas={5}
+                titulo="Nenhum usuário encontrado."
+                descricao={busca || status !== "ATIVOS"
+                  ? "Altere ou limpe os filtros para tentar novamente."
+                  : "Crie o primeiro usuário disponível para o seu perfil."}
+              />
             ) : resultado.usuarios.map((usuario) => (
               <TableRow key={usuario.id} className="relative">
                 <TableHead scope="row" className="min-w-52 whitespace-normal px-4 py-4">
