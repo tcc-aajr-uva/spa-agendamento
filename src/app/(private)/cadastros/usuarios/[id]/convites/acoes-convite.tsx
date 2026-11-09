@@ -1,15 +1,13 @@
 "use client";
 
 import { useActionState, useEffect, useLayoutEffect, useState } from "react";
-import { CopyIcon } from "lucide-react";
 
 import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import type { EstadoAcessoUsuario } from "@/lib/usuario/estado-acesso";
 import type { EstadoGerenciamentoConvite } from "../../actions";
+import { CartaoLinkConvite } from "../../cartao-link-convite";
 
 type Props = {
   acao: (estado: EstadoGerenciamentoConvite, formData: FormData) => Promise<EstadoGerenciamentoConvite>;
@@ -61,44 +59,14 @@ function AcoesConviteInternas({ acao, estadoAcesso }: Props) {
         )}
       </form>
       {estado.linkConvite && (
-        <LinkConviteGerado key={estado.linkConvite} expiraEm={estado.expiraEm} linkConvite={estado.linkConvite} />
+        <CartaoLinkConvite
+          key={estado.linkConvite}
+          titulo="Link do convite"
+          descricao="Compartilhe este link somente com o usuário correspondente."
+          linkConvite={estado.linkConvite}
+          validade={estado.expiraEm && `Expira em ${new Date(estado.expiraEm).toLocaleString("pt-BR")}.`}
+        />
       )}
     </div>
-  );
-}
-
-function LinkConviteGerado({ linkConvite, expiraEm }: { linkConvite: string; expiraEm?: string }) {
-  const [copiado, setCopiado] = useState(false);
-  const [erroCopia, setErroCopia] = useState(false);
-
-  const copiar = async () => {
-    try {
-      await navigator.clipboard.writeText(linkConvite);
-      setCopiado(true);
-      setErroCopia(false);
-    } catch {
-      setErroCopia(true);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Link do convite</CardTitle>
-        <CardDescription>Compartilhe este link somente com o usuário correspondente.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <Input className="h-auto px-3 py-2 leading-5 shadow-xs" aria-label="Link do convite" readOnly value={linkConvite} />
-        {expiraEm && <p className="text-sm text-muted-foreground">Expira em {new Date(expiraEm).toLocaleString("pt-BR")}.</p>}
-        {erroCopia && (
-          <AlertaErroOperacao titulo="Não foi possível copiar o link" mensagem="Selecione o link e copie manualmente." />
-        )}
-      </CardContent>
-      <CardFooter className="justify-end">
-        <Button variant="outline" onClick={copiar} type="button">
-          <CopyIcon aria-hidden="true" /> {copiado ? "Link copiado" : "Copiar link"}
-        </Button>
-      </CardFooter>
-    </Card>
   );
 }

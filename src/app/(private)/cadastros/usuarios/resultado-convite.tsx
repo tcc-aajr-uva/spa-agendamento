@@ -1,12 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { CircleCheckIcon, CopyIcon } from "lucide-react";
+import { CircleCheckIcon } from "lucide-react";
 
-import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { CartaoLinkConvite } from "./cartao-link-convite";
 
 type Props = {
   expiraEm: string;
@@ -16,42 +13,22 @@ type Props = {
 };
 
 export function ResultadoConvite({ expiraEm, linkConvite, cadastrarOutro, voltarParaLista }: Props) {
-  const [copiado, setCopiado] = useState(false);
-  const [erroCopia, setErroCopia] = useState(false);
-
-  const copiar = async () => {
-    try {
-      await navigator.clipboard.writeText(linkConvite);
-      setCopiado(true);
-      setErroCopia(false);
-    } catch {
-      setErroCopia(true);
-    }
-  };
-
   return (
-    <Card className="sm:[--card-spacing:--spacing(6)]">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2"><CircleCheckIcon aria-hidden="true" /> Usuário criado</CardTitle>
-        <CardDescription>Compartilhe o link abaixo para que a pessoa defina sua senha.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Input className="h-auto px-3 py-2 leading-5 shadow-xs" aria-label="Link do convite" readOnly value={linkConvite} />
-        <p className="text-sm text-muted-foreground">
-          O convite poderá ser usado uma única vez e expira em {formatarData(expiraEm)}.
-        </p>
-        {erroCopia && (
-          <AlertaErroOperacao titulo="Não foi possível copiar o link" mensagem="Selecione o link acima e copie manualmente." />
-        )}
-      </CardContent>
-      <CardFooter className="flex-wrap justify-end gap-2">
-        <Button variant="outline" type="button" onClick={copiar}>
-          <CopyIcon aria-hidden="true" /> {copiado ? "Link copiado" : "Copiar link"}
-        </Button>
-        <Button variant="outline" type="button" onClick={cadastrarOutro}>Cadastrar outro</Button>
-        <Button type="button" onClick={voltarParaLista}>Voltar à lista</Button>
-      </CardFooter>
-    </Card>
+    <CartaoLinkConvite
+      key={linkConvite}
+      className="sm:[--card-spacing:--spacing(6)]"
+      classNameConteudo="space-y-4"
+      titulo={<><CircleCheckIcon aria-hidden="true" /> Usuário criado</>}
+      descricao="Compartilhe o link abaixo para que a pessoa defina sua senha."
+      linkConvite={linkConvite}
+      validade={<>O convite poderá ser usado uma única vez e expira em {formatarData(expiraEm)}.</>}
+      acoes={
+        <>
+          <Button variant="outline" type="button" onClick={cadastrarOutro}>Cadastrar outro</Button>
+          <Button type="button" onClick={voltarParaLista}>Voltar à lista</Button>
+        </>
+      }
+    />
   );
 }
 
