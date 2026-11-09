@@ -7,7 +7,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 
-import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertaConflito } from "@/components/alerta-conflito";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -128,21 +129,12 @@ function FormularioPeriodoInterno({
   return (
     <div className="space-y-6">
       {conflito && (
-        <Alert className="has-data-[slot=alert-action]:pr-2.5 sm:has-data-[slot=alert-action]:pr-32" variant="warning">
-          <TriangleAlertIcon aria-hidden="true" />
-          <AlertTitle>Período alterado em outra sessão</AlertTitle>
-          <AlertDescription>
-            O período foi atualizado depois que você abriu esta tela.
-            <br />
-            Carregue a versão mais recente para continuar.
-          </AlertDescription>
-          <AlertAction className="static col-span-2 mt-2 flex justify-end sm:absolute sm:top-1/2 sm:right-2 sm:mt-0 sm:-translate-y-1/2">
-            <Button type="button" variant="outline" className="h-auto rounded-sm px-4 py-2"
-              disabled={recarregando} onClick={carregarVersao}>
-              {recarregando ? "Carregando…" : "Carregar"}
-            </Button>
-          </AlertAction>
-        </Alert>
+        <AlertaConflito
+          titulo="Período alterado em outra sessão"
+          descricao="O período foi atualizado depois que você abriu esta tela."
+          carregando={recarregando}
+          onCarregar={carregarVersao}
+        />
       )}
       {erroSalvar && (
         <Alert variant="destructive">

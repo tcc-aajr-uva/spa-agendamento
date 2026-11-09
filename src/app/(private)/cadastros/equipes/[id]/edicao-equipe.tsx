@@ -57,7 +57,7 @@ function EdicaoEquipeInterna({ acaoAtualizar, acaoAlterarAtivacao, valores, ...o
 
   return (
     <div className="space-y-6">
-      <AlertasFormularioEquipe conflito={conflito} isDirty={controle.possuiRascunho}
+      <AlertasFormularioEquipe conflito={conflito}
         ocupado={controle.ocupado || executandoAtivacao} recarregando={recarregando}
         carregarVersao={carregarVersao} erroSalvar={controle.mensagemErroGeral}
         erroVersao={controle.errors.atualizadoEm?.message}
