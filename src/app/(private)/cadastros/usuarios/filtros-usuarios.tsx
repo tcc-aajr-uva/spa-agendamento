@@ -1,10 +1,8 @@
 "use client";
 
+import { CampoBuscaCadastro, FiltroSelecaoCadastro } from "@/components/campos-filtros-cadastro";
 import { useFiltrosCadastro } from "@/components/use-filtros-cadastro";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Status = "ATIVOS" | "INATIVOS" | "TODOS";
 
@@ -27,42 +25,23 @@ export function FiltrosUsuarios({ buscaInicial, statusInicial }: Props) {
 
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <Field className="w-full gap-3 sm:w-80">
-        <FieldLabel className="leading-5" htmlFor="busca-usuarios">Buscar</FieldLabel>
-        <Input
-          className="h-auto px-3 py-2 text-sm leading-5 shadow-xs"
-          id="busca-usuarios"
-          maxLength={120}
-          name="busca"
-          onChange={(evento) => setRascunhoBusca(evento.target.value)}
-          placeholder="Nome ou e-mail"
-          type="search"
-          value={busca}
-        />
-      </Field>
+      <CampoBuscaCadastro
+        id="busca-usuarios"
+        placeholder="Nome ou e-mail"
+        valor={busca}
+        aoAlterar={setRascunhoBusca}
+      />
 
-      <Field className="w-full gap-3 sm:w-80">
-        <FieldLabel className="leading-5" htmlFor="status-usuarios">Situação</FieldLabel>
-        <Select
-          name="status"
-          items={OPCOES_STATUS}
-          onValueChange={(valor) => {
-            if (valor !== null) atualizar(busca, { status: valor === "ATIVOS" ? "" : valor });
-          }}
-          value={statusInicial}
-        >
-          <SelectTrigger id="status-usuarios" className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {OPCOES_STATUS.map((opcao) => (
-              <SelectItem key={opcao.value} value={opcao.value}>
-                {opcao.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
+      <FiltroSelecaoCadastro
+        id="status-usuarios"
+        nome="status"
+        rotulo="Situação"
+        opcoes={OPCOES_STATUS}
+        valor={statusInicial}
+        aoAlterar={(valor) => {
+          if (valor !== null) atualizar(busca, { status: valor === "ATIVOS" ? "" : valor });
+        }}
+      />
       <Button className="h-auto px-4 py-2 leading-5 shadow-xs" variant="outline" disabled={!busca && statusInicial === "ATIVOS"} onClick={limpar} type="button">
         Limpar filtros
       </Button>
