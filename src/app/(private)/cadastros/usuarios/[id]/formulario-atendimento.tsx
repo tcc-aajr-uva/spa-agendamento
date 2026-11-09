@@ -4,6 +4,7 @@ import { useActionState, useContext, useEffect, useState, useTransition } from "
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
+import { DestinoAlertasAba, useBloqueioAba, useConflitoAba } from "@/components/abas-cadastro";
 import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
 import { AlertaConflito } from "@/components/alerta-conflito";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
-import { DestinoAlertasAtendimento } from "./abas-usuario";
 import type { EstadoAtendimento } from "./actions-atendimento";
 
 type Valores = { liberado: boolean; limitePacientes: number; versao: string | null };
@@ -38,7 +38,7 @@ function CamposAtendimento({ valores, estado, enviar, enviando }: Omit<Props, "a
   estado: EstadoAtendimento; enviar: (formData: FormData) => void; enviando: boolean;
 }) {
   const router = useRouter();
-  const destinoAlertas = useContext(DestinoAlertasAtendimento);
+  const destinoAlertas = useContext(DestinoAlertasAba);
   const [recarregando, iniciarRecarga] = useTransition();
   const [conflitoAceito, aceitarConflito] = useState<EstadoAtendimento | null>(null);
   const [rascunho, setRascunho] = useState<{ base: Valores; liberado: boolean; limite: string } | null>(null);
@@ -47,8 +47,10 @@ function CamposAtendimento({ valores, estado, enviar, enviando }: Omit<Props, "a
   const limite = rascunho?.limite ?? String(valores.limitePacientes);
   const externo = rascunho !== null && base.versao !== valores.versao;
   const conflitoServidor = estado.conflito && conflitoAceito !== estado;
-  const conflito = externo || conflitoServidor || recarregando;
-  const bloqueado = enviando || conflito;
+  const conflito = externo || !!conflitoServidor || recarregando;
+  const bloqueioDaAba = useBloqueioAba();
+  const bloqueado = enviando || conflito || bloqueioDaAba;
+  useConflitoAba(conflito);
 
   function carregarVersao() {
     iniciarRecarga(() => {
@@ -59,7 +61,8 @@ function CamposAtendimento({ valores, estado, enviar, enviando }: Omit<Props, "a
   }
 
   return (
-    <form action={enviar} className="space-y-5 rounded-lg border bg-muted/20 p-4">
+    <form action={enviar} className="space-y-5 rounded-lg border bg-muted/20 p-4"
+      onSubmit={(evento) => { if (bloqueado) evento.preventDefault(); }}>
       {destinoAlertas && conflito && createPortal(
         <AlertaConflito
           titulo="Configuração alterada em outra sessão"
