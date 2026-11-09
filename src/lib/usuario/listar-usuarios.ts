@@ -27,10 +27,11 @@ export type FiltrosUsuarios = z.input<typeof filtrosSchema>;
 
 export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAutorizacao, agora = new Date()) {
   const filtros = filtrosSchema.parse(entrada);
+  const situacao = await filtroDeSituacaoUsuario(filtros, autor, agora, ITENS_POR_PAGINA);
   const where: Prisma.UsuarioWhereInput = {
     AND: [
       filtroDeUsuariosVisiveis(autor),
-      await filtroDeSituacaoUsuario(filtros.status, agora),
+      situacao.where,
     ],
     ...(filtros.busca
       ? {
@@ -43,11 +44,11 @@ export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAu
   };
 
   const [total, usuarios] = await Promise.all([
-    prisma.usuario.count({ where }),
+    situacao.total ?? prisma.usuario.count({ where }),
     prisma.usuario.findMany({
       where,
       orderBy: [{ nome: "asc" }, { id: "asc" }],
-      skip: (filtros.pagina - 1) * ITENS_POR_PAGINA,
+      skip: situacao.total === undefined ? (filtros.pagina - 1) * ITENS_POR_PAGINA : 0,
       take: ITENS_POR_PAGINA,
       select: {
         id: true,

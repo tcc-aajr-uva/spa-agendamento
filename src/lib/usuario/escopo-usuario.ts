@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Perfil, Prisma } from "@/generated/prisma/client";
+import { Prisma, type Perfil } from "@/generated/prisma/client";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { perfisCriadosPor } from "@/lib/usuario/hierarquia";
 
@@ -40,6 +40,31 @@ export function filtroDeUsuariosGerenciaveis(autor: ContextoAutorizacao): Prisma
 export function filtroDeUsuariosVisiveis(autor: ContextoAutorizacao): Prisma.UsuarioWhereInput {
   if (autor.perfil === "ADMINISTRADOR") return {};
   return filtroDeUsuariosGerenciaveis(autor);
+}
+
+export function filtroSqlDeUsuariosVisiveis(autor: ContextoAutorizacao): Prisma.Sql {
+  if (autor.perfil === "ADMINISTRADOR") return Prisma.sql`TRUE`;
+  const perfis = perfisCriadosPor(autor.perfil);
+  if (perfis.length === 0) return Prisma.sql`FALSE`;
+
+  const perfil = Prisma.sql`u.perfil::text IN (${Prisma.join([...perfis])})`;
+  if (autor.perfil === "SUPERVISOR") {
+    return Prisma.sql`${perfil} AND EXISTS (
+      SELECT 1 FROM "UsuarioEquipe" ue
+      JOIN "UsuarioUnidade" uu ON uu."usuarioId" = ue."usuarioId" AND uu."unidadeId" = ue."unidadeId"
+      JOIN "Equipe" e ON e.id = ue."equipeId"
+      WHERE ue."usuarioId" = u.id AND ue.ativo AND uu.ativo
+        AND ue."equipeId" = ANY(${autor.equipes}::text[])
+        AND e.ativa AND e."supervisorId" = ${autor.id}
+    )`;
+  }
+
+  return Prisma.sql`${perfil} AND EXISTS (
+    SELECT 1 FROM "UsuarioUnidade" uu
+    JOIN "Unidade" unidade ON unidade.id = uu."unidadeId"
+    WHERE uu."usuarioId" = u.id AND uu.ativo AND unidade.ativa
+      AND uu."unidadeId" = ANY(${autor.unidades}::text[])
+  )`;
 }
 
 export function filtroDeVinculosDeUnidadeGerenciaveis(
