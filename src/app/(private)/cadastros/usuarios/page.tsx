@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ChevronRightIcon } from "lucide-react";
 
+import { CabecalhoListagem } from "@/components/cabecalho-listagem";
 import { PaginacaoLista } from "@/components/paginacao-lista";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,15 +20,15 @@ type Props = {
 export default function UsuariosPage({ searchParams }: Props) {
   return (
     <section className="mx-auto w-full max-w-7xl space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold">Usuários</h1>
-          <p className="text-sm text-muted-foreground">Consulte os usuários que pertencem ao seu escopo de atuação.</p>
-        </div>
-        <Button size="lg" nativeButton={false} render={<Link href="/cadastros/usuarios/novo" />}>
-          Novo usuário
-        </Button>
-      </div>
+      <CabecalhoListagem
+        titulo="Usuários"
+        descricao="Consulte os usuários que pertencem ao seu escopo de atuação."
+        acao={
+          <Button size="lg" nativeButton={false} render={<Link href="/cadastros/usuarios/novo" />}>
+            Novo usuário
+          </Button>
+        }
+      />
 
       <Suspense fallback={<p>Carregando usuários…</p>}>
         <ListaUsuarios searchParams={searchParams} />
