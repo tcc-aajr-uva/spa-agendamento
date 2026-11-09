@@ -5,7 +5,7 @@ import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { ErroDeRegra } from "@/lib/erros";
 import { salvarAtendimentoEstagiario } from "@/lib/usuario/atendimento-estagiario";
 
-export type EstadoAtendimento = { erro?: string; sucesso?: string; confirmacao?: number };
+export type EstadoAtendimento = { erro?: string; conflito?: boolean; sucesso?: string; confirmacao?: number };
 
 export async function salvarAtendimento(
   estagiarioId: string, equipeId: string, periodoLetivoId: string,
@@ -24,6 +24,7 @@ export async function salvarAtendimento(
       versao: String(formData.get("versao") ?? "") || null,
     }, autor);
   } catch (erro) {
+    if (erro instanceof ErroDeRegra && erro.codigo === "CONFLITO_CONCORRENTE") return { conflito: true };
     if (erro instanceof ErroDeRegra) return { erro: erro.message };
     throw erro;
   }

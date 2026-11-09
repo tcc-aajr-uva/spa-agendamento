@@ -1,109 +1,205 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { CircleAlertIcon, LockKeyholeIcon, TriangleAlertIcon } from "lucide-react";
+import { startTransition, useActionState, useEffect, useId, useLayoutEffect, useState, useTransition } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { LockKeyholeIcon, TriangleAlertIcon } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Controller, useForm } from "react-hook-form";
+
+import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
+import { AlertaConflito } from "@/components/alerta-conflito";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { chaveDoPeriodo, type DatasPeriodo } from "@/lib/periodo-letivo/dados-periodo";
+import { chaveDoPeriodo, dadosPeriodoSchema, type DatasPeriodo } from "@/lib/periodo-letivo/dados-periodo";
 import type { EstadoPeriodo } from "./actions";
 import { CampoDataPeriodo } from "./campo-data-periodo";
+import { ControleExclusaoPeriodo } from "./controle-exclusao";
+
+type AcaoPeriodo = (estado: EstadoPeriodo, formData: FormData) => Promise<EstadoPeriodo>;
 
 type Props = {
-  acao: (estado: EstadoPeriodo, formData: FormData) => Promise<EstadoPeriodo>;
+  acao: AcaoPeriodo;
   unidade: string;
   valores?: DatasPeriodo;
   somenteLeitura?: boolean;
   emUso?: boolean;
+  caminhoLista?: string;
+  exclusao?: { acao: AcaoPeriodo; motivosBloqueio: string[] };
 };
-const PADRAO: DatasPeriodo = { inicio: "", fim: "" };
 
-export function FormularioPeriodo({ acao, ...props }: Props) {
-  const [estado, enviar, enviando] = useActionState(acao, {});
-  return <CamposPeriodo {...props} estado={estado} enviar={enviar} enviando={enviando} />;
+const PADRAO: DatasPeriodo = { inicio: "", fim: "" };
+const CAMPOS = [
+  { nome: "inicio", rotulo: "Data de início", dependente: "fim" },
+  { nome: "fim", rotulo: "Data de fim", dependente: "inicio" },
+] as const;
+
+async function semAcaoDeExclusao(): Promise<EstadoPeriodo> {
+  return {};
 }
 
-function CamposPeriodo({
-  unidade, valores = PADRAO, somenteLeitura = false, emUso = false, estado, enviar, enviando,
-}: Omit<Props, "acao"> & { estado: EstadoPeriodo; enviar: (formData: FormData) => void; enviando: boolean }) {
-  const [rascunho, setRascunho] = useState<{ base: DatasPeriodo; datas: DatasPeriodo } | null>(null);
-  const [tentouEnviar, definirTentouEnviar] = useState(false);
-  const base = rascunho?.base ?? valores;
-  const datas = rascunho?.datas ?? valores;
-  const bloqueado = somenteLeitura || emUso;
-  const externo = rascunho !== null && chaveDoPeriodo(base) !== chaveDoPeriodo(valores);
+export function FormularioPeriodo(props: Props) {
+  const [chave, definirChave] = useState(0);
+
+  useLayoutEffect(() => {
+    return () => definirChave((anterior) => anterior + 1);
+  }, []);
+
+  return <FormularioPeriodoInterno key={chave} {...props} />;
+}
+
+function FormularioPeriodoInterno({
+  acao, unidade, valores = PADRAO, somenteLeitura = false, emUso = false, exclusao, caminhoLista,
+}: Props) {
+  const router = useRouter();
+  const unidadeId = useId();
+  const [estado, enviar, enviando] = useActionState(acao, {});
+  const [estadoExclusao, excluir, excluindo] = useActionState(exclusao?.acao ?? semAcaoDeExclusao, {});
+  const [recarregando, iniciarRecarga] = useTransition();
+  const [conflitosAceitos, definirConflitosAceitos] = useState<EstadoPeriodo[]>([]);
+  const [conflitoExterno, definirConflitoExterno] = useState(false);
+  const [erroOculto, definirErroOculto] = useState<EstadoPeriodo | null>(null);
+  const { control, formState: { defaultValues, isDirty, isSubmitting }, handleSubmit, reset } = useForm<DatasPeriodo>({
+    defaultValues: valores,
+    resolver: zodResolver(dadosPeriodoSchema),
+    mode: "onSubmit",
+    reValidateMode: "onChange",
+  });
+
+  const inicioBase = defaultValues?.inicio ?? valores.inicio;
+  const fimBase = defaultValues?.fim ?? valores.fim;
+  const inicioAtual = valores.inicio;
+  const fimAtual = valores.fim;
+  const versaoAtual = chaveDoPeriodo(valores);
+  const versaoBase = chaveDoPeriodo({ inicio: inicioBase, fim: fimBase });
+  const versaoMudou = versaoAtual !== versaoBase;
+
+  if (isDirty && versaoMudou && !conflitoExterno) definirConflitoExterno(true);
+
+  const conflitoServidor = [estado, estadoExclusao].some((resposta) =>
+    resposta.versaoEmConflito &&
+    (!conflitosAceitos.includes(resposta) || resposta.versaoEmConflito === versaoAtual),
+  );
+  const conflito = conflitoExterno || conflitoServidor || recarregando;
+  const podeSalvar = !somenteLeitura && !emUso;
+  const bloquearEnvio = !podeSalvar || enviando || excluindo || conflito;
+  const erroSalvar = erroOculto === estado ? undefined : estado.erro;
+
+  useEffect(() => {
+    if (versaoMudou && !isDirty && !conflito) reset({ inicio: inicioAtual, fim: fimAtual });
+  }, [conflito, fimAtual, inicioAtual, isDirty, reset, versaoMudou]);
+
+  const enviarDatas = handleSubmit((datas) => {
+    const formData = new FormData();
+    formData.set("inicio", datas.inicio);
+    formData.set("fim", datas.fim);
+    if (valores !== PADRAO) formData.set("versao", JSON.stringify({ inicio: inicioBase, fim: fimBase }));
+    startTransition(() => enviar(formData));
+  });
+
+  function carregarVersao() {
+    reset(valores);
+    definirConflitoExterno(false);
+    definirErroOculto(estado);
+    if (conflitoServidor) {
+      definirConflitosAceitos([estado, estadoExclusao]);
+      iniciarRecarga(() => router.refresh());
+    }
+  }
+
+  if (estado.indisponivel || estadoExclusao.indisponivel) {
+    return (
+      <div className="space-y-4">
+        <Alert variant="warning">
+          <TriangleAlertIcon aria-hidden="true" />
+          <AlertTitle>Período letivo indisponível</AlertTitle>
+          <AlertDescription>Este período foi excluído e não pode mais ser alterado.</AlertDescription>
+        </Alert>
+        {caminhoLista && (
+          <Button variant="outline" nativeButton={false} render={<Link href={caminhoLista} prefetch={false} />}>
+            Voltar para a lista
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <form action={bloqueado ? undefined : enviar}
-      onSubmit={(evento) => {
-        if (bloqueado) {
+    <div className="space-y-6">
+      {conflito && (
+        <AlertaConflito
+          titulo="Período alterado em outra sessão"
+          descricao="O período foi atualizado depois que você abriu esta tela."
+          carregando={recarregando}
+          onCarregar={carregarVersao}
+        />
+      )}
+      {erroSalvar && (
+        <AlertaErroOperacao titulo="Não foi possível salvar o período" mensagem={erroSalvar} />
+      )}
+      {estadoExclusao.erro && (
+        <AlertaErroOperacao titulo="Não foi possível excluir o período" mensagem={estadoExclusao.erro} />
+      )}
+      <form action={podeSalvar ? enviar : undefined} noValidate onSubmit={(evento) => {
+        if (bloquearEnvio) {
           evento.preventDefault();
           return;
         }
-        if (!datas.inicio || !datas.fim) {
-          evento.preventDefault();
-          definirTentouEnviar(true);
-          const campo = !datas.inicio ? "inicio" : "fim";
-          evento.currentTarget.querySelector<HTMLButtonElement>(`#periodo-${campo}`)?.focus();
-        }
+        void enviarDatas(evento);
       }}>
-      {valores !== PADRAO && <input name="versao" type="hidden" value={JSON.stringify(base)} />}
-      <Card className="sm:[--card-spacing:--spacing(6)]">
-        <CardHeader>
-          <CardTitle><h2>Datas do período</h2></CardTitle>
-          <CardDescription>Defina o início e o fim do período letivo desta unidade.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="periodo-unidade">Unidade</FieldLabel>
-              <Input className="h-auto px-3 py-2 leading-5 shadow-xs" id="periodo-unidade" value={unidade} readOnly disabled />
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <CampoDataPeriodo nome="inicio" rotulo="Data de início" valor={datas.inicio}
-                desabilitado={bloqueado || enviando} invalido={tentouEnviar && !datas.inicio}
-                aoAlterar={(inicio) => setRascunho({ base, datas: { ...datas, inicio } })} />
-              <CampoDataPeriodo nome="fim" rotulo="Data de fim" valor={datas.fim}
-                desabilitado={bloqueado || enviando} invalido={tentouEnviar && !datas.fim}
-                aoAlterar={(fim) => setRascunho({ base, datas: { ...datas, fim } })} />
-            </div>
-          </FieldGroup>
-          {emUso && (
-            <Alert>
-              <LockKeyholeIcon aria-hidden="true" />
-              <AlertTitle>Período em uso</AlertTitle>
-              <AlertDescription>As datas estão bloqueadas porque este período possui configurações de atendimento ou agendamentos.</AlertDescription>
-            </Alert>
+        {valores !== PADRAO && <input name="versao" type="hidden" value={JSON.stringify({ inicio: inicioBase, fim: fimBase })} />}
+        <Card className="sm:[--card-spacing:--spacing(6)]">
+          <CardHeader>
+            <CardTitle><h2>Datas do período</h2></CardTitle>
+            <CardDescription>Defina o início e o fim do período letivo desta unidade.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor={unidadeId}>Unidade</FieldLabel>
+                <Input className="h-auto px-3 py-2 leading-5 shadow-xs" id={unidadeId} value={unidade} readOnly disabled />
+              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {CAMPOS.map(({ nome, rotulo, dependente }) => (
+                  <Controller key={nome} control={control} name={nome} rules={{ deps: dependente }}
+                    render={({ field, fieldState }) => (
+                      <CampoDataPeriodo nome={nome} rotulo={rotulo} valor={field.value}
+                        desabilitado={bloquearEnvio || isSubmitting} erro={fieldState.error?.message}
+                        referencia={field.ref} aoDesfocar={field.onBlur}
+                        aoAlterar={(valor) => {
+                          field.onChange(valor);
+                          definirErroOculto(estado);
+                        }}
+                      />
+                    )} />
+                ))}
+              </div>
+            </FieldGroup>
+            {emUso && (
+              <Alert>
+                <LockKeyholeIcon aria-hidden="true" />
+                <AlertTitle>Período em uso</AlertTitle>
+                <AlertDescription>As datas estão bloqueadas porque este período possui configurações de atendimento ou agendamentos.</AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+          {podeSalvar && (
+            <CardFooter className="justify-end">
+              <Button size="lg" type="submit" disabled={bloquearEnvio || isSubmitting}>
+                {enviando ? "Salvando…" : valores === PADRAO ? "Criar período" : "Salvar alterações"}
+              </Button>
+            </CardFooter>
           )}
-          {externo && (
-            <Alert variant="warning">
-              <TriangleAlertIcon aria-hidden="true" />
-              <AlertTitle>Período alterado em outra sessão</AlertTitle>
-              <AlertDescription className="space-y-3">
-                <p>Suas alterações locais foram preservadas.</p>
-                <Button type="button" variant="outline" className="h-auto max-w-full whitespace-normal text-left" disabled={enviando} onClick={() => setRascunho(null)}>
-                  Descartar alterações locais e carregar a versão mais recente
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-          {estado.erro && (
-            <Alert variant="destructive">
-              <CircleAlertIcon aria-hidden="true" />
-              <AlertTitle>Não foi possível salvar o período</AlertTitle>
-              <AlertDescription>{estado.erro}</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-        {!bloqueado && (
-          <CardFooter className="justify-end">
-            <Button size="lg" type="submit" disabled={enviando}>
-              {enviando ? "Salvando…" : valores === PADRAO ? "Criar período" : "Salvar alterações"}
-            </Button>
-          </CardFooter>
-        )}
-      </Card>
-    </form>
+        </Card>
+      </form>
+      {exclusao && (
+        <ControleExclusaoPeriodo executar={excluir} valores={valores} motivosBloqueio={exclusao.motivosBloqueio}
+          excluindo={excluindo} bloqueioExterno={conflito || enviando || isSubmitting || isDirty}
+          bloqueadoPorRascunho={isDirty && !conflito} />
+      )}
+    </div>
   );
 }

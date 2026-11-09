@@ -1,9 +1,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowLeftIcon, InfoIcon } from "lucide-react";
+import { ArrowLeftIcon } from "lucide-react";
 import { notFound } from "next/navigation";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,11 +14,9 @@ import type { ParametrosBusca } from "@/lib/url/parametros-busca";
 import { rotuloDoEstadoAcesso, rotuloDoPerfil } from "@/lib/usuario/rotulos";
 import { perfisDaRota } from "../../../menu";
 import { gerenciarConvite } from "../actions";
-import { AbasUsuario } from "./abas-usuario";
 import { alterarAtivacao, atualizarUsuario } from "./actions";
-import { ControleAtivacaoUsuario } from "./controle-ativacao";
+import { EdicaoUsuario } from "./edicao-usuario";
 import { AcoesConvite } from "./convites/acoes-convite";
-import { FormularioEdicaoUsuario } from "./formulario-edicao";
 import { SecaoAtendimento } from "./secao-atendimento";
 
 type Props = {
@@ -49,8 +46,9 @@ async function ConteudoUsuario({ params, searchParams }: Props) {
 
   const tipoVinculo =
     usuario.perfil === "COORDENACAO" || usuario.perfil === "SECRETARIA" ? "unidadeIds" : "equipeIds";
-  const vinculosIniciais = tipoVinculo === "unidadeIds" ? usuario.unidadeIds : usuario.equipeIds;
   const opcoes = await listarOpcoesDeVinculo(autor, usuario.perfil, usuario.id);
+  const vinculos = tipoVinculo === "unidadeIds" ? usuario.unidadeIds : usuario.equipeIds;
+  const vinculosIniciais = vinculos.filter((id) => opcoes.some((opcao) => opcao.id === id));
 
   return (
     <div className="space-y-6">
@@ -66,7 +64,18 @@ async function ConteudoUsuario({ params, searchParams }: Props) {
         <p className="text-sm text-muted-foreground">O e-mail e o perfil não podem ser alterados nesta tela.</p>
       </div>
 
-      <AbasUsuario
+      <EdicaoUsuario
+        acaoAtualizar={atualizarUsuario.bind(null, usuario.id)}
+        acaoAtivacao={alterarAtivacao.bind(null, usuario.id)}
+        ativo={usuario.ativo}
+        podeAlterarAcesso={usuario.podeAlterarAcesso}
+        opcoes={opcoes}
+        possuiVinculosForaDoEscopo={usuario.possuiVinculosForaDoEscopo}
+        restringirEquipesAUmaUnidade={usuario.perfil === "ESTAGIARIO"}
+        tipoVinculo={tipoVinculo}
+        valores={{ nome: usuario.nome, atualizadoEm: usuario.atualizadoEm.toISOString(),
+          unidadeIds: tipoVinculo === "unidadeIds" ? vinculosIniciais : [],
+          equipeIds: tipoVinculo === "equipeIds" ? vinculosIniciais : [] }}
         atendimento={
           usuario.perfil === "ESTAGIARIO" && podeConfigurarAtendimento(autor) ? (
             <Suspense fallback={<p>Carregando configuração de atendimento…</p>}>
@@ -74,34 +83,8 @@ async function ConteudoUsuario({ params, searchParams }: Props) {
             </Suspense>
           ) : undefined
         }
-        dados={
-          <>
-            <FormularioEdicaoUsuario
-              key={`${usuario.id}:${usuario.ativo}`}
-              acao={atualizarUsuario.bind(null, usuario.id)}
-              nome={usuario.nome}
-              opcoes={opcoes}
-              possuiVinculosForaDoEscopo={usuario.possuiVinculosForaDoEscopo}
-              restringirEquipesAUmaUnidade={usuario.perfil === "ESTAGIARIO"}
-              tipoVinculo={tipoVinculo}
-              vinculosIniciais={vinculosIniciais}
-            />
-            {usuario.podeAlterarAcesso ? (
-              <ControleAtivacaoUsuario acao={alterarAtivacao.bind(null, usuario.id)} ativo={usuario.ativo} />
-            ) : (
-              <Alert>
-                <InfoIcon aria-hidden="true" />
-                <AlertTitle>Alteração de acesso indisponível</AlertTitle>
-                <AlertDescription>
-                  O acesso global só pode ser alterado pelo administrador ou por uma coordenação responsável por todas as
-                  unidades deste usuário.
-                </AlertDescription>
-              </Alert>
-            )}
-          </>
-        }
         convite={
-          <Card className="sm:[--card-spacing:--spacing(6)]">
+          <Card className="sm:[--card-spacing:--spacing(6)] has-data-[slot=card-footer]:pb-(--card-spacing)">
             <CardHeader>
               <CardTitle>Acesso ao sistema</CardTitle>
               <CardDescription>Gere ou revogue o convite usado para definir a senha inicial.</CardDescription>

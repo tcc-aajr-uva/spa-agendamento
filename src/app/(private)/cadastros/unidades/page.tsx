@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ChevronRightIcon } from "lucide-react";
 
+import { CabecalhoListagem } from "@/components/cabecalho-listagem";
+import { EstadoVazioTabela } from "@/components/estado-vazio-tabela";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,17 +43,15 @@ async function ConteudoUnidades({ searchParams }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold">Unidades</h1>
-          <p className="text-sm text-gray-600">Gerencie as unidades disponíveis no seu escopo de atuação.</p>
-        </div>
-        {resultado.podeCriar && (
+      <CabecalhoListagem
+        titulo="Unidades"
+        descricao="Gerencie as unidades disponíveis no seu escopo de atuação."
+        acao={resultado.podeCriar && (
           <Button size="lg" nativeButton={false} render={<Link href="/cadastros/unidades/nova" prefetch={false} />}>
             Nova unidade
           </Button>
         )}
-      </div>
+      />
 
       <FiltrosUnidades
         buscaInicial={resultado.busca}
@@ -72,14 +72,11 @@ async function ConteudoUnidades({ searchParams }: Props) {
           </TableHeader>
           <TableBody>
             {resultado.unidades.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-32 whitespace-normal text-center">
-                  <div className="space-y-1">
-                    <p className="font-medium">Nenhuma unidade encontrada.</p>
-                    <p className="text-muted-foreground">Altere ou limpe os filtros para tentar novamente.</p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <EstadoVazioTabela
+                colunas={5}
+                titulo="Nenhuma unidade encontrada."
+                descricao="Altere ou limpe os filtros para tentar novamente."
+              />
             ) : resultado.unidades.map((unidade) => (
               <TableRow key={unidade.id} className="relative">
                 <TableHead scope="row" className="min-w-44 max-w-sm whitespace-normal wrap-break-word px-4 py-4">

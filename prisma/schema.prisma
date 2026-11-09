@@ -85,6 +85,7 @@ model Equipe {
   supervisorId String?
   ativa        Boolean  @default(true)
   criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
 
   unidade                  Unidade                             @relation(fields: [unidadeId], references: [id])
   supervisor               Usuario?                            @relation("SupervisorDaEquipe", fields: [supervisorId], references: [id])

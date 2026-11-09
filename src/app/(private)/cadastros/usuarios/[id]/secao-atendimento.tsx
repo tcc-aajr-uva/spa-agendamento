@@ -6,7 +6,6 @@ import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { consultarAtendimentoEstagiario } from "@/lib/usuario/atendimento-estagiario";
 import { dataDoPeriodo, formatarDataPeriodo } from "@/lib/periodo-letivo/dados-periodo";
 import type { ParametrosBusca } from "@/lib/url/parametros-busca";
-import { AtualizarAoFocar } from "../../../atualizar-ao-focar";
 import { salvarAtendimento } from "./actions-atendimento";
 import { FormularioAtendimento } from "./formulario-atendimento";
 import { SeletorAtendimento } from "./seletor-atendimento";
@@ -27,7 +26,6 @@ export async function SecaoAtendimento({ estagiarioId, autor, searchParams }: Pr
 
   return (
     <Card id="atendimento" className="sm:[--card-spacing:--spacing(6)]">
-      <AtualizarAoFocar />
       <CardHeader>
         <CardTitle><h2>Configuração de atendimento</h2></CardTitle>
         <CardDescription>A liberação e o limite são configurados por equipe e período letivo.</CardDescription>

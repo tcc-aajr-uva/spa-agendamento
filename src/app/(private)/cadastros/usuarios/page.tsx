@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ChevronRightIcon } from "lucide-react";
 
+import { CabecalhoListagem } from "@/components/cabecalho-listagem";
+import { EstadoVazioTabela } from "@/components/estado-vazio-tabela";
 import { PaginacaoLista } from "@/components/paginacao-lista";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { listarUsuarios } from "@/lib/usuario/listar-usuarios";
 import { rotuloDoEstadoAcesso, rotuloDoPerfil } from "@/lib/usuario/rotulos";
+import { situacaoListagemUsuarioSchema } from "@/lib/usuario/situacao-listagem";
 import { perfisDaRota } from "../../menu";
 import { FiltrosUsuarios } from "./filtros-usuarios";
 
@@ -19,15 +22,15 @@ type Props = {
 export default function UsuariosPage({ searchParams }: Props) {
   return (
     <section className="mx-auto w-full max-w-7xl space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold">Usuários</h1>
-          <p className="text-sm text-muted-foreground">Consulte os usuários que pertencem ao seu escopo de atuação.</p>
-        </div>
-        <Button size="lg" nativeButton={false} render={<Link href="/cadastros/usuarios/novo" />}>
-          Novo usuário
-        </Button>
-      </div>
+      <CabecalhoListagem
+        titulo="Usuários"
+        descricao="Consulte os usuários que pertencem ao seu escopo de atuação."
+        acao={
+          <Button size="lg" nativeButton={false} render={<Link href="/cadastros/usuarios/novo" />}>
+            Novo usuário
+          </Button>
+        }
+      />
 
       <Suspense fallback={<p>Carregando usuários…</p>}>
         <ListaUsuarios searchParams={searchParams} />
@@ -42,7 +45,7 @@ async function ListaUsuarios({ searchParams }: Props) {
   const busca = valorUnico(parametros.busca) ?? "";
   const pagina = valorUnico(parametros.pagina) ?? "1";
   const statusInformado = valorUnico(parametros.status);
-  const status = statusInformado === "INATIVOS" || statusInformado === "TODOS" ? statusInformado : "ATIVOS";
+  const status = situacaoListagemUsuarioSchema.parse(statusInformado);
   const resultado = await listarUsuarios({ busca, pagina, status }, autor);
 
   return (
@@ -55,25 +58,20 @@ async function ListaUsuarios({ searchParams }: Props) {
             <TableRow className="bg-muted/50">
               <TableHead scope="col" className="px-4">Usuário</TableHead>
               <TableHead scope="col">Perfil</TableHead>
-              <TableHead scope="col">Acesso</TableHead>
+              <TableHead scope="col">Situação</TableHead>
               <TableHead scope="col">Vínculos</TableHead>
               <TableHead scope="col" className="w-10 px-4" aria-label="Detalhes do usuário" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {resultado.usuarios.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-32 whitespace-normal text-center">
-                  <div className="space-y-1">
-                    <p className="font-medium">Nenhum usuário encontrado.</p>
-                    <p className="text-muted-foreground">
-                      {busca || status !== "ATIVOS"
-                        ? "Altere ou limpe os filtros para tentar novamente."
-                        : "Crie o primeiro usuário disponível para o seu perfil."}
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <EstadoVazioTabela
+                colunas={5}
+                titulo="Nenhum usuário encontrado."
+                descricao={busca || status !== "TODOS"
+                  ? "Altere ou limpe os filtros para tentar novamente."
+                  : "Crie o primeiro usuário disponível para o seu perfil."}
+              />
             ) : resultado.usuarios.map((usuario) => (
               <TableRow key={usuario.id} className="relative">
                 <TableHead scope="row" className="min-w-52 whitespace-normal px-4 py-4">
