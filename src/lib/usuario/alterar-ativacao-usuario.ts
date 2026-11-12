@@ -8,7 +8,7 @@ import {
   filtroDeUsuariosGerenciaveis,
   podeAlterarAcessoDoUsuario,
 } from "@/lib/usuario/escopo-usuario";
-import { atribuirSupervisor } from "@/lib/usuario/vinculos-usuario";
+import { atribuirSupervisor, validarFormatoDosVinculos } from "@/lib/usuario/vinculos-usuario";
 import { VersaoDesatualizadaDoUsuario } from "./versao-usuario";
 
 export async function alterarAtivacaoUsuario(
@@ -81,13 +81,11 @@ async function prepararVinculosParaAtivacao(
   usuarioId: string,
   perfil: "COORDENACAO" | "SECRETARIA" | "SUPERVISOR" | "ESTAGIARIO",
 ) {
-  if (perfil === "COORDENACAO" || perfil === "SECRETARIA") {
-    const unidades = await tx.usuarioUnidade.count({
-      where: { usuarioId, ativo: true, unidade: { ativa: true } },
-    });
-    if (unidades === 0) throw new ErroDeRegra("DADOS_INVALIDOS", "Defina ao menos uma unidade antes de ativar.");
-    return;
-  }
+  const unidades = await tx.usuarioUnidade.findMany({
+    where: { usuarioId, ativo: true, unidade: { ativa: true } },
+    select: { unidadeId: true },
+  });
+  validarFormatoDosVinculos(perfil, unidades.map(({ unidadeId }) => unidadeId), []);
 
   if (perfil === "SUPERVISOR") {
     const equipes = await tx.usuarioEquipe.findMany({
@@ -99,9 +97,6 @@ async function prepararVinculosParaAtivacao(
       },
       select: { equipeId: true, equipe: { select: { supervisorId: true } } },
     });
-    if (equipes.length === 0) {
-      throw new ErroDeRegra("DADOS_INVALIDOS", "Defina ao menos uma equipe antes de ativar.");
-    }
     if (equipes.some(({ equipe }) => equipe.supervisorId !== null && equipe.supervisorId !== usuarioId)) {
       throw new ErroDeRegra("EQUIPE_COM_SUPERVISOR", "Uma das equipes já possui supervisor responsável.");
     }
@@ -109,20 +104,5 @@ async function prepararVinculosParaAtivacao(
     for (const { equipeId } of equipes) {
       await atribuirSupervisor(tx, equipeId, usuarioId);
     }
-    return;
   }
-
-  const equipes = await tx.usuarioEquipe.count({
-    where: {
-      usuarioId,
-      ativo: true,
-      vinculoUnidade: { ativo: true },
-      equipe: {
-        ativa: true,
-        unidade: { ativa: true },
-        supervisorId: { not: null },
-      },
-    },
-  });
-  if (equipes === 0) throw new ErroDeRegra("DADOS_INVALIDOS", "Defina ao menos uma equipe antes de ativar.");
 }

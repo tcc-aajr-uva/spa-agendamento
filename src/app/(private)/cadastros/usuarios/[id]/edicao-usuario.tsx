@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/components/ui/toast";
 import { AlertasFormularioUsuario } from "../alertas-formulario-usuario";
 import { ESTADO_INICIAL_USUARIO, type EstadoEdicaoUsuario } from "../estado-usuario";
-import { formDataDoUsuario, formularioEdicaoUsuarioSchema, type CamposEdicaoUsuario } from "../formulario-usuario-schema";
+import { formDataDoUsuario, schemaEdicaoUsuario, type CamposEdicaoUsuario } from "../formulario-usuario-schema";
 import { AbasUsuario } from "./abas-usuario";
 import { ControleAtivacaoUsuario } from "./controle-ativacao";
 import { FormularioEdicaoUsuario, type OpcoesEdicaoUsuario } from "./formulario-edicao";
@@ -42,9 +42,10 @@ function EdicaoUsuarioInterna({ valores, ativo, podeAlterarAcesso, acaoAtualizar
   const ultimaEdicao = useRef<EstadoEdicaoUsuario | null>(null);
   const ultimaAtivacao = useRef<EstadoEdicaoUsuario | null>(null);
 
-  const formulario = useForm<CamposEdicaoUsuario>({ defaultValues: valores, resolver: zodResolver(formularioEdicaoUsuarioSchema) });
+  const formulario = useForm<CamposEdicaoUsuario>({ defaultValues: valores,
+    resolver: zodResolver(schemaEdicaoUsuario(opcoes.perfil, opcoes.possuiVinculosForaDoEscopo)) });
   const { control, handleSubmit, reset, formState: { defaultValues, errors, isDirty, isSubmitting } } = formulario;
-  const vinculos = useWatch({ control, name: opcoes.tipoVinculo });
+  const [unidadeIds, equipeIds] = useWatch({ control, name: ["unidadeIds", "equipeIds"] });
   const versao = valores.atualizadoEm;
   const mudou = defaultValues?.atualizadoEm !== versao;
   const versaoSalva = estado.status === "sucesso" && estado.identificador === versao;
@@ -94,7 +95,7 @@ function EdicaoUsuarioInterna({ valores, ativo, podeAlterarAcesso, acaoAtualizar
         erroAtivacao={ativacao.status === "erro" && ativacaoAceita !== ativacao ? ativacao.mensagem : undefined} />
       <AbasUsuario bloqueada={conflito} atendimento={atendimento} convite={convite} dados={
         <>
-          <FormularioEdicaoUsuario {...opcoes} formulario={formulario} valores={valores} vinculos={vinculos}
+          <FormularioEdicaoUsuario {...opcoes} formulario={formulario} valores={valores} unidadeIds={unidadeIds} equipeIds={equipeIds}
             acao={enviar} bloqueado={bloqueado} enviando={enviando}
             aoAlterar={() => { if (estado.status === "erro") aceitarEdicao(estado); }}
             aoEnviar={(evento) => { if (bloqueado) evento.preventDefault(); else void aoEnviar(evento); }} />

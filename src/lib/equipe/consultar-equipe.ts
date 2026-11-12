@@ -47,6 +47,6 @@ export async function listarSupervisoresParaEquipe(autor: ContextoAutorizacao) {
     orderBy: [{ nome: "asc" }, { id: "asc" }],
   });
   return supervisores.map(({ unidades, ...supervisor }) => ({
-    ...supervisor, unidadeIds: unidades.map(({ unidadeId }) => unidadeId), qualquerUnidade: autor.perfil === "ADMINISTRADOR",
+    ...supervisor, unidadeIds: unidades.map(({ unidadeId }) => unidadeId),
   }));
 }

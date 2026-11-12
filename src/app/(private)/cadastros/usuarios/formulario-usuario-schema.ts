@@ -1,17 +1,16 @@
 import { z } from "zod";
 
 import { atualizacaoUsuarioSchema, novoUsuarioSchema } from "@/lib/usuario/dados-usuario";
+import { erroDeFormatoDosVinculos } from "@/lib/usuario/regras-vinculos";
+import type { PerfilCriavel } from "@/lib/usuario/hierarquia";
 
 export const versaoUsuarioSchema = z.iso.datetime("Versão inválida. Atualize a página.");
 
 export const formularioCriacaoUsuarioSchema = novoUsuarioSchema
   .extend({ unidadeIds: novoUsuarioSchema.shape.unidadeIds.unwrap(), equipeIds: novoUsuarioSchema.shape.equipeIds.unwrap() })
   .superRefine(({ perfil, unidadeIds, equipeIds }, contexto) => {
-    const porUnidade = perfil === "COORDENACAO" || perfil === "SECRETARIA";
-    const campo = porUnidade ? "unidadeIds" : "equipeIds";
-    if ((porUnidade ? unidadeIds : equipeIds).length === 0) {
-      contexto.addIssue({ code: "custom", path: [campo], message: "Selecione ao menos um vínculo." });
-    }
+    const erro = erroDeFormatoDosVinculos(perfil, unidadeIds, equipeIds);
+    if (erro) contexto.addIssue({ code: "custom", path: [erro.campo], message: erro.mensagem });
   });
 
 export const formularioEdicaoUsuarioSchema = atualizacaoUsuarioSchema.extend({
@@ -19,6 +18,13 @@ export const formularioEdicaoUsuarioSchema = atualizacaoUsuarioSchema.extend({
   equipeIds: atualizacaoUsuarioSchema.shape.equipeIds.unwrap(),
   atualizadoEm: versaoUsuarioSchema,
 });
+
+export function schemaEdicaoUsuario(perfil: PerfilCriavel, possuiVinculosForaDoEscopo: boolean) {
+  return formularioEdicaoUsuarioSchema.superRefine(({ unidadeIds, equipeIds }, contexto) => {
+    const erro = erroDeFormatoDosVinculos(perfil, unidadeIds, equipeIds, !possuiVinculosForaDoEscopo);
+    if (erro) contexto.addIssue({ code: "custom", path: [erro.campo], message: erro.mensagem });
+  });
+}
 
 export type CamposCriacaoUsuario = z.input<typeof formularioCriacaoUsuarioSchema>;
 export type CamposEdicaoUsuario = z.input<typeof formularioEdicaoUsuarioSchema>;

@@ -16,17 +16,18 @@ export async function listarOpcoesDeVinculo(
   autor: ContextoAutorizacao,
   perfil: PerfilCriavel,
   usuarioIdAtual?: string,
-): Promise<OpcaoVinculo[]> {
+): Promise<{ unidades: OpcaoVinculo[]; equipes: OpcaoVinculo[] }> {
+  const unidades = await prisma.unidade.findMany({
+    where: {
+      ativa: true,
+      ...(autor.perfil !== "ADMINISTRADOR" ? { id: { in: autor.unidades } } : {}),
+    },
+    orderBy: { nome: "asc" },
+    select: { id: true, nome: true },
+  });
+  const opcoesUnidades = unidades.map((unidade) => ({ ...unidade, unidadeId: unidade.id, disponivel: true }));
   if (perfil === "COORDENACAO" || perfil === "SECRETARIA") {
-    const unidades = await prisma.unidade.findMany({
-      where: {
-        ativa: true,
-        ...(autor.perfil !== "ADMINISTRADOR" ? { id: { in: autor.unidades } } : {}),
-      },
-      orderBy: { nome: "asc" },
-      select: { id: true, nome: true },
-    });
-    return unidades.map((unidade) => ({ ...unidade, unidadeId: unidade.id, disponivel: true }));
+    return { unidades: opcoesUnidades, equipes: [] };
   }
 
   const whereDeEscopo: Prisma.EquipeWhereInput =
@@ -59,7 +60,7 @@ export async function listarOpcoesDeVinculo(
     select: { id: true, nome: true, supervisorId: true, unidadeId: true, unidade: { select: { nome: true } } },
   });
 
-  return equipes.map((equipe) => {
+  const opcoesEquipes = equipes.map((equipe) => {
     const semSupervisor = perfil === "ESTAGIARIO" && equipe.supervisorId === null;
     return {
       id: equipe.id,
@@ -68,4 +69,5 @@ export async function listarOpcoesDeVinculo(
       disponivel: !semSupervisor,
     };
   });
+  return { unidades: opcoesUnidades, equipes: opcoesEquipes };
 }

@@ -4,6 +4,7 @@ import type { Perfil, Prisma } from "@/generated/prisma/client";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import type { Transacao } from "@/lib/transacao";
+import { erroDeFormatoDosVinculos } from "./regras-vinculos";
 
 export type VinculosResolvidos = {
   unidadeIds: string[];
@@ -28,12 +29,11 @@ export async function atribuirSupervisor(
   }
 
   if (supervisorId !== null) {
-    const supervisor = await tx.usuario.findFirst({ where: { id: supervisorId, perfil: "SUPERVISOR" }, select: { id: true } });
-    if (!supervisor) throw new ErroDeRegra("DADOS_INVALIDOS", "Supervisor inválido.");
-    await tx.usuarioUnidade.upsert({
-      where: { usuarioId_unidadeId: { usuarioId: supervisorId, unidadeId: equipe.unidadeId } },
-      create: { usuarioId: supervisorId, unidadeId: equipe.unidadeId }, update: { ativo: true },
+    const supervisor = await tx.usuario.findFirst({
+      where: { id: supervisorId, perfil: "SUPERVISOR", unidades: { some: { unidadeId: equipe.unidadeId, ativo: true } } },
+      select: { id: true },
     });
+    if (!supervisor) throw new ErroDeRegra("DADOS_INVALIDOS", "Escolha um supervisor vinculado à unidade da equipe.");
     await tx.usuarioEquipe.upsert({
       where: { usuarioId_equipeId: { usuarioId: supervisorId, equipeId } },
       create: { usuarioId: supervisorId, equipeId, unidadeId: equipe.unidadeId }, update: { ativo: true },
@@ -58,14 +58,6 @@ export async function atribuirSupervisor(
   });
   const anteriores = new Set(removidos.map(({ usuarioId }) => usuarioId));
   if (equipe.supervisorId !== null && equipe.supervisorId !== supervisorId) anteriores.add(equipe.supervisorId);
-  for (const usuarioId of anteriores) {
-    const outrosVinculos = await tx.usuarioEquipe.count({
-      where: { usuarioId, unidadeId: equipe.unidadeId, ativo: true },
-    });
-    if (outrosVinculos === 0) await tx.usuarioUnidade.updateMany({
-      where: { usuarioId, unidadeId: equipe.unidadeId }, data: { ativo: false },
-    });
-  }
   if (supervisorId !== null) anteriores.add(supervisorId);
   if (anteriores.size > 0) {
     await tx.usuario.updateMany({
@@ -79,15 +71,10 @@ export function validarFormatoDosVinculos(
   perfil: Perfil,
   unidadeIds: string[],
   equipeIds: string[],
-  exigeVinculo = true,
+  exigeUnidade = true,
 ) {
-  const perfilPorUnidade = perfil === "COORDENACAO" || perfil === "SECRETARIA";
-  if (perfilPorUnidade && ((exigeVinculo && unidadeIds.length === 0) || equipeIds.length > 0)) {
-    throw new ErroDeRegra("DADOS_INVALIDOS", "Informe ao menos uma unidade e nenhuma equipe para este perfil.");
-  }
-  if (!perfilPorUnidade && ((exigeVinculo && equipeIds.length === 0) || unidadeIds.length > 0)) {
-    throw new ErroDeRegra("DADOS_INVALIDOS", "Informe ao menos uma equipe; as unidades serão definidas pelas equipes.");
-  }
+  const erro = erroDeFormatoDosVinculos(perfil, unidadeIds, equipeIds, exigeUnidade);
+  if (erro) throw new ErroDeRegra("DADOS_INVALIDOS", erro.mensagem);
 }
 
 export async function resolverVinculos(
@@ -98,18 +85,18 @@ export async function resolverVinculos(
   autor: ContextoAutorizacao,
   usuarioIdAtual?: string,
 ): Promise<VinculosResolvidos> {
-  if (perfil === "COORDENACAO" || perfil === "SECRETARIA") {
-    if (autor.perfil !== "ADMINISTRADOR" && unidadeIds.some((id) => !autor.unidades.includes(id))) {
-      throw new ErroDeRegra("SEM_PERMISSAO", "Você não pode vincular usuários fora das suas unidades.");
-    }
+  if (autor.perfil !== "ADMINISTRADOR" && unidadeIds.some((id) => !autor.unidades.includes(id))) {
+    throw new ErroDeRegra("SEM_PERMISSAO", "Você não pode vincular usuários fora das suas unidades.");
+  }
 
-    const unidades = await tx.unidade.findMany({
-      where: { id: { in: unidadeIds }, ativa: true },
-      select: { id: true },
-    });
-    if (unidades.length !== unidadeIds.length) {
-      throw new ErroDeRegra("DADOS_INVALIDOS", "Uma das unidades não existe ou está inativa.");
-    }
+  const unidades = await tx.unidade.findMany({
+    where: { id: { in: unidadeIds }, ativa: true },
+    select: { id: true },
+  });
+  if (unidades.length !== unidadeIds.length) {
+    throw new ErroDeRegra("DADOS_INVALIDOS", "Uma das unidades não existe ou está inativa.");
+  }
+  if (perfil === "COORDENACAO" || perfil === "SECRETARIA") {
     return { unidadeIds, equipes: [] };
   }
 
@@ -152,12 +139,15 @@ export async function resolverVinculos(
   ) {
     throw new ErroDeRegra("EQUIPE_COM_SUPERVISOR", "Uma das equipes já possui supervisor responsável.");
   }
-  if (perfil === "ESTAGIARIO" && new Set(equipes.map(({ unidadeId }) => unidadeId)).size > 1) {
-    throw new ErroDeRegra("DADOS_INVALIDOS", "O estagiário deve pertencer a equipes da mesma unidade.");
+  if (equipes.some(({ unidadeId }) => !unidadeIds.includes(unidadeId))) {
+    throw new ErroDeRegra("DADOS_INVALIDOS", "As equipes devem pertencer às unidades selecionadas.");
+  }
+  if (autor.perfil === "SUPERVISOR" && !usuarioIdAtual && equipes.length === 0) {
+    throw new ErroDeRegra("DADOS_INVALIDOS", "Selecione uma equipe sob sua responsabilidade para cadastrar o estagiário.");
   }
 
   return {
-    unidadeIds: [...new Set(equipes.map(({ unidadeId }) => unidadeId))],
+    unidadeIds,
     equipes: equipes.map(({ id, unidadeId }) => ({ id, unidadeId })),
   };
 }

@@ -44,11 +44,7 @@ async function ConteudoUsuario({ params, searchParams }: Props) {
   const usuario = await consultarUsuarioGerenciavel(id, autor);
   if (!usuario) notFound();
 
-  const tipoVinculo =
-    usuario.perfil === "COORDENACAO" || usuario.perfil === "SECRETARIA" ? "unidadeIds" : "equipeIds";
   const opcoes = await listarOpcoesDeVinculo(autor, usuario.perfil, usuario.id);
-  const vinculos = tipoVinculo === "unidadeIds" ? usuario.unidadeIds : usuario.equipeIds;
-  const vinculosIniciais = vinculos.filter((id) => opcoes.some((opcao) => opcao.id === id));
 
   return (
     <div className="space-y-6">
@@ -69,13 +65,13 @@ async function ConteudoUsuario({ params, searchParams }: Props) {
         acaoAtivacao={alterarAtivacao.bind(null, usuario.id)}
         ativo={usuario.ativo}
         podeAlterarAcesso={usuario.podeAlterarAcesso}
-        opcoes={opcoes}
+        {...opcoes}
+        perfil={usuario.perfil}
+        unidadesFixas={autor.perfil === "SUPERVISOR"}
         possuiVinculosForaDoEscopo={usuario.possuiVinculosForaDoEscopo}
-        restringirEquipesAUmaUnidade={usuario.perfil === "ESTAGIARIO"}
-        tipoVinculo={tipoVinculo}
         valores={{ nome: usuario.nome, atualizadoEm: usuario.atualizadoEm.toISOString(),
-          unidadeIds: tipoVinculo === "unidadeIds" ? vinculosIniciais : [],
-          equipeIds: tipoVinculo === "equipeIds" ? vinculosIniciais : [] }}
+          unidadeIds: usuario.unidadeIds,
+          equipeIds: usuario.equipeIds }}
         atendimento={
           usuario.perfil === "ESTAGIARIO" && podeConfigurarAtendimento(autor) ? (
             <Suspense fallback={<p>Carregando configuração de atendimento…</p>}>

@@ -54,7 +54,6 @@ export async function consultarUsuarioGerenciavel(usuarioId: string, autor: Cont
   const equipesGerenciaveis = usuario.equipes.filter(({ equipeId, unidadeId, equipe }) =>
     podeGerenciarVinculoDeEquipe(autor, { equipeId, unidadeId, supervisorId: equipe.supervisorId }),
   );
-  const perfilPorUnidade = perfil.data === "COORDENACAO" || perfil.data === "SECRETARIA";
 
   return {
     id: usuario.id,
@@ -65,9 +64,7 @@ export async function consultarUsuarioGerenciavel(usuarioId: string, autor: Cont
     atualizadoEm: usuario.atualizadoEm,
     estadoAcesso: determinarEstadoAcesso(usuario, agora),
     podeAlterarAcesso: podeAlterarAcessoDoUsuario(autor, todasAsUnidades),
-    possuiVinculosForaDoEscopo: perfilPorUnidade
-      ? unidadesGerenciaveis.length < usuario.unidades.length
-      : equipesGerenciaveis.length < usuario.equipes.length,
+    possuiVinculosForaDoEscopo: unidadesGerenciaveis.length < usuario.unidades.length || equipesGerenciaveis.length < usuario.equipes.length,
     unidadeIds: unidadesGerenciaveis.map(({ unidadeId }) => unidadeId),
     equipeIds: equipesGerenciaveis.map(({ equipeId }) => equipeId),
   };

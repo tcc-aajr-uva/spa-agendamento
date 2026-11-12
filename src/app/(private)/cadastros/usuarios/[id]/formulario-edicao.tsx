@@ -10,24 +10,22 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { CampoVinculosUsuario, type OpcaoVinculoUsuario } from "../campo-vinculos-usuario";
+import { CamposVinculosUsuario, type OpcoesVinculosUsuario } from "../campos-vinculos-usuario";
 import type { CamposEdicaoUsuario } from "../formulario-usuario-schema";
 
-export type OpcoesEdicaoUsuario = {
-  opcoes: OpcaoVinculoUsuario[];
-  tipoVinculo: "unidadeIds" | "equipeIds";
-  restringirEquipesAUmaUnidade: boolean;
+export type OpcoesEdicaoUsuario = OpcoesVinculosUsuario & {
   possuiVinculosForaDoEscopo: boolean;
 };
 
-export function FormularioEdicaoUsuario({ formulario, acao, aoEnviar, aoAlterar, valores, vinculos, bloqueado, enviando, opcoes,
-  tipoVinculo, restringirEquipesAUmaUnidade, possuiVinculosForaDoEscopo }: OpcoesEdicaoUsuario & {
+export function FormularioEdicaoUsuario({ formulario, acao, aoEnviar, aoAlterar, valores, unidadeIds, equipeIds, bloqueado, enviando,
+  possuiVinculosForaDoEscopo, ...opcoes }: OpcoesEdicaoUsuario & {
   formulario: UseFormReturn<CamposEdicaoUsuario>;
   acao: (formData: FormData) => void;
   aoEnviar: FormEventHandler<HTMLFormElement>;
   aoAlterar: () => void;
   valores: CamposEdicaoUsuario;
-  vinculos: string[];
+  unidadeIds: string[];
+  equipeIds: string[];
   bloqueado: boolean;
   enviando: boolean;
 }) {
@@ -54,7 +52,7 @@ export function FormularioEdicaoUsuario({ formulario, acao, aoEnviar, aoAlterar,
             <Separator />
             <FieldSet>
               <FieldLegend className="text-base font-semibold">Vínculos no seu escopo</FieldLegend>
-              <FieldDescription>Gerencie as {tipoVinculo === "unidadeIds" ? "unidades" : "equipes"} disponíveis para este usuário.</FieldDescription>
+              <FieldDescription>Gerencie as unidades e, quando aplicável, as equipes disponíveis para este usuário.</FieldDescription>
               {possuiVinculosForaDoEscopo && (
                 <Alert>
                   <InfoIcon aria-hidden="true" />
@@ -62,14 +60,12 @@ export function FormularioEdicaoUsuario({ formulario, acao, aoEnviar, aoAlterar,
                   <AlertDescription>Eles não são exibidos nesta tela e serão preservados.</AlertDescription>
                 </Alert>
               )}
-              <CampoVinculosUsuario opcoes={opcoes} vinculos={vinculos} tipo={tipoVinculo}
-                mesmaUnidade={restringirEquipesAUmaUnidade} bloqueado={bloqueado} erro={errors[tipoVinculo]?.message}
-                aoAlterar={(ids) => {
-                  setValue(tipoVinculo, ids, { shouldDirty: true, shouldValidate: true });
-                  aoAlterar();
-                }} />
-              {vinculos.length === 0 && <FieldDescription>O usuário ficará sem vínculos dentro do seu escopo.</FieldDescription>}
             </FieldSet>
+            <CamposVinculosUsuario {...opcoes} unidadeIds={unidadeIds} equipeIds={equipeIds} bloqueado={bloqueado}
+              erros={{ unidadeIds: errors.unidadeIds?.message, equipeIds: errors.equipeIds?.message }}
+              aoAlterar={(campo, ids) => {
+                setValue(campo, ids, { shouldDirty: true, shouldValidate: true }); aoAlterar();
+              }} />
           </FieldGroup>
         </CardContent>
         <CardFooter className="justify-end">

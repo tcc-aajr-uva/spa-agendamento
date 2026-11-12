@@ -37,10 +37,9 @@ async function NovoUsuario() {
   const configuracoes = await Promise.all(
     perfis.map(async (perfil) => ({
       perfil,
-      tipoVinculo: perfil === "COORDENACAO" || perfil === "SECRETARIA" ? ("unidadeIds" as const) : ("equipeIds" as const),
-      opcoes: await listarOpcoesDeVinculo(autor, perfil),
+      ...await listarOpcoesDeVinculo(autor, perfil),
     })),
   );
 
-  return <FormularioUsuario acao={criarUsuario} configuracoes={configuracoes} />;
+  return <FormularioUsuario acao={criarUsuario} configuracoes={configuracoes} exigeEquipe={autor.perfil === "SUPERVISOR"} />;
 }

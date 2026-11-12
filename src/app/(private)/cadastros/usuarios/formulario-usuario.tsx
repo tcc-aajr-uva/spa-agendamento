@@ -13,16 +13,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast";
-import type { PerfilCriavel } from "@/lib/usuario/hierarquia";
 import { rotuloDoPerfil } from "@/lib/usuario/rotulos";
-import { CampoVinculosUsuario, type OpcaoVinculoUsuario } from "./campo-vinculos-usuario";
+import { CamposVinculosUsuario, type OpcoesVinculosUsuario } from "./campos-vinculos-usuario";
 import type { EstadoCriacaoUsuario } from "./estado-usuario";
 import { formDataDoUsuario, formularioCriacaoUsuarioSchema, type CamposCriacaoUsuario } from "./formulario-usuario-schema";
 import { ResultadoConvite } from "./resultado-convite";
 
 type Props = {
   acao: (estado: EstadoCriacaoUsuario, formData: FormData) => Promise<EstadoCriacaoUsuario>;
-  configuracoes: { perfil: PerfilCriavel; tipoVinculo: "unidadeIds" | "equipeIds"; opcoes: OpcaoVinculoUsuario[] }[];
+  configuracoes: OpcoesVinculosUsuario[];
+  exigeEquipe: boolean;
 };
 
 export function FormularioUsuario(props: Props) {
@@ -31,7 +31,7 @@ export function FormularioUsuario(props: Props) {
   return <FormularioUsuarioInterno key={chave} {...props} cadastrarOutro={() => definirChave((anterior) => anterior + 1)} />;
 }
 
-function FormularioUsuarioInterno({ acao, configuracoes, cadastrarOutro }: Props & { cadastrarOutro: () => void }) {
+function FormularioUsuarioInterno({ acao, configuracoes, exigeEquipe, cadastrarOutro }: Props & { cadastrarOutro: () => void }) {
   const router = useRouter();
   const id = useId();
   const [estado, enviar, enviando] = useActionState(acao, { status: "inicial" });
@@ -40,14 +40,15 @@ function FormularioUsuarioInterno({ acao, configuracoes, cadastrarOutro }: Props
   const { control, register, handleSubmit, setValue, clearErrors, formState: { errors, isSubmitting } } =
     useForm<CamposCriacaoUsuario>({
       defaultValues: { nome: "", email: "", perfil: configuracoes[0]?.perfil, unidadeIds: [], equipeIds: [] },
-      resolver: zodResolver(formularioCriacaoUsuarioSchema),
+      resolver: zodResolver(formularioCriacaoUsuarioSchema.superRefine(({ equipeIds }, contexto) => {
+        if (exigeEquipe && equipeIds.length === 0) contexto.addIssue({
+          code: "custom", path: ["equipeIds"], message: "Selecione uma equipe sob sua responsabilidade.",
+        });
+      })),
     });
   const perfil = useWatch({ control, name: "perfil" });
   const configuracao = configuracoes.find((item) => item.perfil === perfil);
-  const tipo = configuracao?.tipoVinculo ?? "unidadeIds";
   const [unidadeIds, equipeIds] = useWatch({ control, name: ["unidadeIds", "equipeIds"] });
-  const vinculos = tipo === "unidadeIds" ? unidadeIds : equipeIds;
-  const opcoes = configuracao?.opcoes ?? [];
   const perfis = configuracoes.map(({ perfil }) => ({ value: perfil, label: rotuloDoPerfil(perfil) }));
   const bloqueado = enviando || isSubmitting;
   const aoAlterar = () => { if (estado.status === "erro") ocultarErro(estado); };
@@ -71,7 +72,7 @@ function FormularioUsuarioInterno({ acao, configuracoes, cadastrarOutro }: Props
         <AlertaErroOperacao titulo="Não foi possível criar o usuário" mensagem={estado.mensagem} />
       )}
       <form action={enviar} noValidate onSubmit={(evento) => {
-        if (bloqueado || opcoes.length === 0) evento.preventDefault();
+        if (bloqueado) evento.preventDefault();
         else void aoEnviar(evento);
       }}>
         <Card className="sm:[--card-spacing:--spacing(6)]">
@@ -112,25 +113,14 @@ function FormularioUsuarioInterno({ acao, configuracoes, cadastrarOutro }: Props
                 ))}
               </FieldSet>
               <Separator />
-              <FieldSet>
-                <FieldLegend className="text-base font-semibold">{tipo === "unidadeIds" ? "Unidades" : "Equipes"}</FieldLegend>
-                <FieldDescription>Selecione os vínculos que ficarão disponíveis para este usuário.</FieldDescription>
-                {opcoes.length === 0 ? (
-                  <FieldDescription>Não há vínculos disponíveis para criar este perfil.</FieldDescription>
-                ) : (
-                  <CampoVinculosUsuario opcoes={opcoes} tipo={tipo} vinculos={vinculos} mesmaUnidade={perfil === "ESTAGIARIO"}
-                    bloqueado={bloqueado} erro={errors[tipo]?.message}
-                    aoAlterar={(ids) => { setValue(tipo, ids, { shouldDirty: true, shouldValidate: true }); aoAlterar(); }} />
-                )}
-                {opcoes.length > 0 && vinculos.length === 0 && !errors[tipo] && (
-                  <FieldDescription>Selecione ao menos um vínculo para continuar.</FieldDescription>
-                )}
-                {vinculos.length > 0 && <FieldDescription>{vinculos.length} vínculo(s) selecionado(s).</FieldDescription>}
-              </FieldSet>
+              {configuracao && <CamposVinculosUsuario {...configuracao} unidadeIds={unidadeIds} equipeIds={equipeIds}
+                exigeEquipe={exigeEquipe} bloqueado={bloqueado}
+                erros={{ unidadeIds: errors.unidadeIds?.message, equipeIds: errors.equipeIds?.message }}
+                aoAlterar={(campo, ids) => { setValue(campo, ids, { shouldDirty: true, shouldValidate: true }); aoAlterar(); }} />}
             </FieldGroup>
           </CardContent>
           <CardFooter className="justify-end">
-            <Button size="lg" disabled={bloqueado || opcoes.length === 0} type="submit">
+            <Button size="lg" disabled={bloqueado || !configuracao?.unidades.length} type="submit">
               {enviando ? "Criando…" : "Criar usuário e gerar convite"}
             </Button>
           </CardFooter>

@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export type OpcaoVinculoUsuario = { id: string; unidadeId: string; nome: string; disponivel: boolean };
 
-export function CampoVinculosUsuario({ opcoes, vinculos, tipo, mesmaUnidade, bloqueado, erro, aoAlterar }: {
+export function CampoVinculosUsuario({ opcoes, vinculos, tipo, mesmaUnidade, bloqueado, erro, aoAlterar, maximo,
+  mensagemVazia = tipo === "unidadeIds" ? "Nenhuma unidade disponível para adicionar." : "Nenhuma equipe disponível para adicionar." }: {
   opcoes: OpcaoVinculoUsuario[];
   vinculos: string[];
   tipo: "unidadeIds" | "equipeIds";
@@ -17,10 +18,13 @@ export function CampoVinculosUsuario({ opcoes, vinculos, tipo, mesmaUnidade, blo
   bloqueado: boolean;
   erro?: string;
   aoAlterar: (ids: string[]) => void;
+  maximo?: number;
+  mensagemVazia?: string;
 }) {
   const id = useId();
   const unidade = opcoes.find((opcao) => vinculos.includes(opcao.id))?.unidadeId;
-  const itens = opcoes.filter((opcao) =>
+  const limiteAtingido = maximo !== undefined && vinculos.length >= maximo;
+  const itens = limiteAtingido ? [] : opcoes.filter((opcao) =>
     opcao.disponivel && !vinculos.includes(opcao.id) && (!mesmaUnidade || !unidade || opcao.unidadeId === unidade),
   ).map((opcao) => ({ value: opcao.id, label: opcao.nome }));
 
@@ -28,13 +32,18 @@ export function CampoVinculosUsuario({ opcoes, vinculos, tipo, mesmaUnidade, blo
     <>
       <Field data-invalid={!!erro}>
         <FieldLabel htmlFor={id}>Adicionar vínculo</FieldLabel>
-        <Select disabled={bloqueado || itens.length === 0} items={itens} value=""
-          onValueChange={(valor) => { if (valor) aoAlterar([...vinculos, valor]); }}>
+        <Select disabled={bloqueado} items={itens} value=""
+          onValueChange={(valor) => { if (valor && itens.some((item) => item.value === valor)) aoAlterar([...vinculos, valor]); }}>
           <SelectTrigger id={id} aria-invalid={!!erro} aria-describedby={erro ? `${id}-erro` : undefined}
             className="w-full px-3 leading-5 shadow-xs data-[size=default]:h-auto">
             <SelectValue placeholder="Selecione para adicionar" />
           </SelectTrigger>
           <SelectContent>
+            {itens.length === 0 && (
+              <div role="status" className="px-3 py-2 text-sm text-muted-foreground">
+                {limiteAtingido ? "Limite de unidades selecionadas atingido. Remova a unidade atual para escolher outra." : mensagemVazia}
+              </div>
+            )}
             {itens.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
           </SelectContent>
         </Select>
