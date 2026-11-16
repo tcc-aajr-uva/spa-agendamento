@@ -19,13 +19,19 @@ export async function listarOpcoesDeVinculo(
 ): Promise<{ unidades: OpcaoVinculo[]; equipes: OpcaoVinculo[] }> {
   const unidades = await prisma.unidade.findMany({
     where: {
-      ativa: true,
       ...(autor.perfil !== "ADMINISTRADOR" ? { id: { in: autor.unidades } } : {}),
+      OR: [
+        { ativa: true },
+        ...(usuarioIdAtual ? [{ usuarios: { some: { usuarioId: usuarioIdAtual, ativo: true } } }] : []),
+      ],
     },
     orderBy: { nome: "asc" },
-    select: { id: true, nome: true },
+    select: { id: true, nome: true, ativa: true },
   });
-  const opcoesUnidades = unidades.map((unidade) => ({ ...unidade, unidadeId: unidade.id, disponivel: true }));
+  const opcoesUnidades = unidades.map((unidade) => ({
+    id: unidade.id, unidadeId: unidade.id,
+    nome: `${unidade.nome}${unidade.ativa ? "" : " — Inativa"}`, disponivel: unidade.ativa,
+  }));
   if (perfil === "COORDENACAO" || perfil === "SECRETARIA") {
     return { unidades: opcoesUnidades, equipes: [] };
   }
@@ -37,27 +43,24 @@ export async function listarOpcoesDeVinculo(
         ? { unidadeId: { in: autor.unidades } }
         : { id: { in: autor.equipes }, supervisorId: autor.id };
 
+  const filtroDisponiveis: Prisma.EquipeWhereInput = {
+    ativa: true, unidade: { ativa: true },
+    ...(perfil === "SUPERVISOR"
+      ? { OR: [{ supervisorId: null }, ...(usuarioIdAtual ? [{ supervisorId: usuarioIdAtual }] : [])] }
+      : {}),
+    ...(perfil === "ESTAGIARIO" && (autor.perfil === "ADMINISTRADOR" || autor.perfil === "COORDENACAO")
+      ? { supervisorId: { not: null } }
+      : {}),
+  };
   const equipes = await prisma.equipe.findMany({
-    where: {
-      ativa: true,
-      unidade: { ativa: true },
-      ...whereDeEscopo,
-      ...(perfil === "SUPERVISOR"
-        ? { OR: [{ supervisorId: null }, ...(usuarioIdAtual ? [{ supervisorId: usuarioIdAtual }] : [])] }
-        : {}),
-      ...(perfil === "ESTAGIARIO" && (autor.perfil === "ADMINISTRADOR" || autor.perfil === "COORDENACAO")
-        ? {
-            OR: [
-              { supervisorId: { not: null } },
-              ...(usuarioIdAtual
-                ? [{ membros: { some: { usuarioId: usuarioIdAtual, ativo: true } } }]
-                : []),
-            ],
-          }
-        : {}),
-    },
+    where: { AND: [whereDeEscopo, { OR: [
+      filtroDisponiveis,
+      ...(usuarioIdAtual ? [{ membros: { some: {
+        usuarioId: usuarioIdAtual, ativo: true, vinculoUnidade: { ativo: true },
+      } } }] : []),
+    ] }] },
     orderBy: [{ unidade: { nome: "asc" } }, { nome: "asc" }],
-    select: { id: true, nome: true, supervisorId: true, unidadeId: true, unidade: { select: { nome: true } } },
+    select: { id: true, nome: true, ativa: true, supervisorId: true, unidadeId: true, unidade: { select: { nome: true, ativa: true } } },
   });
 
   const opcoesEquipes = equipes.map((equipe) => {
@@ -65,8 +68,8 @@ export async function listarOpcoesDeVinculo(
     return {
       id: equipe.id,
       unidadeId: equipe.unidadeId,
-      nome: `${equipe.unidade.nome} — ${equipe.nome}${semSupervisor ? " — Sem supervisor" : ""}`,
-      disponivel: !semSupervisor,
+      nome: `${equipe.unidade.nome} — ${equipe.nome}${!equipe.unidade.ativa ? " — Unidade inativa" : !equipe.ativa ? " — Equipe inativa" : semSupervisor ? " — Sem supervisor" : ""}`,
+      disponivel: equipe.ativa && equipe.unidade.ativa && !semSupervisor,
     };
   });
   return { unidades: opcoesUnidades, equipes: opcoesEquipes };

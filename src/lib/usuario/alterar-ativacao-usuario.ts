@@ -85,6 +85,9 @@ async function prepararVinculosParaAtivacao(
     where: { usuarioId, ativo: true, unidade: { ativa: true } },
     select: { unidadeId: true },
   });
+  if (unidades.length === 0) {
+    throw new ErroDeRegra("DADOS_INVALIDOS", "Para ativar o usuário, é necessário ter pelo menos uma unidade ativa vinculada.");
+  }
   validarFormatoDosVinculos(perfil, unidades.map(({ unidadeId }) => unidadeId), []);
 
   if (perfil === "SUPERVISOR") {

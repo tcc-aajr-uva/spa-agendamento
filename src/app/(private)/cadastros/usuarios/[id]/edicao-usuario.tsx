@@ -43,7 +43,10 @@ function EdicaoUsuarioInterna({ valores, ativo, podeAlterarAcesso, acaoAtualizar
   const ultimaAtivacao = useRef<EstadoEdicaoUsuario | null>(null);
 
   const formulario = useForm<CamposEdicaoUsuario>({ defaultValues: valores,
-    resolver: zodResolver(schemaEdicaoUsuario(opcoes.perfil, opcoes.possuiVinculosForaDoEscopo)) });
+    resolver: zodResolver(schemaEdicaoUsuario(opcoes.perfil, opcoes.possuiVinculosForaDoEscopo, opcoes.equipes, {
+      unidadeIdsOriginais: valores.unidadeIds, unidades: opcoes.unidades,
+      possuiUnidadeAtivaForaDoEscopo: opcoes.possuiUnidadeAtivaForaDoEscopo,
+    })) });
   const { control, handleSubmit, reset, formState: { defaultValues, errors, isDirty, isSubmitting } } = formulario;
   const [unidadeIds, equipeIds] = useWatch({ control, name: ["unidadeIds", "equipeIds"] });
   const versao = valores.atualizadoEm;

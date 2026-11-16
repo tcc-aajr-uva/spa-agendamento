@@ -10,11 +10,13 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { erroDeUnidadeDasEquipes, erroDeRemocaoDaUltimaUnidadeAtiva } from "@/lib/usuario/regras-vinculos";
 import { CamposVinculosUsuario, type OpcoesVinculosUsuario } from "../campos-vinculos-usuario";
 import type { CamposEdicaoUsuario } from "../formulario-usuario-schema";
 
 export type OpcoesEdicaoUsuario = OpcoesVinculosUsuario & {
   possuiVinculosForaDoEscopo: boolean;
+  possuiUnidadeAtivaForaDoEscopo?: boolean;
 };
 
 export function FormularioEdicaoUsuario({ formulario, acao, aoEnviar, aoAlterar, valores, unidadeIds, equipeIds, bloqueado, enviando,
@@ -30,7 +32,12 @@ export function FormularioEdicaoUsuario({ formulario, acao, aoEnviar, aoAlterar,
   enviando: boolean;
 }) {
   const id = useId();
-  const { register, setValue, formState: { errors, defaultValues } } = formulario;
+  const { register, setValue, trigger, formState: { errors, defaultValues } } = formulario;
+  const erroDeUnidade = erroDeUnidadeDasEquipes(unidadeIds, equipeIds, opcoes.equipes);
+  const erroDeRemocao = erroDeRemocaoDaUltimaUnidadeAtiva(unidadeIds, {
+    unidadeIdsOriginais: valores.unidadeIds, unidades: opcoes.unidades,
+    possuiUnidadeAtivaForaDoEscopo: opcoes.possuiUnidadeAtivaForaDoEscopo,
+  });
 
   return (
     <form action={acao} noValidate onSubmit={aoEnviar}>
@@ -62,14 +69,16 @@ export function FormularioEdicaoUsuario({ formulario, acao, aoEnviar, aoAlterar,
               )}
             </FieldSet>
             <CamposVinculosUsuario {...opcoes} unidadeIds={unidadeIds} equipeIds={equipeIds} bloqueado={bloqueado}
-              erros={{ unidadeIds: errors.unidadeIds?.message, equipeIds: errors.equipeIds?.message }}
+              erros={{ unidadeIds: erroDeRemocao ?? errors.unidadeIds?.message, equipeIds: errors.equipeIds?.message }}
               aoAlterar={(campo, ids) => {
-                setValue(campo, ids, { shouldDirty: true, shouldValidate: true }); aoAlterar();
+                setValue(campo, ids, { shouldDirty: true });
+                void trigger(["unidadeIds", "equipeIds"]);
+                aoAlterar();
               }} />
           </FieldGroup>
         </CardContent>
         <CardFooter className="justify-end">
-          <Button size="lg" disabled={bloqueado} type="submit">
+          <Button size="lg" disabled={bloqueado || !!erroDeUnidade || !!erroDeRemocao} type="submit">
             {enviando ? "Salvando…" : "Salvar alterações"}
           </Button>
         </CardFooter>

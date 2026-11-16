@@ -69,11 +69,14 @@ export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAu
         unidades: {
           where: {
             ativo: true,
-            unidade: { ativa: true },
-            AND: [filtroDeVinculosDeUnidadeGerenciaveis(autor)],
+            AND: [autor.perfil === "SUPERVISOR"
+              ? { equipes: { some: {
+                ativo: true, equipe: { ativa: true }, AND: [filtroDeVinculosDeEquipeGerenciaveis(autor)],
+              } } }
+              : filtroDeVinculosDeUnidadeGerenciaveis(autor)],
           },
           orderBy: { unidade: { nome: "asc" } },
-          select: { unidade: { select: { nome: true } } },
+          select: { unidade: { select: { nome: true, ativa: true } } },
         },
         equipes: {
           where: {
@@ -102,7 +105,7 @@ export async function listarUsuarios(entrada: FiltrosUsuarios, autor: ContextoAu
       ativo: usuario.ativo,
       estadoAcesso: determinarEstadoAcesso(usuario, agora),
       podeGerenciar: perfisGerenciados.some((perfil) => perfil === usuario.perfil),
-      unidades: usuario.unidades.map(({ unidade }) => unidade.nome),
+      unidades: usuario.unidades.map(({ unidade }) => `${unidade.nome}${unidade.ativa ? "" : " — Inativa"}`),
       equipes: usuario.equipes.map(({ equipe }) =>
         usuario.perfil === "ESTAGIARIO" && equipe.supervisorId === null
           ? `${equipe.nome} — Sem supervisor`

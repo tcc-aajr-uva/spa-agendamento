@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast";
 import { rotuloDoPerfil } from "@/lib/usuario/rotulos";
+import { erroDeUnidadeDasEquipes } from "@/lib/usuario/regras-vinculos";
 import { CamposVinculosUsuario, type OpcoesVinculosUsuario } from "./campos-vinculos-usuario";
 import type { EstadoCriacaoUsuario } from "./estado-usuario";
 import { formDataDoUsuario, formularioCriacaoUsuarioSchema, type CamposCriacaoUsuario } from "./formulario-usuario-schema";
@@ -37,18 +38,21 @@ function FormularioUsuarioInterno({ acao, configuracoes, exigeEquipe, cadastrarO
   const [estado, enviar, enviando] = useActionState(acao, { status: "inicial" });
   const criacaoNotificada = useRef(false);
   const [erroOculto, ocultarErro] = useState<EstadoCriacaoUsuario | null>(null);
-  const { control, register, handleSubmit, setValue, clearErrors, formState: { errors, isSubmitting } } =
+  const { control, register, handleSubmit, setValue, clearErrors, trigger, formState: { errors, isSubmitting } } =
     useForm<CamposCriacaoUsuario>({
       defaultValues: { nome: "", email: "", perfil: configuracoes[0]?.perfil, unidadeIds: [], equipeIds: [] },
-      resolver: zodResolver(formularioCriacaoUsuarioSchema.superRefine(({ equipeIds }, contexto) => {
+      resolver: zodResolver(formularioCriacaoUsuarioSchema.superRefine(({ perfil, unidadeIds, equipeIds }, contexto) => {
         if (exigeEquipe && equipeIds.length === 0) contexto.addIssue({
           code: "custom", path: ["equipeIds"], message: "Selecione uma equipe sob sua responsabilidade.",
         });
+        const erroDeUnidade = erroDeUnidadeDasEquipes(unidadeIds, equipeIds, configuracoes.find((item) => item.perfil === perfil)?.equipes ?? []);
+        if (erroDeUnidade) contexto.addIssue({ code: "custom", path: ["equipeIds"], message: erroDeUnidade });
       })),
     });
   const perfil = useWatch({ control, name: "perfil" });
   const configuracao = configuracoes.find((item) => item.perfil === perfil);
   const [unidadeIds, equipeIds] = useWatch({ control, name: ["unidadeIds", "equipeIds"] });
+  const erroDeUnidade = erroDeUnidadeDasEquipes(unidadeIds, equipeIds, configuracao?.equipes ?? []);
   const perfis = configuracoes.map(({ perfil }) => ({ value: perfil, label: rotuloDoPerfil(perfil) }));
   const bloqueado = enviando || isSubmitting;
   const aoAlterar = () => { if (estado.status === "erro") ocultarErro(estado); };
@@ -116,11 +120,15 @@ function FormularioUsuarioInterno({ acao, configuracoes, exigeEquipe, cadastrarO
               {configuracao && <CamposVinculosUsuario {...configuracao} unidadeIds={unidadeIds} equipeIds={equipeIds}
                 exigeEquipe={exigeEquipe} bloqueado={bloqueado}
                 erros={{ unidadeIds: errors.unidadeIds?.message, equipeIds: errors.equipeIds?.message }}
-                aoAlterar={(campo, ids) => { setValue(campo, ids, { shouldDirty: true, shouldValidate: true }); aoAlterar(); }} />}
+                aoAlterar={(campo, ids) => {
+                  setValue(campo, ids, { shouldDirty: true });
+                  void trigger(["unidadeIds", "equipeIds"]);
+                  aoAlterar();
+                }} />}
             </FieldGroup>
           </CardContent>
           <CardFooter className="justify-end">
-            <Button size="lg" disabled={bloqueado || !configuracao?.unidades.length} type="submit">
+            <Button size="lg" disabled={bloqueado || !configuracao?.unidades.length || !!erroDeUnidade} type="submit">
               {enviando ? "Criando…" : "Criar usuário e gerar convite"}
             </Button>
           </CardFooter>

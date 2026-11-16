@@ -1,5 +1,29 @@
 import type { Perfil } from "@/generated/prisma/client";
 
+export const ERRO_REMOCAO_ULTIMA_UNIDADE_ATIVA = "Não é possível remover a última unidade ativa. Vincule outra unidade ativa antes de salvar.";
+
+export type RegrasEdicaoUnidades = {
+  unidadeIdsOriginais: readonly string[];
+  unidades: readonly { id: string; disponivel: boolean }[];
+  possuiUnidadeAtivaForaDoEscopo?: boolean;
+};
+
+export function erroDeRemocaoDaUltimaUnidadeAtiva(unidadeIds: readonly string[], regras: RegrasEdicaoUnidades): string | null {
+  if (regras.possuiUnidadeAtivaForaDoEscopo) return null;
+  const retirouAtiva = regras.unidades.some((unidade) => unidade.disponivel &&
+    regras.unidadeIdsOriginais.includes(unidade.id) && !unidadeIds.includes(unidade.id));
+  const manteveAtiva = regras.unidades.some((unidade) => unidade.disponivel && unidadeIds.includes(unidade.id));
+  return retirouAtiva && !manteveAtiva ? ERRO_REMOCAO_ULTIMA_UNIDADE_ATIVA : null;
+}
+
+export function erroDeUnidadeDasEquipes(
+  unidadeIds: readonly string[], equipeIds: readonly string[], equipes: readonly { id: string; unidadeId: string }[],
+): string | null {
+  return equipeIds.some((id) => !equipes.some((equipe) => equipe.id === id && unidadeIds.includes(equipe.unidadeId)))
+    ? "Remova os vínculos com as equipes desta unidade antes de salvar."
+    : null;
+}
+
 export function erroDeFormatoDosVinculos(
   perfil: Perfil, unidadeIds: string[], equipeIds: string[], exigeUnidade = true,
 ): { campo: "unidadeIds" | "equipeIds"; mensagem: string } | null {

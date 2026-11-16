@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { atualizacaoUsuarioSchema, novoUsuarioSchema } from "@/lib/usuario/dados-usuario";
-import { erroDeFormatoDosVinculos } from "@/lib/usuario/regras-vinculos";
+import { erroDeFormatoDosVinculos, erroDeUnidadeDasEquipes, erroDeRemocaoDaUltimaUnidadeAtiva, type RegrasEdicaoUnidades } from "@/lib/usuario/regras-vinculos";
 import type { PerfilCriavel } from "@/lib/usuario/hierarquia";
 
 export const versaoUsuarioSchema = z.iso.datetime("Versão inválida. Atualize a página.");
@@ -19,10 +19,17 @@ export const formularioEdicaoUsuarioSchema = atualizacaoUsuarioSchema.extend({
   atualizadoEm: versaoUsuarioSchema,
 });
 
-export function schemaEdicaoUsuario(perfil: PerfilCriavel, possuiVinculosForaDoEscopo: boolean) {
+export function schemaEdicaoUsuario(
+  perfil: PerfilCriavel, possuiVinculosForaDoEscopo: boolean, equipes: readonly { id: string; unidadeId: string }[],
+  regrasUnidades?: RegrasEdicaoUnidades,
+) {
   return formularioEdicaoUsuarioSchema.superRefine(({ unidadeIds, equipeIds }, contexto) => {
     const erro = erroDeFormatoDosVinculos(perfil, unidadeIds, equipeIds, !possuiVinculosForaDoEscopo);
     if (erro) contexto.addIssue({ code: "custom", path: [erro.campo], message: erro.mensagem });
+    const erroDeUnidade = erroDeUnidadeDasEquipes(unidadeIds, equipeIds, equipes);
+    if (erroDeUnidade) contexto.addIssue({ code: "custom", path: ["equipeIds"], message: erroDeUnidade });
+    const erroDeRemocao = regrasUnidades && erroDeRemocaoDaUltimaUnidadeAtiva(unidadeIds, regrasUnidades);
+    if (erroDeRemocao) contexto.addIssue({ code: "custom", path: ["unidadeIds"], message: erroDeRemocao });
   });
 }
 

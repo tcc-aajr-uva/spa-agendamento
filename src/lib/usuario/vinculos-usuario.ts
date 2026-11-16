@@ -4,11 +4,11 @@ import type { Perfil, Prisma } from "@/generated/prisma/client";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import type { Transacao } from "@/lib/transacao";
-import { erroDeFormatoDosVinculos } from "./regras-vinculos";
+import { erroDeFormatoDosVinculos, erroDeUnidadeDasEquipes } from "./regras-vinculos";
 
 export type VinculosResolvidos = {
   unidadeIds: string[];
-  equipes: { id: string; unidadeId: string }[];
+  equipes: { id: string; unidadeId: string; ativa: boolean; unidadeAtiva: boolean }[];
 };
 
 export async function atribuirSupervisor(
@@ -90,7 +90,13 @@ export async function resolverVinculos(
   }
 
   const unidades = await tx.unidade.findMany({
-    where: { id: { in: unidadeIds }, ativa: true },
+    where: {
+      id: { in: unidadeIds },
+      OR: [
+        { ativa: true },
+        ...(usuarioIdAtual ? [{ usuarios: { some: { usuarioId: usuarioIdAtual, ativo: true } } }] : []),
+      ],
+    },
     select: { id: true },
   });
   if (unidades.length !== unidadeIds.length) {
@@ -113,21 +119,14 @@ export async function resolverVinculos(
   const equipes = await tx.equipe.findMany({
     where: {
       id: { in: equipeIds },
-      ativa: true,
-      unidade: { ativa: true },
-      AND: [whereDeEscopo],
-      ...(exigeSupervisorResponsavel
-        ? {
-            OR: [
-              { supervisorId: { not: null } },
-              ...(usuarioIdAtual
-                ? [{ membros: { some: { usuarioId: usuarioIdAtual, ativo: true } } }]
-                : []),
-            ],
-          }
-        : {}),
+      AND: [whereDeEscopo, { OR: [
+        { ativa: true, unidade: { ativa: true }, ...(exigeSupervisorResponsavel ? { supervisorId: { not: null } } : {}) },
+        ...(usuarioIdAtual ? [{ membros: { some: {
+          usuarioId: usuarioIdAtual, ativo: true, vinculoUnidade: { ativo: true },
+        } } }] : []),
+      ] }],
     },
-    select: { id: true, unidadeId: true, supervisorId: true },
+    select: { id: true, unidadeId: true, ativa: true, supervisorId: true, unidade: { select: { ativa: true } } },
   });
 
   if (equipes.length !== equipeIds.length) {
@@ -135,19 +134,18 @@ export async function resolverVinculos(
   }
   if (
     perfil === "SUPERVISOR" &&
-    equipes.some(({ supervisorId }) => supervisorId !== null && supervisorId !== usuarioIdAtual)
+    equipes.some(({ ativa, unidade, supervisorId }) => ativa && unidade.ativa && supervisorId !== null && supervisorId !== usuarioIdAtual)
   ) {
     throw new ErroDeRegra("EQUIPE_COM_SUPERVISOR", "Uma das equipes já possui supervisor responsável.");
   }
-  if (equipes.some(({ unidadeId }) => !unidadeIds.includes(unidadeId))) {
-    throw new ErroDeRegra("DADOS_INVALIDOS", "As equipes devem pertencer às unidades selecionadas.");
-  }
+  const erroDeUnidade = erroDeUnidadeDasEquipes(unidadeIds, equipeIds, equipes);
+  if (erroDeUnidade) throw new ErroDeRegra("DADOS_INVALIDOS", erroDeUnidade);
   if (autor.perfil === "SUPERVISOR" && !usuarioIdAtual && equipes.length === 0) {
     throw new ErroDeRegra("DADOS_INVALIDOS", "Selecione uma equipe sob sua responsabilidade para cadastrar o estagiário.");
   }
 
   return {
     unidadeIds,
-    equipes: equipes.map(({ id, unidadeId }) => ({ id, unidadeId })),
+    equipes: equipes.map(({ id, unidadeId, ativa, unidade }) => ({ id, unidadeId, ativa, unidadeAtiva: unidade.ativa })),
   };
 }

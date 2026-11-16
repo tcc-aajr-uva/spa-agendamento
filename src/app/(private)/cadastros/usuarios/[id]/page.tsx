@@ -69,6 +69,7 @@ async function ConteudoUsuario({ params, searchParams }: Props) {
         perfil={usuario.perfil}
         unidadesFixas={autor.perfil === "SUPERVISOR"}
         possuiVinculosForaDoEscopo={usuario.possuiVinculosForaDoEscopo}
+        possuiUnidadeAtivaForaDoEscopo={usuario.possuiUnidadeAtivaForaDoEscopo}
         valores={{ nome: usuario.nome, atualizadoEm: usuario.atualizadoEm.toISOString(),
           unidadeIds: usuario.unidadeIds,
           equipeIds: usuario.equipeIds }}
