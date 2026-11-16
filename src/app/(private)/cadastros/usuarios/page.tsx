@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { listarUsuarios } from "@/lib/usuario/listar-usuarios";
-import { rotuloDoEstadoAcesso, rotuloDoPerfil } from "@/lib/usuario/rotulos";
+import { rotuloDasUnidades, rotuloDoEstadoAcesso, rotuloDoPerfil } from "@/lib/usuario/rotulos";
 import { situacaoListagemUsuarioSchema } from "@/lib/usuario/situacao-listagem";
 import { perfisDaRota } from "../../menu";
 import { FiltrosUsuarios } from "./filtros-usuarios";
@@ -95,7 +95,7 @@ async function ListaUsuarios({ searchParams }: Props) {
                 </TableCell>
                 <TableCell className="max-w-sm whitespace-normal text-muted-foreground">
                   <div className="space-y-1">
-                    <p>Unidades: {usuario.unidades.join(", ") || "nenhuma"}</p>
+                    <p>Unidades: {rotuloDasUnidades(usuario.perfil, usuario.unidades)}</p>
                     {usuario.equipes.length > 0 && <p>Equipes: {usuario.equipes.join(", ")}</p>}
                   </div>
                 </TableCell>

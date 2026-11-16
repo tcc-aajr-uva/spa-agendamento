@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { Prisma } from "@/generated/prisma/client";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { horarioNaGrade } from "@/lib/agendamento/regras";
 import { ErroDeRegra } from "@/lib/erros";
@@ -99,6 +100,8 @@ export async function alterarAtivacaoUnidade(
     if (unidade.atualizadoEm.getTime() !== versao.getTime()) throw new VersaoDesatualizadaDaUnidade();
     if (unidade.ativa === ativa) return unidade.atualizadoEm;
 
+    if (!ativa) await validarUsuariosAntesDeInativar(tx, unidadeId);
+
     const atualizacao = await tx.unidade.updateMany({
       where: { id: unidadeId, atualizadoEm: versao },
       data: { ativa },
@@ -111,6 +114,30 @@ export async function alterarAtivacaoUnidade(
     });
     return unidadeAtualizada.atualizadoEm;
   });
+}
+
+async function validarUsuariosAntesDeInativar(tx: Transacao, unidadeId: string): Promise<void> {
+  const where: Prisma.UsuarioWhereInput = {
+    ativo: true,
+    perfil: { not: "ADMINISTRADOR" },
+    unidades: {
+      some: { unidadeId, ativo: true },
+      none: { unidadeId: { not: unidadeId }, ativo: true, unidade: { ativa: true } },
+    },
+  };
+  const total = await tx.usuario.count({ where });
+  if (total === 0) return;
+
+  const usuarios = await tx.usuario.findMany({
+    where, orderBy: [{ nome: "asc" }, { id: "asc" }], take: 5, select: { nome: true },
+  });
+  const afetados = `${usuarios.map(({ nome }) => nome).join(", ")}${total > usuarios.length ? " e outros" : ""}`;
+  throw new ErroDeRegra(
+    "DADOS_INVALIDOS",
+    `Não é possível inativar esta unidade: ela é a única unidade ativa de ${total} ${total === 1 ? "usuário ativo" : "usuários ativos"}. ` +
+    `Usuários afetados: ${afetados}. Na tela Usuários, vincule esses usuários a outra unidade ativa, quando permitido, ` +
+    "ou inative suas contas antes de tentar novamente. Os vínculos e o histórico serão preservados.",
+  );
 }
 
 function validar(entrada: DadosUnidade) {

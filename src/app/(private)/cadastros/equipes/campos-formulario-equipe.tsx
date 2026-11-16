@@ -12,7 +12,7 @@ import type { ControleFormularioEquipe } from "./formulario-equipe";
 export type OpcoesCamposEquipe = {
   unidades?: { id: string; nome: string }[];
   unidadeFixa?: string;
-  supervisores: { id: string; nome: string; email: string; unidadeIds: string[]; qualquerUnidade: boolean }[];
+  supervisores: { id: string; nome: string; email: string; unidadeIds: string[] }[];
   supervisorAtualNome?: string;
   somenteLeitura?: boolean;
 };
@@ -26,7 +26,7 @@ export function CamposFormularioEquipe({
   const [unidadeId, supervisorId] = useWatch({ control, name: ["unidadeId", "supervisorId"] });
   const id = useId();
   const editando = unidadeFixa !== undefined;
-  const supervisoresDisponiveis = supervisores.filter((supervisor) => supervisor.qualquerUnidade || supervisor.unidadeIds.includes(unidadeId));
+  const supervisoresDisponiveis = supervisores.filter((supervisor) => supervisor.unidadeIds.includes(unidadeId));
   const responsavelIndisponivel = supervisorId !== null && !supervisoresDisponiveis.some((supervisor) => supervisor.id === supervisorId);
   const opcoesUnidades = unidades.map((unidade) => ({ value: unidade.id, label: unidade.nome }));
   const opcoesSupervisores = [
