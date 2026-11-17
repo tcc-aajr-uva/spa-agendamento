@@ -13,7 +13,7 @@ export async function listarListaEspera(usuario: ContextoAutorizacao, { equipeId
   const equipes = await prisma.equipe.findMany({
     where: usuario.perfil === "ESTAGIARIO" ? { id: { in: usuario.equipes }, ativa: true } : { ...filtroDeUnidades(usuario), ativa: true },
     orderBy: [{ unidade: { nome: "asc" } }, { nome: "asc" }],
-    select: { id: true, nome: true, unidade: { select: { nome: true } } },
+    select: { id: true, nome: true, unidadeId: true, unidade: { select: { nome: true } } },
   });
   const equipe = equipes.find((candidata) => candidata.id === equipeId) ?? equipes[0];
   if (!equipe) return { equipes, equipe: null, inscricoes: [], total: 0 };
@@ -25,7 +25,11 @@ export async function listarListaEspera(usuario: ContextoAutorizacao, { equipeId
       orderBy: [{ inscritoEm: "asc" }, { id: "asc" }],
       skip: (pagina - 1) * tamanho,
       take: tamanho,
-      select: { id: true, inscritoEm: true, paciente: { select: { nome: true, telefone: true } } },
+      select: {
+        id: true,
+        inscritoEm: true,
+        paciente: { select: { nome: true, telefone: true, email: true, dataNascimento: true, responsavelNome: true } },
+      },
     }),
     prisma.listaEspera.count({ where }),
   ]);

@@ -14,7 +14,7 @@ function Segmento({ ativo, href, children }: { ativo: boolean; href: string; chi
       href={href}
       scroll={false}
       aria-current={ativo ? "page" : undefined}
-      className={`rounded-md px-3 py-1.5 text-sm ${ativo ? "bg-background font-medium shadow-sm" : "text-muted-foreground"}`}
+      className={`rounded-md px-3 py-1.5 text-sm ${ativo ? "bg-background font-medium shadow-sm" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}
     >
       {children}
     </Link>

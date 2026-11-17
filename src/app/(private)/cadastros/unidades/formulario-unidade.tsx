@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2Icon } from "lucide-react";
 import {
   startTransition,
   useActionState,
@@ -236,6 +237,7 @@ export function FormularioUnidadeControlado({
         </CardContent>
         <CardFooter className="justify-end">
           <Button size="lg" disabled={bloqueado} type="submit">
+            {enviando && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
             {enviando ? "Salvando…" : rotuloBotao}
           </Button>
         </CardFooter>

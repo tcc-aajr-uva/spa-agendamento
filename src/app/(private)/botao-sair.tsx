@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2Icon, LogOutIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -31,12 +32,31 @@ export function BotaoSair({ className }: { className?: string }) {
   }
 
   return (
-    <div className="space-y-1">
-      <Button className={className} variant="outline" disabled={saindo} onClick={sair} type="button" data-aviso-saida>
-        {saindo ? "Saindo…" : "Sair"}
+    <div className="relative">
+      <Button
+        className={className}
+        variant="outline"
+        disabled={saindo}
+        aria-busy={saindo}
+        onClick={sair}
+        type="button"
+        data-aviso-saida
+      >
+        {saindo ? (
+          <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />
+        ) : (
+          <LogOutIcon data-icon="inline-start" aria-hidden className="size-4" />
+        )}
+        Sair
+        <span className="sr-only" aria-live="polite">
+          {saindo ? "Saindo…" : ""}
+        </span>
       </Button>
       {erro && (
-        <p className="text-sm text-destructive" aria-live="polite">
+        <p
+          className="absolute top-full right-0 z-10 mt-2 w-max max-w-64 rounded-md border bg-popover px-3 py-2 text-sm text-destructive shadow-md"
+          aria-live="polite"
+        >
           {erro}
         </p>
       )}

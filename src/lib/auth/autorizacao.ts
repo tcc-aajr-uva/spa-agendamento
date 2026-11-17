@@ -3,10 +3,10 @@ import "server-only";
 import { redirect } from "next/navigation";
 
 import type { Perfil } from "@/generated/prisma/client";
+import { rotaInicialDoPerfil } from "@/lib/auth/rota-inicial";
 import { obterUsuarioAtual, type ContextoAutorizacao } from "@/lib/auth/sessao";
 
 export const ROTA_ENTRAR = "/entrar";
-export const ROTA_INICIO = "/inicio";
 
 export type Escopo = {
   unidadeId: string;
@@ -17,7 +17,7 @@ export type Escopo = {
 export async function exigirUsuario(perfis?: Perfil[]): Promise<ContextoAutorizacao> {
   const usuario = await obterUsuarioAtual();
   if (!usuario) redirect(ROTA_ENTRAR);
-  if (perfis && !perfis.includes(usuario.perfil)) redirect(ROTA_INICIO);
+  if (perfis && !perfis.includes(usuario.perfil)) redirect(rotaInicialDoPerfil(usuario.perfil));
   return usuario;
 }
 

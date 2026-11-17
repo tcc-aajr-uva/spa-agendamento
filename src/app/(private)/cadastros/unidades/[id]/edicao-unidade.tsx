@@ -29,7 +29,8 @@ type Props = {
   ativa: boolean;
   podeAlterarAtivacao: boolean;
   podeAlterarDadosAdministrativos: boolean;
-  periodos: ReactNode;
+  periodos?: ReactNode;
+  secao?: "dados" | "ativacao";
   valores: ValoresUnidade;
 };
 
@@ -50,6 +51,7 @@ function EdicaoUnidadeInterna({
   podeAlterarAtivacao,
   podeAlterarDadosAdministrativos,
   periodos,
+  secao,
   valores,
 }: Props) {
   const router = useRouter();
@@ -106,6 +108,25 @@ function EdicaoUnidadeInterna({
     }
   }
 
+  const formularioDados = (
+    <FormularioUnidadeControlado
+      bloqueioExterno={executandoAtivacao || possuiConflitoAtivacao}
+      controle={formulario}
+      podeAlterarDadosAdministrativos={podeAlterarDadosAdministrativos}
+      rotuloBotao="Salvar alterações"
+    />
+  );
+  const controleAtivacao = podeAlterarAtivacao && (
+    <ControleAtivacaoUnidade
+      ativa={ativa}
+      atualizadoEm={valores.atualizadoEm}
+      bloqueada={bloquearAtivacao}
+      bloqueadaPorRascunho={formulario.possuiRascunho && !possuiConflito}
+      executar={executarAtivacao}
+      executando={executandoAtivacao}
+    />
+  );
+
   return (
     <div className="space-y-6">
       <AlertasFormularioUnidade
@@ -116,32 +137,20 @@ function EdicaoUnidadeInterna({
         possuiConflito={possuiConflito}
       />
 
-      <AbasUnidade
-        bloqueada={possuiConflito}
-        dados={
-          <>
-            <FormularioUnidadeControlado
-              bloqueioExterno={executandoAtivacao || possuiConflitoAtivacao}
-              controle={formulario}
-              podeAlterarDadosAdministrativos={podeAlterarDadosAdministrativos}
-              rotuloBotao="Salvar alterações"
-            />
-            {podeAlterarAtivacao && (
-              <ControleAtivacaoUnidade
-                ativa={ativa}
-                atualizadoEm={valores.atualizadoEm}
-                bloqueada={bloquearAtivacao}
-                bloqueadaPorRascunho={
-                  formulario.possuiRascunho && !possuiConflito
-                }
-                executar={executarAtivacao}
-                executando={executandoAtivacao}
-              />
-            )}
-          </>
-        }
-        periodos={periodos}
-      />
+      {secao ? (
+        secao === "dados" ? formularioDados : controleAtivacao
+      ) : (
+        <AbasUnidade
+          bloqueada={possuiConflito}
+          dados={
+            <>
+              {formularioDados}
+              {controleAtivacao}
+            </>
+          }
+          periodos={periodos}
+        />
+      )}
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import { criarParametrosBusca, type ParametrosBusca } from "@/lib/url/parametros-busca";
+
 export const TAMANHO_DA_PAGINA = 20;
 
 export function primeiro(valor: string | string[] | undefined): string | undefined {
@@ -16,4 +18,11 @@ export function montarHref(caminho: string, parametros: Record<string, string | 
   }
   const texto = busca.toString();
   return texto ? `${caminho}?${texto}` : caminho;
+}
+
+export function hrefDeEdicao(caminho: string, atuais: ParametrosBusca, chave: string, valor: string, remover: string[] = []): string {
+  const busca = criarParametrosBusca(atuais);
+  for (const item of remover) busca.delete(item);
+  busca.set(chave, valor);
+  return `${caminho}?${busca}`;
 }

@@ -55,7 +55,7 @@ export function SeletorDeEquipe({ equipes, atual, children }: Props) {
       )}
       <div
         aria-busy={carregando}
-        className={cn("flex flex-col gap-4 transition-opacity duration-200 ease-out motion-reduce:transition-none", carregando && "opacity-60")}
+        className={cn("flex flex-col gap-4 transition-opacity duration-200 ease-out", carregando && "opacity-60")}
       >
         {children}
       </div>

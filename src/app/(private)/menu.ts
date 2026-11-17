@@ -10,7 +10,7 @@ export type ItemMenu = {
 };
 
 export const MENU: ItemMenu[] = [
-  { href: "/inicio", rotulo: "Início", card: "esqueleto", perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "SUPERVISOR", "ESTAGIARIO"] },
+  { href: "/painel", rotulo: "Painel", card: "#4", perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "SUPERVISOR"] },
   {
     href: "/cadastros",
     rotulo: "Cadastros",
@@ -20,13 +20,11 @@ export const MENU: ItemMenu[] = [
       {
         href: "/cadastros/unidades",
         rotulo: "Unidades",
-        prefetch: false,
         perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA"],
       },
       {
         href: "/cadastros/equipes",
         rotulo: "Equipes",
-        prefetch: false,
         perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "SUPERVISOR"],
       },
       {
@@ -41,7 +39,6 @@ export const MENU: ItemMenu[] = [
   { href: "/reservas", rotulo: "Minhas reservas", card: "#2", perfis: ["ADMINISTRADOR", "ESTAGIARIO"] },
   { href: "/pacientes", rotulo: "Pacientes", card: "#3", perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "ESTAGIARIO"] },
   { href: "/lista-espera", rotulo: "Lista de espera", card: "#3", perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "ESTAGIARIO"] },
-  { href: "/painel", rotulo: "Painel", card: "#4", perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA"] },
 ];
 
 export function perfisDaRota(href: string): Perfil[] {

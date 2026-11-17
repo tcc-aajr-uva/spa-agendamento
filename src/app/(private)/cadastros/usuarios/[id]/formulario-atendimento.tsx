@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2Icon } from "lucide-react";
 import { useActionState, useContext, useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -92,6 +93,7 @@ function CamposAtendimento({ valores, estado, enviar, enviando }: Omit<Props, "a
       </Field>
       <div className="flex justify-end">
         <Button type="submit" disabled={bloqueado}>
+          {enviando && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
           {enviando ? "Salvando…" : "Salvar configuração de atendimento"}
         </Button>
       </div>

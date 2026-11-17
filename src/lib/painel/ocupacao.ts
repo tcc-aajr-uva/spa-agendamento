@@ -1,7 +1,7 @@
 import "server-only";
 
 import { chaveSala, estaOcupando, hojeNoBrasil } from "@/lib/agendamento/regras";
-import { filtroDeIdsDasUnidades, podeAcessar } from "@/lib/auth/autorizacao";
+import { filtroDeIdsDasUnidades } from "@/lib/auth/autorizacao";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { prisma } from "@/lib/prisma";
 
@@ -26,7 +26,7 @@ export async function obterGradeDeOcupacao(
   diaSemana: number,
   agora: Date,
 ): Promise<GradeDeOcupacao> {
-  if (!podeAcessar(usuario, { unidadeId })) return { salas: [], linhas: [] };
+  if (usuario.perfil !== "ADMINISTRADOR" && !usuario.unidades.includes(unidadeId)) return { salas: [], linhas: [] };
 
   const [salas, agendamentos] = await Promise.all([
     prisma.sala.findMany({ where: { unidadeId, ativa: true }, select: { id: true, nome: true } }),

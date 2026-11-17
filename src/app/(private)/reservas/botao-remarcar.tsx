@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2Icon } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -71,6 +72,7 @@ export function BotaoRemarcarReserva({ agendamentoId, descricao, horarios }: { a
         <div className="flex gap-2">
           {horarios.length > 0 && (
             <Button type="submit" size="sm" disabled={enviando}>
+              {enviando && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
               {enviando ? "Salvando…" : "Salvar remarcação"}
             </Button>
           )}

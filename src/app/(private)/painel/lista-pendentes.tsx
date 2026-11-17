@@ -17,7 +17,7 @@ function formatarPrazo(prazo: Date): string {
   return `até ${formatoData.format(prazo)}, ${formatoHora.format(prazo)}`;
 }
 
-export function ListaPendentes({ pendentes }: { pendentes: Pendente[] }) {
+export function ListaPendentes({ pendentes, podeLiberar }: { pendentes: Pendente[]; podeLiberar: boolean }) {
   return (
     <div className="rounded-xl border bg-card p-6 shadow-sm">
       <h2 className="mb-4 text-xl font-semibold">Pendentes perto de vencer</h2>
@@ -35,7 +35,7 @@ export function ListaPendentes({ pendentes }: { pendentes: Pendente[] }) {
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-destructive">{formatarPrazo(pendente.prazoConfirmacao)}</span>
-                <BotoesPendente agendamentoId={pendente.id} />
+                {podeLiberar && <BotoesPendente agendamentoId={pendente.id} />}
               </div>
             </li>
           ))}

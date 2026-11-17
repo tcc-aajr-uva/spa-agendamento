@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2Icon } from "lucide-react";
 import { createContext, type ReactNode, useActionState, useContext, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,7 @@ export function BotaoTrocarHorario({ horario, dias, horas }: { horario: Horario 
         </div>
         <div className="flex gap-2">
           <Button type="submit" size="sm" disabled={enviando}>
+            {enviando && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
             {enviando ? "Salvando…" : "Salvar troca"}
           </Button>
           <Button type="button" variant="ghost" size="sm" onClick={() => setAberto(false)}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { TriangleAlertIcon } from "lucide-react";
+import { TriangleAlertIcon, Loader2Icon } from "lucide-react";
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ export function AlertaConflito({ titulo, descricao, carregando, bloqueado = fals
           disabled={bloqueado || carregando}
           onClick={onCarregar}
         >
+          {carregando && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
           {carregando ? "Carregando…" : "Carregar"}
         </Button>
       </AlertAction>

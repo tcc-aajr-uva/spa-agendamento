@@ -2,7 +2,7 @@
 
 import { startTransition, useActionState, useEffect, useId, useLayoutEffect, useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { LockKeyholeIcon, TriangleAlertIcon } from "lucide-react";
+import { LockKeyholeIcon, TriangleAlertIcon, Loader2Icon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
@@ -189,6 +189,7 @@ function FormularioPeriodoInterno({
           {podeSalvar && (
             <CardFooter className="justify-end">
               <Button size="lg" type="submit" disabled={bloquearEnvio || isSubmitting}>
+                {enviando && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
                 {enviando ? "Salvando…" : valores === PADRAO ? "Criar período" : "Salvar alterações"}
               </Button>
             </CardFooter>

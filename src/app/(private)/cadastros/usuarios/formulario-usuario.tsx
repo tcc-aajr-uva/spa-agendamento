@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2Icon } from "lucide-react";
 import { startTransition, useActionState, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -129,6 +130,7 @@ function FormularioUsuarioInterno({ acao, configuracoes, exigeEquipe, cadastrarO
           </CardContent>
           <CardFooter className="justify-end">
             <Button size="lg" disabled={bloqueado || !configuracao?.unidades.length || !!erroDeUnidade} type="submit">
+              {enviando && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
               {enviando ? "Criando…" : "Criar usuário e gerar convite"}
             </Button>
           </CardFooter>

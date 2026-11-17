@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2Icon } from "lucide-react";
 import { useActionState, useEffect, useLayoutEffect, useState } from "react";
 
 import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
@@ -44,6 +45,7 @@ function AcoesConviteInternas({ acao, estadoAcesso }: Props) {
           type="submit"
           value="GERAR"
         >
+          {executando && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
           {executando ? "Processando…" : estadoAcesso === "SEM_CONVITE" ? "Gerar convite" : "Gerar novo convite"}
         </Button>
         {estadoAcesso === "CONVITE_PENDENTE" && (
