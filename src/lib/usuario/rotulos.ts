@@ -13,6 +13,11 @@ export function rotuloDoPerfil(perfil: Perfil): string {
   return ROTULOS_PERFIL[perfil];
 }
 
+export function rotuloDasUnidades(perfil: Perfil, unidades: readonly string[]): string {
+  if (unidades.length > 0) return unidades.join(", ");
+  return perfil === "ADMINISTRADOR" ? "nenhuma" : "cadastro sem unidade — requer correção";
+}
+
 const ROTULOS_ESTADO_ACESSO: Record<EstadoAcessoUsuario, string> = {
   ATIVO: "Ativo",
   INATIVO: "Inativo",

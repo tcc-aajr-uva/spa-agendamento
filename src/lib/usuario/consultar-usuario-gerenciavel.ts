@@ -34,11 +34,11 @@ export async function consultarUsuarioGerenciavel(usuarioId: string, autor: Cont
         select: { expiraEm: true, usadoEm: true, revogadoEm: true },
       },
       unidades: {
-        where: { ativo: true, unidade: { ativa: true } },
-        select: { unidadeId: true },
+        where: { ativo: true },
+        select: { unidadeId: true, unidade: { select: { ativa: true } } },
       },
       equipes: {
-        where: { ativo: true, vinculoUnidade: { ativo: true }, equipe: { ativa: true } },
+        where: { ativo: true, vinculoUnidade: { ativo: true } },
         select: { equipeId: true, unidadeId: true, equipe: { select: { supervisorId: true } } },
       },
     },
@@ -54,7 +54,6 @@ export async function consultarUsuarioGerenciavel(usuarioId: string, autor: Cont
   const equipesGerenciaveis = usuario.equipes.filter(({ equipeId, unidadeId, equipe }) =>
     podeGerenciarVinculoDeEquipe(autor, { equipeId, unidadeId, supervisorId: equipe.supervisorId }),
   );
-  const perfilPorUnidade = perfil.data === "COORDENACAO" || perfil.data === "SECRETARIA";
 
   return {
     id: usuario.id,
@@ -65,9 +64,9 @@ export async function consultarUsuarioGerenciavel(usuarioId: string, autor: Cont
     atualizadoEm: usuario.atualizadoEm,
     estadoAcesso: determinarEstadoAcesso(usuario, agora),
     podeAlterarAcesso: podeAlterarAcessoDoUsuario(autor, todasAsUnidades),
-    possuiVinculosForaDoEscopo: perfilPorUnidade
-      ? unidadesGerenciaveis.length < usuario.unidades.length
-      : equipesGerenciaveis.length < usuario.equipes.length,
+    possuiVinculosForaDoEscopo: unidadesGerenciaveis.length < usuario.unidades.length || equipesGerenciaveis.length < usuario.equipes.length,
+    possuiUnidadeAtivaForaDoEscopo: usuario.unidades.some(({ unidadeId, unidade }) =>
+      unidade.ativa && !podeGerenciarVinculoDeUnidade(autor, unidadeId)),
     unidadeIds: unidadesGerenciaveis.map(({ unidadeId }) => unidadeId),
     equipeIds: equipesGerenciaveis.map(({ equipeId }) => equipeId),
   };

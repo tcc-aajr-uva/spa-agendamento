@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { LockKeyholeIcon } from "lucide-react";
+import { LockKeyholeIcon, Loader2Icon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,7 @@ export function ControleExclusaoPeriodo({ executar, valores, motivosBloqueio, ex
         <CardFooter className="justify-end">
           <AlertDialog open={confirmacaoAberta} onOpenChange={(aberta) => definirVersaoConfirmada(aberta && podeExcluir ? valores : null)}>
             <AlertDialogTrigger render={<Button variant="destructive" type="button" disabled={!podeExcluir} aria-describedby={bloqueado ? descricaoId : undefined} />}>
+              {excluindo && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
               {excluindo ? "Excluindo…" : "Excluir período"}
             </AlertDialogTrigger>
             <AlertDialogContent>

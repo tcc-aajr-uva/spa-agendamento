@@ -1,8 +1,8 @@
+import { Suspense } from "react";
 import Form from "next/form";
-import Link from "next/link";
-import { ChevronRightIcon } from "lucide-react";
+import { ClipboardListIcon } from "lucide-react";
+import { IndicadorCarregando } from "@/components/indicador-carregando";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { StatusAgendamento } from "@/generated/prisma/client";
@@ -17,10 +17,12 @@ import { CampoSelect } from "../campo-select";
 import { CarregandoLista } from "../carregando-lista";
 import { EstadoVazio } from "../cartao";
 import { formatarDataHora } from "../formatar";
+import { BotaoEdicao, ModalEdicao } from "../modal-edicao";
 import { PaginaModulo } from "../pagina-modulo";
 import { Paginacao } from "../paginacao";
-import { montarHref, numeroDaPagina, primeiro, TAMANHO_DA_PAGINA } from "../parametros";
+import { hrefDeEdicao, montarHref, numeroDaPagina, primeiro, TAMANHO_DA_PAGINA } from "../parametros";
 import { perfisDaRota } from "../menu";
+import { DetalhePaciente } from "./[id]/detalhe-paciente";
 import { EncerrarPeriodo } from "./encerrar-periodo";
 
 type Busca = PageProps<"/pacientes">["searchParams"];
@@ -76,6 +78,8 @@ async function Pacientes({ busca }: { busca: Busca }) {
 
   const veEquipe = usuario.perfil !== "ESTAGIARIO";
   const href = (novaPagina: number) => montarHref("/pacientes", { equipe: equipeId, estagiario: estagiarioId, pagina: novaPagina });
+  const atendimento = primeiro(parametros.atendimento);
+  const hrefDoAtendimento = (id: string) => hrefDeEdicao("/pacientes", parametros, "atendimento", id);
   const linhas: LinhaDePaciente[] = agendamentos.map((agendamento) => {
     const pendente = agendamento.status === "PENDENTE";
     return {
@@ -99,11 +103,18 @@ async function Pacientes({ busca }: { busca: Busca }) {
         <EstadoVazio>Nenhum paciente ativo.</EstadoVazio>
       ) : (
         <>
-          <TabelaDePacientes linhas={linhas} veEquipe={veEquipe} />
-          <ListaDePacientes linhas={linhas} veEquipe={veEquipe} />
+          <TabelaDePacientes linhas={linhas} veEquipe={veEquipe} hrefDoAtendimento={hrefDoAtendimento} />
+          <ListaDePacientes linhas={linhas} veEquipe={veEquipe} hrefDoAtendimento={hrefDoAtendimento} />
         </>
       )}
       <Paginacao pagina={pagina} total={total} tamanho={TAMANHO_DA_PAGINA} href={href} />
+      <ModalEdicao parametro="atendimento" aberto={Boolean(atendimento)} titulo="Atendimento" limpar={["atendimento"]} largura="sm:max-w-6xl">
+        {atendimento && (
+          <Suspense fallback={<IndicadorCarregando texto="Carregando atendimento…" />}>
+            <DetalhePaciente id={atendimento} />
+          </Suspense>
+        )}
+      </ModalEdicao>
     </div>
   );
 }
@@ -113,7 +124,17 @@ function StatusDoPaciente({ status }: { status: StatusAgendamento }) {
   return <Badge variant={variante}>{rotulo}</Badge>;
 }
 
-function TabelaDePacientes({ linhas, veEquipe }: { linhas: LinhaDePaciente[]; veEquipe: boolean }) {
+type PropsLista = { linhas: LinhaDePaciente[]; veEquipe: boolean; hrefDoAtendimento: (id: string) => string };
+
+function BotaoAtendimento({ linha, hrefDoAtendimento }: { linha: LinhaDePaciente; hrefDoAtendimento: (id: string) => string }) {
+  return (
+    <BotaoEdicao parametro="atendimento" tom="editar" href={hrefDoAtendimento(linha.id)} rotulo={`Abrir atendimento de ${linha.nome}`}>
+      <ClipboardListIcon />
+    </BotaoEdicao>
+  );
+}
+
+function TabelaDePacientes({ linhas, veEquipe, hrefDoAtendimento }: PropsLista) {
   return (
     <div className="hidden overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-foreground/10 md:block">
       <Table>
@@ -125,16 +146,14 @@ function TabelaDePacientes({ linhas, veEquipe }: { linhas: LinhaDePaciente[]; ve
             {veEquipe && <TableHead>Estagiário</TableHead>}
             <TableHead>Status</TableHead>
             <TableHead>Prazo</TableHead>
-            <TableHead className="w-10" aria-label="Abrir atendimento" />
+            <TableHead className="w-20">Atendimento</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {linhas.map((linha) => (
             <TableRow key={linha.id}>
               <TableCell className="pl-4">
-                <Link className="font-medium hover:underline" href={`/pacientes/${linha.id}`}>
-                  {linha.nome}
-                </Link>
+                <p className="font-medium">{linha.nome}</p>
                 <p className="text-muted-foreground">{linha.telefone}</p>
               </TableCell>
               <TableCell>{linha.horario}</TableCell>
@@ -145,15 +164,7 @@ function TabelaDePacientes({ linhas, veEquipe }: { linhas: LinhaDePaciente[]; ve
               </TableCell>
               <TableCell className={linha.vencendo ? "font-medium text-destructive" : "text-muted-foreground"}>{linha.prazo || "—"}</TableCell>
               <TableCell>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Abrir atendimento de ${linha.nome}`}
-                  nativeButton={false}
-                  render={<Link href={`/pacientes/${linha.id}`} />}
-                >
-                  <ChevronRightIcon />
-                </Button>
+                <BotaoAtendimento linha={linha} hrefDoAtendimento={hrefDoAtendimento} />
               </TableCell>
             </TableRow>
           ))}
@@ -163,11 +174,11 @@ function TabelaDePacientes({ linhas, veEquipe }: { linhas: LinhaDePaciente[]; ve
   );
 }
 
-function ListaDePacientes({ linhas, veEquipe }: { linhas: LinhaDePaciente[]; veEquipe: boolean }) {
+function ListaDePacientes({ linhas, veEquipe, hrefDoAtendimento }: PropsLista) {
   return (
     <ItemGroup className="gap-0 divide-y overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-foreground/10 md:hidden">
       {linhas.map((linha) => (
-        <Item key={linha.id} className="rounded-none" render={<Link href={`/pacientes/${linha.id}`} />}>
+        <Item key={linha.id} className="rounded-none">
           <ItemContent>
             <ItemTitle>{linha.nome}</ItemTitle>
             <ItemDescription>
@@ -178,7 +189,7 @@ function ListaDePacientes({ linhas, veEquipe }: { linhas: LinhaDePaciente[]; veE
           </ItemContent>
           <ItemActions className="self-start">
             <StatusDoPaciente status={linha.status} />
-            <ChevronRightIcon aria-hidden className="size-4 text-muted-foreground" />
+            <BotaoAtendimento linha={linha} hrefDoAtendimento={hrefDoAtendimento} />
           </ItemActions>
         </Item>
       ))}

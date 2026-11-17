@@ -1,7 +1,9 @@
 "use client";
 
+import { Loader2Icon } from "lucide-react";
 import { useActionState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { liberarPendente, type EstadoAcao } from "./actions";
 
 const estadoInicial: EstadoAcao = { erro: null };
@@ -13,21 +15,18 @@ export function BotoesPendente({ agendamentoId }: { agendamentoId: string }) {
     <form action={acao} className="flex flex-col items-end gap-1">
       <input type="hidden" name="agendamentoId" value={agendamentoId} />
       <div className="flex gap-2">
-        <button
-          type="button"
-          disabled
-          title="Disponível quando a confirmação estiver pronta"
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-        >
+        <Button type="button" disabled title="Disponível quando a confirmação estiver pronta">
           Confirmar
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
+          variant="outline"
           disabled={enviando}
-          className="rounded-lg border px-4 py-2 text-sm font-medium disabled:opacity-50"
+          className="hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
         >
+          {enviando && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
           {enviando ? "Liberando…" : "Liberar"}
-        </button>
+        </Button>
       </div>
       {estado.erro && (
         <p role="alert" className="text-sm text-destructive">

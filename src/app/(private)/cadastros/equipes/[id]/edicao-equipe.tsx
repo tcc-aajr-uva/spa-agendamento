@@ -16,6 +16,7 @@ type Props = OpcoesCamposEquipe & {
   acaoAlterarAtivacao: AcaoEquipe;
   unidadeFixa: string;
   valores: ValoresEquipe;
+  secao?: "dados" | "ativacao";
 };
 
 export function EdicaoEquipe(props: Props) {
@@ -28,7 +29,7 @@ export function EdicaoEquipe(props: Props) {
   return <EdicaoEquipeInterna key={chave} {...props} />;
 }
 
-function EdicaoEquipeInterna({ acaoAtualizar, acaoAlterarAtivacao, valores, ...opcoes }: Props) {
+function EdicaoEquipeInterna({ acaoAtualizar, acaoAlterarAtivacao, valores, secao, ...opcoes }: Props) {
   const router = useRouter();
   const controle = useControleFormularioEquipe({ acao: acaoAtualizar, valores, editando: true });
   const [estadoAtivacao, executarAtivacao, executandoAtivacao] = useActionState(acaoAlterarAtivacao, ESTADO_INICIAL_EQUIPE);
@@ -63,10 +64,12 @@ function EdicaoEquipeInterna({ acaoAtualizar, acaoAlterarAtivacao, valores, ...o
         erroVersao={controle.errors.atualizadoEm?.message}
         erroAtivacao={estadoAtivacao.status === "erro" ? estadoAtivacao.mensagem : undefined}
       />
-      <FormularioEquipeControlado {...opcoes} controle={controle} rotuloBotao="Salvar alterações"
-        bloqueioExterno={executandoAtivacao || conflitoAtivacao || recarregandoAtivacao}
-      />
-      {!opcoes.somenteLeitura && (
+      {secao !== "ativacao" && (
+        <FormularioEquipeControlado {...opcoes} controle={controle} rotuloBotao="Salvar alterações"
+          bloqueioExterno={executandoAtivacao || conflitoAtivacao || recarregandoAtivacao}
+        />
+      )}
+      {secao !== "dados" && !opcoes.somenteLeitura && (
         <ControleAtivacaoEquipe executar={executarAtivacao} executando={executandoAtivacao}
           ativa={valores.ativa} atualizadoEm={valores.atualizadoEm}
           bloqueado={controle.bloqueado || controle.possuiRascunho || conflito || executandoAtivacao}

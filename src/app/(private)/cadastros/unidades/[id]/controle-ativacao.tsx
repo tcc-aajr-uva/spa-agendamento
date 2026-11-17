@@ -13,11 +13,11 @@ type Props = {
 
 const TEXTOS = {
   titulo: "Situação da unidade",
-  descricaoAtivo: "A inativação preserva os dados existentes, mas remove a unidade dos fluxos ativos.",
+  descricaoAtivo: "A inativação preserva os dados e vínculos existentes e retira a unidade dos fluxos ativos. Usuários ativos precisam ter outra unidade ativa. Caso contrário, resolva seus vínculos ou inative suas contas na tela Usuários antes de continuar.",
   descricaoInativo: "A ativação torna a unidade novamente disponível nos fluxos do sistema.",
   avisoRascunho: "Salve as alterações da unidade antes de alterar sua situação.",
   tituloConfirmacao: "Inativar esta unidade?",
-  descricaoConfirmacao: "Ela deixará de aparecer nos escopos e agendamentos. Os dados existentes serão preservados.",
+  descricaoConfirmacao: "Ela deixará de aparecer nos escopos e agendamentos. A operação será bloqueada se algum usuário ativo ficar sem uma unidade ativa. Os vínculos e o histórico existentes serão preservados.",
   rotuloAtivar: "Ativar unidade",
   rotuloInativar: "Inativar unidade",
 };

@@ -29,7 +29,7 @@ export async function criarEquipe(entrada: NovaEquipe, autor: ContextoAutorizaca
       });
       if (!unidade) throw new ErroDeRegra("SEM_PERMISSAO", "Escolha uma unidade ativa do seu escopo.");
       await garantirNomeDisponivel(tx, dados.unidadeId, dados.nome);
-      await validarSupervisor(tx, dados.supervisorId, dados.unidadeId, autor);
+      await validarSupervisor(tx, dados.supervisorId, dados.unidadeId);
       const equipe = await tx.equipe.create({ data: { nome: dados.nome, unidadeId: dados.unidadeId }, select: { id: true } });
       if (dados.supervisorId) await atribuirSupervisor(tx, equipe.id, dados.supervisorId);
       return equipe.id;
@@ -51,7 +51,7 @@ export async function atualizarEquipe(
       const equipe = await carregarParaAlterar(tx, equipeId, versao, autor);
       const dados = resultado.data;
       await garantirNomeDisponivel(tx, equipe.unidadeId, dados.nome, equipe.id);
-      if (dados.supervisorId !== equipe.supervisorId) await validarSupervisor(tx, dados.supervisorId, equipe.unidadeId, autor);
+      if (dados.supervisorId !== equipe.supervisorId) await validarSupervisor(tx, dados.supervisorId, equipe.unidadeId);
       const atualizacao = await tx.equipe.updateMany({
         where: { id: equipe.id, atualizadoEm: versao }, data: { nome: dados.nome },
       });
@@ -89,12 +89,12 @@ function exigirGestao(autor: ContextoAutorizacao) {
   if (!podeGerenciarEquipes(autor)) throw new ErroDeRegra("SEM_PERMISSAO", "Seu perfil não pode alterar equipes.");
 }
 
-async function validarSupervisor(tx: Transacao, supervisorId: string | null, unidadeId: string, autor: ContextoAutorizacao) {
+async function validarSupervisor(tx: Transacao, supervisorId: string | null, unidadeId: string) {
   if (supervisorId === null) return;
   const supervisor = await tx.usuario.findFirst({
     where: {
       id: supervisorId, perfil: "SUPERVISOR", ativo: true,
-      ...(autor.perfil !== "ADMINISTRADOR" ? { unidades: { some: { unidadeId, ativo: true, unidade: { ativa: true } } } } : {}),
+      unidades: { some: { unidadeId, ativo: true, unidade: { ativa: true } } },
     },
     select: { id: true },
   });

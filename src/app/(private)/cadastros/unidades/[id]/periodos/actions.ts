@@ -20,7 +20,7 @@ export async function criarPeriodo(unidadeId: string, _estado: EstadoPeriodo, fo
     throw erro;
   }
   revalidar(unidadeId);
-  redirect(`/cadastros/unidades/${unidadeId}?periodoSalvo=${id}&confirmacaoPeriodo=${Date.now()}#periodos`);
+  redirect(`/cadastros/unidades?periodos=${unidadeId}&periodoSalvo=${id}&confirmacaoPeriodo=${Date.now()}#periodos`);
 }
 
 export async function atualizarPeriodo(unidadeId: string, id: string, _estado: EstadoPeriodo, formData: FormData): Promise<EstadoPeriodo> {
@@ -32,7 +32,7 @@ export async function atualizarPeriodo(unidadeId: string, id: string, _estado: E
     return tratarErro(erro, formData);
   }
   revalidar(unidadeId, id);
-  redirect(`/cadastros/unidades/${unidadeId}?periodoSalvo=${id}&confirmacaoPeriodo=${Date.now()}#periodos`);
+  redirect(`/cadastros/unidades?periodos=${unidadeId}&periodoSalvo=${id}&confirmacaoPeriodo=${Date.now()}#periodos`);
 }
 
 export async function excluirPeriodo(unidadeId: string, id: string, _estado: EstadoPeriodo, formData: FormData): Promise<EstadoPeriodo> {
@@ -43,7 +43,7 @@ export async function excluirPeriodo(unidadeId: string, id: string, _estado: Est
     return tratarErro(erro, formData);
   }
   revalidar(unidadeId, id);
-  redirect(`/cadastros/unidades/${unidadeId}?excluido=${id}&confirmacaoPeriodo=${Date.now()}#periodos`);
+  redirect(`/cadastros/unidades?periodos=${unidadeId}&excluido=${id}&confirmacaoPeriodo=${Date.now()}#periodos`);
 }
 
 function tratarErro(erro: unknown, formData: FormData): EstadoPeriodo {
@@ -71,6 +71,7 @@ function lerVersao(formData: FormData) {
 }
 
 function revalidar(unidadeId: string, id?: string) {
+  revalidatePath("/cadastros/unidades");
   revalidatePath(`/cadastros/unidades/${unidadeId}`);
   revalidatePath(`/cadastros/unidades/${unidadeId}/periodos`);
   if (id) revalidatePath(`/cadastros/unidades/${unidadeId}/periodos/${id}`);

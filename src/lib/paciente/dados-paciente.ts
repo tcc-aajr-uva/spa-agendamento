@@ -53,13 +53,15 @@ export const dadosPacienteSchema = z
       .transform((valor) => (valor ? somenteDigitos(valor) : undefined))
       .refine((valor) => valor === undefined || cpfValido(valor), "CPF do responsável inválido."),
   })
-  .refine((dados) => dados.dataNascimento <= new Date(), {
+  .refine((dados) => !(dados.dataNascimento instanceof Date) || dados.dataNascimento <= new Date(), {
     message: "Data de nascimento no futuro.",
     path: ["dataNascimento"],
   })
   .refine(
     (dados) =>
-      idadeEm(dados.dataNascimento, new Date()) >= MAIORIDADE || (dados.responsavelNome !== undefined && dados.responsavelCpf !== undefined),
+      !(dados.dataNascimento instanceof Date) ||
+      idadeEm(dados.dataNascimento, new Date()) >= MAIORIDADE ||
+      (dados.responsavelNome !== undefined && dados.responsavelCpf !== undefined),
     { message: "Menor de idade precisa dos dados do responsável legal.", path: ["responsavelNome"] },
   );
 

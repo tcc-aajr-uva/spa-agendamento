@@ -1,9 +1,12 @@
 import "server-only";
 
+import type { Prisma } from "@/generated/prisma/client";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
+import { hojeNoBrasil } from "@/lib/agendamento/regras";
 import { executarEmTransacao, type Transacao } from "@/lib/transacao";
 import { VersaoDesatualizadaDoUsuario } from "./versao-usuario";
+import { ERRO_REMOCAO_ULTIMA_UNIDADE_ATIVA } from "./regras-vinculos";
 import {
   atualizacaoUsuarioSchema,
   perfisCriaveisSchema,
@@ -13,11 +16,14 @@ import {
   filtroDeUsuariosGerenciaveis,
   filtroDeVinculosDeEquipeGerenciaveis,
   filtroDeVinculosDeUnidadeGerenciaveis,
+  podeGerenciarVinculoDeEquipe,
+  podeGerenciarVinculoDeUnidade,
 } from "@/lib/usuario/escopo-usuario";
 import {
   atribuirSupervisor,
   resolverVinculos,
   validarFormatoDosVinculos,
+  type VinculosResolvidos,
 } from "@/lib/usuario/vinculos-usuario";
 
 export async function atualizarUsuarioGerenciavel(
@@ -57,16 +63,17 @@ export async function atualizarUsuarioGerenciavel(
       usuarioId,
     );
 
+    const unidadesRemovidas = await validarAlteracaoDosVinculos(tx, usuarioId, perfil.data, vinculos, autor);
+
     const gravacao = await tx.usuario.updateMany({
       where: { id: usuarioId, atualizadoEm: versao }, data: { nome: dados.nome },
     });
     if (gravacao.count !== 1) throw new VersaoDesatualizadaDoUsuario();
-    if (perfil.data === "COORDENACAO" || perfil.data === "SECRETARIA") {
+    if (autor.perfil !== "SUPERVISOR") {
       await sincronizarUnidadesDiretas(tx, usuarioId, vinculos.unidadeIds, autor);
-    } else {
-      await sincronizarEquipes(tx, usuarioId, perfil.data, usuario.ativo, vinculos.equipes, autor);
-      await desativarUnidadesSemVinculosAtivosDeEquipe(tx, usuarioId);
-      if (perfil.data === "ESTAGIARIO") await validarUnicaUnidadeDoEstagiario(tx, usuarioId);
+    }
+    if (perfil.data === "SUPERVISOR" || perfil.data === "ESTAGIARIO") {
+      await sincronizarEquipes(tx, usuarioId, perfil.data, usuario.ativo, vinculos.equipes, unidadesRemovidas, autor);
     }
     const salvo = await tx.usuario.findUniqueOrThrow({ where: { id: usuarioId }, select: { atualizadoEm: true } });
     return salvo.atualizadoEm;
@@ -83,7 +90,6 @@ async function sincronizarUnidadesDiretas(
     where: {
       usuarioId,
       ativo: true,
-      unidade: { ativa: true },
       AND: [filtroDeVinculosDeUnidadeGerenciaveis(autor), { unidadeId: { notIn: unidadeIds } }],
     },
     data: { ativo: false },
@@ -102,15 +108,18 @@ async function sincronizarEquipes(
   usuarioId: string,
   perfil: "COORDENACAO" | "SECRETARIA" | "SUPERVISOR" | "ESTAGIARIO",
   usuarioAtivo: boolean,
-  equipes: { id: string; unidadeId: string }[],
+  equipes: VinculosResolvidos["equipes"],
+  unidadesRemovidas: string[],
   autor: ContextoAutorizacao,
 ) {
   const equipeIds = equipes.map(({ id }) => id);
-  const filtroDeRemocao = {
+  const filtroDeRemocao: Prisma.UsuarioEquipeWhereInput = {
     usuarioId,
     ativo: true,
-    vinculoUnidade: { ativo: true },
-    equipe: { ativa: true, unidade: { ativa: true } },
+    OR: [
+      { vinculoUnidade: { ativo: true } },
+      { unidadeId: { in: unidadesRemovidas } },
+    ],
     AND: [filtroDeVinculosDeEquipeGerenciaveis(autor), { equipeId: { notIn: equipeIds } }],
   };
 
@@ -131,33 +140,82 @@ async function sincronizarEquipes(
   });
 
   for (const equipe of equipes) {
-    await tx.usuarioUnidade.upsert({
-      where: { usuarioId_unidadeId: { usuarioId, unidadeId: equipe.unidadeId } },
-      create: { usuarioId, unidadeId: equipe.unidadeId },
-      update: { ativo: true },
-    });
+    if (perfil === "ESTAGIARIO") {
+      const anterior = await tx.usuarioEquipe.findUnique({
+        where: { usuarioId_equipeId: { usuarioId, equipeId: equipe.id } }, select: { ativo: true },
+      });
+      if (!anterior?.ativo) await tx.configuracaoAtendimentoEstagiario.updateMany({
+        where: { estagiarioId: usuarioId, equipeId: equipe.id, periodoLetivo: { fim: { gte: hojeNoBrasil(new Date()) } } },
+        data: { liberado: false, limitePacientes: 0 },
+      });
+    }
     await tx.usuarioEquipe.upsert({
       where: { usuarioId_equipeId: { usuarioId, equipeId: equipe.id } },
       create: { usuarioId, equipeId: equipe.id, unidadeId: equipe.unidadeId },
       update: { unidadeId: equipe.unidadeId, ativo: true },
     });
 
-    if (perfil === "SUPERVISOR" && usuarioAtivo) {
+    if (perfil === "SUPERVISOR" && usuarioAtivo && equipe.ativa && equipe.unidadeAtiva) {
       await atribuirSupervisor(tx, equipe.id, usuarioId);
     }
   }
 }
 
-async function desativarUnidadesSemVinculosAtivosDeEquipe(tx: Transacao, usuarioId: string) {
-  await tx.usuarioUnidade.updateMany({
-    where: { usuarioId, equipes: { none: { ativo: true } } },
-    data: { ativo: false },
+async function validarAlteracaoDosVinculos(
+  tx: Transacao, usuarioId: string, perfil: "COORDENACAO" | "SECRETARIA" | "SUPERVISOR" | "ESTAGIARIO",
+  novos: { unidadeIds: string[]; equipes: { id: string; unidadeId: string }[] }, autor: ContextoAutorizacao,
+) {
+  const unidades = await tx.usuarioUnidade.findMany({
+    where: { usuarioId, ativo: true }, select: { unidadeId: true, unidade: { select: { ativa: true } } },
   });
-}
-
-async function validarUnicaUnidadeDoEstagiario(tx: Transacao, usuarioId: string) {
-  const unidades = await tx.usuarioUnidade.count({ where: { usuarioId, ativo: true } });
-  if (unidades > 1) {
-    throw new ErroDeRegra("DADOS_INVALIDOS", "O estagiário deve pertencer a equipes da mesma unidade.");
+  const equipes = await tx.usuarioEquipe.findMany({
+    where: { usuarioId, ativo: true },
+    select: { equipeId: true, unidadeId: true, equipe: { select: { ativa: true, supervisorId: true, unidade: { select: { ativa: true } } } } },
+  });
+  const unidadesGerenciaveis = unidades.filter(({ unidadeId }) =>
+    podeGerenciarVinculoDeUnidade(autor, unidadeId),
+  );
+  if (autor.perfil === "SUPERVISOR" && (
+    novos.unidadeIds.length !== unidadesGerenciaveis.length ||
+    novos.unidadeIds.some((id) => !unidadesGerenciaveis.some(({ unidadeId }) => unidadeId === id))
+  )) {
+    throw new ErroDeRegra("SEM_PERMISSAO", "Somente o administrador, a coordenação ou a secretaria pode alterar unidades.");
   }
+  const unidadesRemovidas = unidadesGerenciaveis.filter(({ unidadeId }) => !novos.unidadeIds.includes(unidadeId));
+  const unidadesFinais = [...new Set([
+    ...novos.unidadeIds,
+    ...unidades.filter((unidade) => !unidadesGerenciaveis.includes(unidade)).map(({ unidadeId }) => unidadeId),
+  ])];
+  validarFormatoDosVinculos(perfil, unidadesFinais, novos.equipes.map(({ id }) => id));
+
+  if (unidadesRemovidas.some(({ unidade }) => unidade.ativa)) {
+    const unidadeAtiva = await tx.unidade.findFirst({
+      where: { id: { in: unidadesFinais }, ativa: true }, select: { id: true },
+    });
+    if (!unidadeAtiva) throw new ErroDeRegra("DADOS_INVALIDOS", ERRO_REMOCAO_ULTIMA_UNIDADE_ATIVA);
+  }
+
+  if (perfil !== "ESTAGIARIO") return unidadesRemovidas.map(({ unidadeId }) => unidadeId);
+  const unidadeMudou = unidades.some(({ unidadeId }) => !unidadesFinais.includes(unidadeId));
+  if (unidadeMudou) {
+    const [horario, atendimento] = await Promise.all([
+      tx.horarioDisponivel.findFirst({ where: { estagiarioId: usuarioId }, select: { id: true } }),
+      tx.agendamento.findFirst({ where: { estagiarioId: usuarioId }, select: { id: true } }),
+    ]);
+    if (horario || atendimento) throw new ErroDeRegra(
+      "DADOS_INVALIDOS", "Não é possível trocar a unidade de um estagiário com horários ou histórico de atendimentos.",
+    );
+  }
+  const removidas = equipes.filter(({ equipeId, unidadeId, equipe }) =>
+    podeGerenciarVinculoDeEquipe(autor, { equipeId, unidadeId, supervisorId: equipe.supervisorId }) &&
+    !novos.equipes.some(({ id }) => id === equipeId),
+  );
+  if (removidas.length > 0) {
+    const atendimento = await tx.agendamento.findFirst({
+      where: { estagiarioId: usuarioId, equipeId: { in: removidas.map(({ equipeId }) => equipeId) }, horarioAtivoId: { not: null } },
+      select: { id: true },
+    });
+    if (atendimento) throw new ErroDeRegra("DADOS_INVALIDOS", "Não é possível remover uma equipe com atendimentos ativos do estagiário.");
+  }
+  return unidadesRemovidas.map(({ unidadeId }) => unidadeId);
 }

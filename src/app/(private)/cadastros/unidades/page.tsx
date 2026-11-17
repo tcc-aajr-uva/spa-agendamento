@@ -1,26 +1,34 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { ChevronRightIcon } from "lucide-react";
+import { CalendarRangeIcon, PencilIcon, PowerIcon } from "lucide-react";
 
 import { CabecalhoListagem } from "@/components/cabecalho-listagem";
 import { EstadoVazioTabela } from "@/components/estado-vazio-tabela";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PaginacaoLista } from "@/components/paginacao-lista";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
-import { PERFIS_UNIDADES } from "@/lib/unidade/escopo-unidade";
+import { PERFIS_UNIDADES, podeAlterarAtivacaoDeUnidade } from "@/lib/unidade/escopo-unidade";
 import { listarUnidades } from "@/lib/unidade/listar-unidades";
 import { FiltrosUnidades } from "./filtros-unidades";
+import { IndicadorCarregando } from "@/components/indicador-carregando";
+import type { ParametrosBusca } from "@/lib/url/parametros-busca";
+import { BotaoEdicao, ModalEdicao } from "../../modal-edicao";
+import { ModalFormulario } from "../../modal-formulario";
+import { hrefDeEdicao } from "../../parametros";
+import { DetalheUnidade } from "./[id]/detalhe-unidade";
+import { ConteudoNovaUnidade } from "./nova/conteudo-nova-unidade";
 
 type Props = {
-  searchParams: Promise<{ busca?: string | string[]; pagina?: string | string[]; status?: string | string[] }>;
+  searchParams: Promise<ParametrosBusca>;
 };
+
+const PARAMETROS_DOS_PERIODOS = ["periodos", "periodo", "periodosSituacao", "periodosPagina", "periodoSalvo", "excluido", "confirmacaoPeriodo"];
+const PARAMETROS_DOS_MODAIS = ["editar", "ativacao", "unidadeCriada", ...PARAMETROS_DOS_PERIODOS];
 
 export default function UnidadesPage({ searchParams }: Props) {
   return (
     <section className="mx-auto w-full max-w-7xl space-y-6">
-      <Suspense fallback={<p>Carregando unidades…</p>}>
+      <Suspense fallback={<IndicadorCarregando texto="Carregando unidades…" />}>
         <ConteudoUnidades searchParams={searchParams} />
       </Suspense>
     </section>
@@ -40,6 +48,11 @@ async function ConteudoUnidades({ searchParams }: Props) {
     },
     autor,
   );
+  const editar = valorUnico(parametros.editar);
+  const ativacao = valorUnico(parametros.ativacao);
+  const periodos = valorUnico(parametros.periodos);
+  const podeAtivar = podeAlterarAtivacaoDeUnidade(autor);
+  const hrefDoModal = (chave: string, id: string) => hrefDeEdicao("/cadastros/unidades", parametros, chave, id, PARAMETROS_DOS_MODAIS);
 
   return (
     <div className="space-y-6">
@@ -47,9 +60,11 @@ async function ConteudoUnidades({ searchParams }: Props) {
         titulo="Unidades"
         descricao="Gerencie as unidades disponíveis no seu escopo de atuação."
         acao={resultado.podeCriar && (
-          <Button size="lg" nativeButton={false} render={<Link href="/cadastros/unidades/nova" prefetch={false} />}>
-            Nova unidade
-          </Button>
+          <ModalFormulario rotulo="Nova unidade" titulo="Nova unidade" descricao="Cadastre a unidade e defina suas regras de agendamento.">
+            <Suspense fallback={<IndicadorCarregando texto="Carregando formulário…" />}>
+              <ConteudoNovaUnidade />
+            </Suspense>
+          </ModalFormulario>
         )}
       />
 
@@ -59,7 +74,7 @@ async function ConteudoUnidades({ searchParams }: Props) {
         statusInicial={resultado.status}
       />
 
-      <div className="overflow-hidden rounded-lg border">
+      <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
         <Table aria-label="Unidades" className="min-w-185">
           <TableHeader>
             <TableRow className="bg-muted/50">
@@ -67,7 +82,7 @@ async function ConteudoUnidades({ searchParams }: Props) {
               <TableHead scope="col">Situação</TableHead>
               <TableHead scope="col">Agendamento</TableHead>
               <TableHead scope="col">Podem agendar</TableHead>
-              <TableHead scope="col" className="w-10 px-4" aria-label="Detalhes da unidade" />
+              <TableHead scope="col" className="w-32 px-4">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -78,12 +93,9 @@ async function ConteudoUnidades({ searchParams }: Props) {
                 descricao="Altere ou limpe os filtros para tentar novamente."
               />
             ) : resultado.unidades.map((unidade) => (
-              <TableRow key={unidade.id} className="relative">
-                <TableHead scope="row" className="min-w-44 max-w-sm whitespace-normal wrap-break-word px-4 py-4">
-                  <Link className="font-medium underline-offset-4 hover:underline after:absolute after:inset-0 after:z-10 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
-                    href={`/cadastros/unidades/${unidade.id}`} prefetch={false}>
-                    {unidade.nome}
-                  </Link>
+              <TableRow key={unidade.id}>
+                <TableHead scope="row" className="min-w-44 max-w-sm whitespace-normal wrap-break-word px-4 py-4 font-medium">
+                  {unidade.nome}
                 </TableHead>
                 <TableCell>
                   <Badge variant={unidade.ativa ? "default" : "outline"}>
@@ -98,8 +110,20 @@ async function ConteudoUnidades({ searchParams }: Props) {
                 <TableCell className="whitespace-normal text-muted-foreground">
                   {rotuloDosAgendadores(unidade) || "ninguém"}
                 </TableCell>
-                <TableCell className="px-4 text-right">
-                  <ChevronRightIcon aria-hidden="true" className="ml-auto size-4 text-muted-foreground" />
+                <TableCell className="px-4">
+                  <div className="flex justify-center gap-1">
+                    <BotaoEdicao parametro="editar" tom="editar" href={hrefDoModal("editar", unidade.id)} rotulo={`Editar ${unidade.nome}`}>
+                      <PencilIcon />
+                    </BotaoEdicao>
+                    <BotaoEdicao parametro="periodos" tom="lista" href={hrefDoModal("periodos", unidade.id)} rotulo={`Períodos letivos de ${unidade.nome}`}>
+                      <CalendarRangeIcon />
+                    </BotaoEdicao>
+                    {podeAtivar && (
+                      <BotaoEdicao parametro="ativacao" tom={unidade.ativa ? "inativar" : "ativar"} href={hrefDoModal("ativacao", unidade.id)} rotulo={`${unidade.ativa ? "Inativar" : "Ativar"} ${unidade.nome}`}>
+                        <PowerIcon />
+                      </BotaoEdicao>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -115,6 +139,28 @@ async function ConteudoUnidades({ searchParams }: Props) {
         ariaLabel="Paginação das unidades"
         href={(pagina) => urlDaPagina(pagina, resultado.busca, resultado.status)}
       />
+
+      <ModalEdicao parametro="editar" aberto={Boolean(editar)} titulo="Editar unidade" limpar={["editar", "unidadeCriada"]}>
+        {editar && (
+          <Suspense fallback={<IndicadorCarregando texto="Carregando unidade…" />}>
+            <DetalheUnidade id={editar} caminhoLista="/cadastros/unidades" searchParams={searchParams} secao="dados" />
+          </Suspense>
+        )}
+      </ModalEdicao>
+      <ModalEdicao parametro="periodos" aberto={Boolean(periodos)} titulo="Períodos letivos" limpar={PARAMETROS_DOS_PERIODOS}>
+        {periodos && (
+          <Suspense fallback={<IndicadorCarregando texto="Carregando períodos letivos…" />}>
+            <DetalheUnidade id={periodos} caminhoLista="/cadastros/unidades" searchParams={searchParams} secao="periodos" />
+          </Suspense>
+        )}
+      </ModalEdicao>
+      <ModalEdicao parametro="ativacao" aberto={Boolean(ativacao)} titulo="Ativar ou inativar unidade" limpar={["ativacao"]}>
+        {ativacao && (
+          <Suspense fallback={<IndicadorCarregando texto="Carregando unidade…" />}>
+            <DetalheUnidade id={ativacao} caminhoLista="/cadastros/unidades" searchParams={searchParams} secao="ativacao" />
+          </Suspense>
+        )}
+      </ModalEdicao>
     </div>
   );
 }

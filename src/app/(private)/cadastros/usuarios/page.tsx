@@ -1,23 +1,39 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { ChevronRightIcon } from "lucide-react";
+import { CalendarClockIcon, KeyRoundIcon, PencilIcon, PowerIcon } from "lucide-react";
 
 import { CabecalhoListagem } from "@/components/cabecalho-listagem";
 import { EstadoVazioTabela } from "@/components/estado-vazio-tabela";
 import { PaginacaoLista } from "@/components/paginacao-lista";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { listarUsuarios } from "@/lib/usuario/listar-usuarios";
-import { rotuloDoEstadoAcesso, rotuloDoPerfil } from "@/lib/usuario/rotulos";
+import { rotuloDasUnidades, rotuloDoEstadoAcesso, rotuloDoPerfil } from "@/lib/usuario/rotulos";
 import { situacaoListagemUsuarioSchema } from "@/lib/usuario/situacao-listagem";
 import { perfisDaRota } from "../../menu";
 import { FiltrosUsuarios } from "./filtros-usuarios";
+import { IndicadorCarregando } from "@/components/indicador-carregando";
+import { ModalFormulario } from "../../modal-formulario";
+import { ConteudoNovoUsuario } from "./novo/conteudo-novo-usuario";
+import type { ParametrosBusca } from "@/lib/url/parametros-busca";
+import { podeConfigurarAtendimento } from "@/lib/usuario/atendimento-estagiario";
+import { BotaoEdicao, ModalEdicao } from "../../modal-edicao";
+import { hrefDeEdicao } from "../../parametros";
+import { DetalheUsuario } from "./[id]/detalhe-usuario";
 
 type Props = {
-  searchParams: Promise<{ busca?: string | string[]; pagina?: string | string[]; status?: string | string[] }>;
+  searchParams: Promise<ParametrosBusca>;
 };
+
+const PARAMETROS_DO_ATENDIMENTO = ["atendimento", "atendimentoEquipe", "atendimentoPeriodo"];
+const PARAMETROS_DOS_MODAIS = ["editar", "ativacao", "acesso", ...PARAMETROS_DO_ATENDIMENTO];
+
+const MODAIS = [
+  { parametro: "editar", titulo: "Editar usuário", secao: "dados", limpar: ["editar"] },
+  { parametro: "ativacao", titulo: "Situação do usuário", secao: "ativacao", limpar: ["ativacao"] },
+  { parametro: "acesso", titulo: "Acesso ao sistema", secao: "acesso", limpar: ["acesso"] },
+  { parametro: "atendimento", titulo: "Configuração de atendimento", secao: "atendimento", limpar: PARAMETROS_DO_ATENDIMENTO },
+] as const;
 
 export default function UsuariosPage({ searchParams }: Props) {
   return (
@@ -26,13 +42,15 @@ export default function UsuariosPage({ searchParams }: Props) {
         titulo="Usuários"
         descricao="Consulte os usuários que pertencem ao seu escopo de atuação."
         acao={
-          <Button size="lg" nativeButton={false} render={<Link href="/cadastros/usuarios/novo" />}>
-            Novo usuário
-          </Button>
+          <ModalFormulario rotulo="Novo usuário" titulo="Novo usuário" descricao="Cadastre a pessoa e gere o link para definição da senha.">
+            <Suspense fallback={<IndicadorCarregando texto="Carregando formulário…" />}>
+              <ConteudoNovoUsuario />
+            </Suspense>
+          </ModalFormulario>
         }
       />
 
-      <Suspense fallback={<p>Carregando usuários…</p>}>
+      <Suspense fallback={<IndicadorCarregando texto="Carregando usuários…" />}>
         <ListaUsuarios searchParams={searchParams} />
       </Suspense>
     </section>
@@ -47,12 +65,14 @@ async function ListaUsuarios({ searchParams }: Props) {
   const statusInformado = valorUnico(parametros.status);
   const status = situacaoListagemUsuarioSchema.parse(statusInformado);
   const resultado = await listarUsuarios({ busca, pagina, status }, autor);
+  const configuraAtendimento = podeConfigurarAtendimento(autor);
+  const hrefDoModal = (chave: string, id: string) => hrefDeEdicao("/cadastros/usuarios", parametros, chave, id, PARAMETROS_DOS_MODAIS);
 
   return (
     <div className="space-y-6">
       <FiltrosUsuarios buscaInicial={busca} statusInicial={status} />
 
-      <div className="overflow-hidden rounded-lg border">
+      <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
         <Table aria-label="Usuários" className="min-w-225">
           <TableHeader>
             <TableRow className="bg-muted/50">
@@ -60,7 +80,7 @@ async function ListaUsuarios({ searchParams }: Props) {
               <TableHead scope="col">Perfil</TableHead>
               <TableHead scope="col">Situação</TableHead>
               <TableHead scope="col">Vínculos</TableHead>
-              <TableHead scope="col" className="w-10 px-4" aria-label="Detalhes do usuário" />
+              <TableHead scope="col" className="w-40 px-4">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -73,17 +93,10 @@ async function ListaUsuarios({ searchParams }: Props) {
                   : "Crie o primeiro usuário disponível para o seu perfil."}
               />
             ) : resultado.usuarios.map((usuario) => (
-              <TableRow key={usuario.id} className="relative">
+              <TableRow key={usuario.id}>
                 <TableHead scope="row" className="min-w-52 whitespace-normal px-4 py-4">
                   <div className="space-y-1">
-                    {usuario.podeGerenciar ? (
-                      <Link
-                        className="font-medium underline-offset-4 hover:underline after:absolute after:inset-0 after:z-10 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
-                        href={`/cadastros/usuarios/${usuario.id}`}
-                      >
-                        {usuario.nome}
-                      </Link>
-                    ) : <span className="font-medium">{usuario.nome}</span>}
+                    <span className="font-medium">{usuario.nome}</span>
                     <p className="font-normal text-muted-foreground">{usuario.email}</p>
                   </div>
                 </TableHead>
@@ -95,13 +108,28 @@ async function ListaUsuarios({ searchParams }: Props) {
                 </TableCell>
                 <TableCell className="max-w-sm whitespace-normal text-muted-foreground">
                   <div className="space-y-1">
-                    <p>Unidades: {usuario.unidades.join(", ") || "nenhuma"}</p>
+                    <p>Unidades: {rotuloDasUnidades(usuario.perfil, usuario.unidades)}</p>
                     {usuario.equipes.length > 0 && <p>Equipes: {usuario.equipes.join(", ")}</p>}
                   </div>
                 </TableCell>
                 <TableCell className="px-4">
                   {usuario.podeGerenciar && (
-                    <ChevronRightIcon aria-hidden="true" className="ml-auto size-4 text-muted-foreground" />
+                    <div className="flex justify-center gap-1">
+                      <BotaoEdicao parametro="editar" tom="editar" href={hrefDoModal("editar", usuario.id)} rotulo={`Editar ${usuario.nome}`}>
+                        <PencilIcon />
+                      </BotaoEdicao>
+                      <BotaoEdicao parametro="ativacao" tom={usuario.ativo ? "inativar" : "ativar"} href={hrefDoModal("ativacao", usuario.id)} rotulo={`Situação de ${usuario.nome}`}>
+                        <PowerIcon />
+                      </BotaoEdicao>
+                      <BotaoEdicao parametro="acesso" tom="acesso" href={hrefDoModal("acesso", usuario.id)} rotulo={`Acesso ao sistema de ${usuario.nome}`}>
+                        <KeyRoundIcon />
+                      </BotaoEdicao>
+                      {usuario.perfil === "ESTAGIARIO" && configuraAtendimento && (
+                        <BotaoEdicao parametro="atendimento" tom="lista" href={hrefDoModal("atendimento", usuario.id)} rotulo={`Atendimento de ${usuario.nome}`}>
+                          <CalendarClockIcon />
+                        </BotaoEdicao>
+                      )}
+                    </div>
                   )}
                 </TableCell>
               </TableRow>
@@ -118,6 +146,19 @@ async function ListaUsuarios({ searchParams }: Props) {
         ariaLabel="Paginação dos usuários"
         href={(paginaAtual) => urlDaPagina(paginaAtual, busca, status)}
       />
+
+      {MODAIS.map((modal) => {
+        const id = valorUnico(parametros[modal.parametro]);
+        return (
+          <ModalEdicao key={modal.parametro} parametro={modal.parametro} aberto={Boolean(id)} titulo={modal.titulo} limpar={[...modal.limpar]}>
+            {id && (
+              <Suspense fallback={<IndicadorCarregando texto="Carregando usuário…" />}>
+                <DetalheUsuario id={id} searchParams={searchParams} secao={modal.secao} />
+              </Suspense>
+            )}
+          </ModalEdicao>
+        );
+      })}
     </div>
   );
 }

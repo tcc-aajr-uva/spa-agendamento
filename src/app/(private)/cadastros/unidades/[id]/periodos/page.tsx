@@ -4,6 +4,7 @@ import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { consultarUnidadeDosPeriodos, PERFIS_GESTAO_PERIODOS } from "@/lib/periodo-letivo/escopo-periodo";
 import type { ParametrosPeriodos } from "./secao-periodos";
 import { criarParametrosBusca } from "@/lib/url/parametros-busca";
+import { IndicadorCarregando } from "@/components/indicador-carregando";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -11,7 +12,7 @@ type Props = {
 };
 
 export default function PeriodosPage(props: Props) {
-  return <section className="space-y-6"><Suspense fallback={<p>Carregando períodos letivos…</p>}><Conteudo {...props} /></Suspense></section>;
+  return <section className="space-y-6"><Suspense fallback={<IndicadorCarregando texto="Carregando períodos letivos…" />}><Conteudo {...props} /></Suspense></section>;
 }
 
 async function Conteudo({ params, searchParams }: Props) {

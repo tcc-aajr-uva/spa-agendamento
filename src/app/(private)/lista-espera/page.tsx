@@ -1,7 +1,6 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemDescription, ItemFooter, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { listarHorariosLivres } from "@/lib/agendamento/horarios-livres";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { PERFIS_QUE_CHAMAM } from "@/lib/lista-espera/inscricao";
 import { listarListaEspera } from "@/lib/lista-espera/listar-lista-espera";
@@ -9,11 +8,13 @@ import { CarregandoLista } from "../carregando-lista";
 import { EstadoVazio } from "../cartao";
 import { formatarData } from "../formatar";
 import { FormularioAcao } from "../formulario-acao";
+import { ModalFormulario } from "../modal-formulario";
 import { PaginaModulo } from "../pagina-modulo";
 import { Paginacao } from "../paginacao";
 import { montarHref, numeroDaPagina, primeiro, TAMANHO_DA_PAGINA } from "../parametros";
 import { perfisDaRota } from "../menu";
 import { remover } from "./actions";
+import { PainelChamar, type HorariosLivres } from "./[id]/chamar/conteudo-chamar";
 import { SeletorDeEquipe } from "./seletor-de-equipe";
 
 type Busca = PageProps<"/lista-espera">["searchParams"];
@@ -22,8 +23,10 @@ type Inscricao = {
   id: string;
   posicao: number;
   inscritoEm: Date;
-  paciente: { nome: string; telefone: string };
+  paciente: { nome: string; telefone: string; email: string; dataNascimento: Date; responsavelNome: string | null };
 };
+
+type Chamada = { equipe: string; horarios: HorariosLivres; ehEstagiario: boolean } | null;
 
 export default function ListaEsperaPage({ searchParams }: PageProps<"/lista-espera">) {
   return (
@@ -44,7 +47,14 @@ async function Lista({ busca }: { busca: Busca }) {
   });
 
   if (!equipe) return <EstadoVazio>Nenhuma equipe disponível.</EstadoVazio>;
-  const podeChamar = PERFIS_QUE_CHAMAM.includes(usuario.perfil);
+  const ehEstagiario = usuario.perfil === "ESTAGIARIO";
+  const chamada: Chamada = PERFIS_QUE_CHAMAM.includes(usuario.perfil) && inscricoes.length > 0
+    ? {
+        equipe: `${equipe.unidade.nome} / ${equipe.nome}`,
+        horarios: await listarHorariosLivres(equipe.unidadeId, equipe.id, { estagiarioId: ehEstagiario ? usuario.id : undefined }),
+        ehEstagiario,
+      }
+    : null;
   const opcoes = equipes.map((opcao) => ({ value: opcao.id, label: `${opcao.unidade.nome} / ${opcao.nome}` }));
 
   return (
@@ -57,8 +67,8 @@ async function Lista({ busca }: { busca: Busca }) {
           <EstadoVazio>Lista de espera vazia.</EstadoVazio>
         ) : (
           <>
-            <TabelaDeInscricoes inscricoes={inscricoes} podeChamar={podeChamar} />
-            <ItensDeInscricao inscricoes={inscricoes} podeChamar={podeChamar} />
+            <TabelaDeInscricoes inscricoes={inscricoes} chamada={chamada} />
+            <ItensDeInscricao inscricoes={inscricoes} chamada={chamada} />
           </>
         )}
         <Paginacao pagina={pagina} total={total} tamanho={TAMANHO_DA_PAGINA} href={(novaPagina) => montarHref("/lista-espera", { equipe: equipe.id, pagina: novaPagina })} />
@@ -67,14 +77,27 @@ async function Lista({ busca }: { busca: Busca }) {
   );
 }
 
-function Acoes({ inscricao, podeChamar, larguraTotal }: { inscricao: Inscricao; podeChamar: boolean; larguraTotal?: boolean }) {
+function Acoes({ inscricao, chamada, larguraTotal }: { inscricao: Inscricao; chamada: Chamada; larguraTotal?: boolean }) {
   const primeiroDaLista = inscricao.posicao === 1;
   return (
-    <div className={larguraTotal ? "grid w-full grid-cols-2 gap-2" : "flex items-center justify-end gap-2"}>
-      {podeChamar && (
-        <Button variant={primeiroDaLista ? "default" : "outline"} size="sm" nativeButton={false} render={<Link href={`/lista-espera/${inscricao.id}/chamar`} />}>
-          {primeiroDaLista ? "Chamar o 1º da lista" : "Chamar"}
-        </Button>
+    <div className={larguraTotal ? "grid w-full grid-cols-2 gap-2" : "flex items-center justify-center gap-2"}>
+      {chamada && (
+        <ModalFormulario
+          rotulo={primeiroDaLista ? "Chamar o 1º da lista" : "Chamar"}
+          titulo="Chamar da lista de espera"
+          variante={primeiroDaLista ? "default" : "outline"}
+          tamanho="sm"
+          atualizarAoFechar
+        >
+          <PainelChamar
+            inscricaoId={inscricao.id}
+            inscritoEm={inscricao.inscritoEm}
+            equipe={chamada.equipe}
+            paciente={inscricao.paciente}
+            horarios={chamada.horarios}
+            ehEstagiario={chamada.ehEstagiario}
+          />
+        </ModalFormulario>
       )}
       <FormularioAcao
         acao={remover.bind(null, inscricao.id)}
@@ -88,7 +111,7 @@ function Acoes({ inscricao, podeChamar, larguraTotal }: { inscricao: Inscricao; 
   );
 }
 
-function TabelaDeInscricoes({ inscricoes, podeChamar }: { inscricoes: Inscricao[]; podeChamar: boolean }) {
+function TabelaDeInscricoes({ inscricoes, chamada }: { inscricoes: Inscricao[]; chamada: Chamada }) {
   return (
     <div className="hidden overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-foreground/10 md:block">
       <Table>
@@ -110,7 +133,7 @@ function TabelaDeInscricoes({ inscricoes, podeChamar }: { inscricoes: Inscricao[
               </TableCell>
               <TableCell className="text-muted-foreground">{formatarData(inscricao.inscritoEm)}</TableCell>
               <TableCell>
-                <Acoes inscricao={inscricao} podeChamar={podeChamar} />
+                <Acoes inscricao={inscricao} chamada={chamada} />
               </TableCell>
             </TableRow>
           ))}
@@ -120,7 +143,7 @@ function TabelaDeInscricoes({ inscricoes, podeChamar }: { inscricoes: Inscricao[
   );
 }
 
-function ItensDeInscricao({ inscricoes, podeChamar }: { inscricoes: Inscricao[]; podeChamar: boolean }) {
+function ItensDeInscricao({ inscricoes, chamada }: { inscricoes: Inscricao[]; chamada: Chamada }) {
   return (
     <ItemGroup className="gap-0 divide-y overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-foreground/10 md:hidden">
       {inscricoes.map((inscricao) => (
@@ -134,7 +157,7 @@ function ItensDeInscricao({ inscricoes, podeChamar }: { inscricoes: Inscricao[];
             </ItemDescription>
           </ItemContent>
           <ItemFooter>
-            <Acoes inscricao={inscricao} podeChamar={podeChamar} larguraTotal />
+            <Acoes inscricao={inscricao} chamada={chamada} larguraTotal />
           </ItemFooter>
         </Item>
       ))}

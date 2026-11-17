@@ -50,6 +50,7 @@ async function executarAlteracao(
     return { status: "sucesso", mensagem, identificador: atualizadoEm.toISOString() };
   } catch (erro) {
     if (erro instanceof VersaoDesatualizadaDoUsuario) {
+      revalidatePath("/cadastros/usuarios");
       revalidatePath(`/cadastros/usuarios/${id}`);
       return { status: "conflito", versaoEnviada: new Date(versao).toISOString() };
     }
