@@ -3,10 +3,8 @@ import Link from "next/link";
 import { ArrowLeftIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { exigirUsuario } from "@/lib/auth/autorizacao";
-import { criarUnidade } from "../actions";
-import { FormularioUnidade } from "../formulario-unidade";
-import { VALORES_PADRAO_UNIDADE } from "../formulario-unidade-schema";
+import { ConteudoNovaUnidade } from "./conteudo-nova-unidade";
+import { IndicadorCarregando } from "@/components/indicador-carregando";
 
 export default function NovaUnidadePage() {
   return (
@@ -19,14 +17,9 @@ export default function NovaUnidadePage() {
         <h1 className="text-2xl font-bold">Nova unidade</h1>
         <p className="text-sm text-muted-foreground">Cadastre a unidade e defina suas regras de agendamento.</p>
       </div>
-      <Suspense fallback={<p>Carregando formulário…</p>}>
+      <Suspense fallback={<IndicadorCarregando texto="Carregando formulário…" />}>
         <ConteudoNovaUnidade />
       </Suspense>
     </section>
   );
-}
-
-async function ConteudoNovaUnidade() {
-  await exigirUsuario(["ADMINISTRADOR"]);
-  return <FormularioUnidade acao={criarUnidade} rotuloBotao="Criar unidade" valores={VALORES_PADRAO_UNIDADE} />;
 }

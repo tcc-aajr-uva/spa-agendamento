@@ -11,5 +11,5 @@ export function MensagemSucesso({ texto }: { texto: string }) {
   }, []);
 
   if (!visivel) return null;
-  return <p className="text-sm text-green-700" aria-live="polite">{texto}</p>;
+  return <p className="text-sm text-accent-foreground" aria-live="polite">{texto}</p>;
 }

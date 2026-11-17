@@ -1,7 +1,7 @@
 import "server-only";
 
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Suspense } from "react";
+import { IndicadorCarregando } from "@/components/indicador-carregando";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PaginacaoLista } from "@/components/paginacao-lista";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
@@ -11,7 +11,12 @@ import { podeGerenciarPeriodos } from "@/lib/periodo-letivo/escopo-periodo";
 import { criarParametrosBusca, type ParametrosBusca } from "@/lib/url/parametros-busca";
 import { FiltrosPeriodos } from "./filtros-periodos";
 import { ListaPeriodos } from "./lista-periodos";
+import { ModalEdicao } from "../../../../modal-edicao";
+import { ModalFormulario } from "../../../../modal-formulario";
+import { hrefDeEdicao } from "../../../../parametros";
+import { DetalhePeriodo } from "./[periodoId]/detalhe-periodo";
 import { NotificacaoPeriodo } from "./notificacao-periodo";
+import { ConteudoNovoPeriodo } from "./novo/conteudo-novo-periodo";
 
 export type ParametrosPeriodos = ParametrosBusca;
 
@@ -29,7 +34,19 @@ export async function SecaoPeriodos({ unidadeId, autor, caminhoLista, searchPara
   const salvo = periodoIdSchema.safeParse(valorUnico(consulta.periodoSalvo));
   const excluido = periodoIdSchema.safeParse(valorUnico(consulta.excluido));
   const confirmacao = valorUnico(consulta.confirmacaoPeriodo) ?? "";
-  const caminhoDetalhes = `/cadastros/unidades/${unidadeId}/periodos`;
+  const periodoAberto = valorUnico(consulta.periodo);
+  const avisos = ["periodoSalvo", "excluido", "confirmacaoPeriodo"];
+
+  function hrefDoPeriodo(periodoId: string) {
+    return hrefDeEdicao(caminhoLista, consulta, "periodo", periodoId, avisos);
+  }
+
+  function caminhoSemPeriodo() {
+    const parametros = criarParametrosBusca(consulta);
+    for (const chave of ["periodo", ...avisos]) parametros.delete(chave);
+    const texto = parametros.toString();
+    return texto ? `${caminhoLista}?${texto}` : caminhoLista;
+  }
 
   function urlDaPagina(pagina: number) {
     const parametros = criarParametrosBusca(consulta);
@@ -49,16 +66,18 @@ export async function SecaoPeriodos({ unidadeId, autor, caminhoLista, searchPara
             <CardDescription>Gerencie as datas dos períodos letivos desta unidade.</CardDescription>
           </div>
           {podeGerenciarPeriodos(autor) && (
-            <Button size="lg" nativeButton={false} render={<Link prefetch={false} href={`${caminhoDetalhes}/novo`} />}>
-              Novo período
-            </Button>
+            <ModalFormulario rotulo="Novo período" titulo="Novo período letivo">
+              <Suspense fallback={<IndicadorCarregando texto="Carregando formulário…" />}>
+                <ConteudoNovoPeriodo id={unidadeId} />
+              </Suspense>
+            </ModalFormulario>
           )}
         </CardHeader>
         <CardContent className="space-y-6">
           {salvo.success && <NotificacaoPeriodo key={`salvo:${salvo.data}:${confirmacao}`} parametro="periodoSalvo" periodoId={salvo.data} confirmacao={confirmacao} />}
           {excluido.success && <NotificacaoPeriodo key={`excluido:${excluido.data}:${confirmacao}`} parametro="excluido" periodoId={excluido.data} confirmacao={confirmacao} />}
           <FiltrosPeriodos situacaoInicial={resultado.situacao} />
-          <ListaPeriodos periodos={resultado.periodos} caminhoDetalhes={caminhoDetalhes} />
+          <ListaPeriodos periodos={resultado.periodos} hrefDoPeriodo={hrefDoPeriodo} />
           <PaginacaoLista
             pagina={resultado.pagina}
             totalPaginas={resultado.totalPaginas}
@@ -69,6 +88,13 @@ export async function SecaoPeriodos({ unidadeId, autor, caminhoLista, searchPara
           />
         </CardContent>
       </Card>
+      <ModalEdicao parametro="periodo" aberto={Boolean(periodoAberto)} titulo="Editar período letivo" limpar={["periodo", ...avisos]}>
+        {periodoAberto && (
+          <Suspense fallback={<IndicadorCarregando texto="Carregando período letivo…" />}>
+            <DetalhePeriodo unidadeId={unidadeId} periodoId={periodoAberto} caminhoLista={caminhoSemPeriodo()} />
+          </Suspense>
+        )}
+      </ModalEdicao>
     </section>
   );
 }

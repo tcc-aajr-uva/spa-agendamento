@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2Icon } from "lucide-react";
 import { useActionState, useLayoutEffect, useRef, useState, type ComponentProps, type FormEvent, type ReactNode } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -60,6 +61,7 @@ function Formulario({ acao, rotulo, confirmacao, variante = "default", tamanho =
       <form ref={formulario} action={enviar} onSubmit={aoEnviar} className="flex flex-col gap-3">
         {children}
         <Button type="submit" variant={variante} size={tamanho} disabled={enviando} className={larguraTotal ? "w-full" : "self-start"}>
+          {enviando && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
           {enviando ? "Enviando…" : rotulo}
         </Button>
         {estado.erro && (

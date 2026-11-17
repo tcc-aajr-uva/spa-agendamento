@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import { consultarEstadoConvite, type EstadoConvite } from "@/lib/usuario/consultar-convite";
 import { aceitarConvite } from "./actions";
 import { FormularioConvite } from "./formulario-convite";
+import { IndicadorCarregando } from "@/components/indicador-carregando";
 
 type Props = {
   params: Promise<{ token: string }>;
@@ -16,9 +17,9 @@ export default function ConvitePage({ params }: Props) {
       <section className="w-full space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Convite de acesso</h1>
-          <p className="text-sm text-gray-600">Consulte o convite e, quando disponível, defina sua senha.</p>
+          <p className="text-sm text-muted-foreground">Consulte o convite e, quando disponível, defina sua senha.</p>
         </div>
-        <Suspense fallback={<p>Carregando…</p>}>
+        <Suspense fallback={<IndicadorCarregando />}>
           <ConteudoConvite params={params} />
         </Suspense>
       </section>
@@ -37,9 +38,9 @@ async function ConteudoConvite({ params }: Props) {
 function ConviteIndisponivel({ estado }: { estado: Exclude<EstadoConvite, "VALIDO"> }) {
   if (estado === "USADO") {
     return (
-      <div className="space-y-3 rounded border p-4">
+      <div className="space-y-3 rounded border bg-card p-4 shadow-sm">
         <p>Este convite já foi utilizado.</p>
-        <Link className="inline-block rounded border px-3 py-2" href="/entrar">
+        <Link className="inline-block rounded border px-3 py-2 hover:bg-muted" href="/entrar">
           Ir para o login
         </Link>
       </div>
@@ -48,17 +49,17 @@ function ConviteIndisponivel({ estado }: { estado: Exclude<EstadoConvite, "VALID
 
   if (estado === "EXPIRADO") {
     return (
-      <div className="space-y-3 rounded border p-4">
+      <div className="space-y-3 rounded border bg-card p-4 shadow-sm">
         <p>Este convite expirou.</p>
-        <p className="text-sm text-gray-600">Solicite um novo link à pessoa responsável pelo seu cadastro.</p>
+        <p className="text-sm text-muted-foreground">Solicite um novo link à pessoa responsável pelo seu cadastro.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3 rounded border p-4">
+    <div className="space-y-3 rounded border bg-card p-4 shadow-sm">
       <p>Este convite não está disponível.</p>
-      <p className="text-sm text-gray-600">Verifique o link recebido ou solicite um novo convite.</p>
+      <p className="text-sm text-muted-foreground">Verifique o link recebido ou solicite um novo convite.</p>
     </div>
   );
 }

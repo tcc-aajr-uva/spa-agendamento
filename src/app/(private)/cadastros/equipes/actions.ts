@@ -20,7 +20,7 @@ export async function criarEquipe(_estado: EstadoEquipe, formData: FormData): Pr
     throw erro;
   }
   revalidarEquipes();
-  redirect(`/cadastros/equipes/${id}?equipeCriada=1`);
+  redirect(`/cadastros/equipes?editar=${id}&equipeCriada=1`);
 }
 
 export async function atualizarEquipe(id: string, _estado: EstadoEquipe, formData: FormData): Promise<EstadoEquipe> {

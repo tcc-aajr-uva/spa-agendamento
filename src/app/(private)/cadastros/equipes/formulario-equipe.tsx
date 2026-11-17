@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2Icon } from "lucide-react";
 import { startTransition, useActionState, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -142,6 +143,7 @@ export function FormularioEquipeControlado({
         {!somenteLeitura && (
           <CardFooter className="justify-end">
             <Button size="lg" disabled={bloqueado} type="submit">
+              {controle.enviando && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
               {controle.enviando ? "Salvando…" : rotuloBotao}
             </Button>
           </CardFooter>

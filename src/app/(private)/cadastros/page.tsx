@@ -3,10 +3,11 @@ import { redirect } from "next/navigation";
 
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { perfisDaRota } from "../menu";
+import { IndicadorCarregando } from "@/components/indicador-carregando";
 
 export default function CadastrosPage() {
   return (
-    <Suspense fallback={<p>Carregando…</p>}>
+    <Suspense fallback={<IndicadorCarregando />}>
       <RedirecionarParaUsuarios />
     </Suspense>
   );

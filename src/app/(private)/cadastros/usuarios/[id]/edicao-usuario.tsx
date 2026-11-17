@@ -24,6 +24,7 @@ type Props = OpcoesEdicaoUsuario & {
   acaoAtivacao: Acao;
   atendimento?: ReactNode;
   convite: ReactNode;
+  secao?: "dados" | "ativacao" | "atendimento" | "acesso";
 };
 
 export function EdicaoUsuario(props: Props) {
@@ -32,7 +33,7 @@ export function EdicaoUsuario(props: Props) {
   return <EdicaoUsuarioInterna key={chave} {...props} />;
 }
 
-function EdicaoUsuarioInterna({ valores, ativo, podeAlterarAcesso, acaoAtualizar, acaoAtivacao, atendimento, convite, ...opcoes }: Props) {
+function EdicaoUsuarioInterna({ valores, ativo, podeAlterarAcesso, acaoAtualizar, acaoAtivacao, atendimento, convite, secao, ...opcoes }: Props) {
   const router = useRouter();
   const [estado, enviar, enviando] = useActionState(acaoAtualizar, ESTADO_INICIAL_USUARIO);
   const [ativacao, executarAtivacao, alterando] = useActionState(acaoAtivacao, ESTADO_INICIAL_USUARIO);
@@ -90,32 +91,43 @@ function EdicaoUsuarioInterna({ valores, ativo, podeAlterarAcesso, acaoAtualizar
 
   const aoEnviar = handleSubmit((dados) => startTransition(() => enviar(formDataDoUsuario(dados))));
 
+  const formularioDados = (
+    <FormularioEdicaoUsuario {...opcoes} formulario={formulario} valores={valores} unidadeIds={unidadeIds} equipeIds={equipeIds}
+      acao={enviar} bloqueado={bloqueado} enviando={enviando}
+      aoAlterar={() => { if (estado.status === "erro") aceitarEdicao(estado); }}
+      aoEnviar={(evento) => { if (bloqueado) evento.preventDefault(); else void aoEnviar(evento); }} />
+  );
+  const controleAtivacao = podeAlterarAcesso ? (
+    <ControleAtivacaoUsuario executar={executarAtivacao} executando={alterando} ativo={ativo} atualizadoEm={versao}
+      bloqueado={bloqueado || isDirty} bloqueadoPorRascunho={isDirty && !conflito} />
+  ) : (
+    <Alert>
+      <InfoIcon aria-hidden="true" />
+      <AlertTitle>Alteração de acesso indisponível</AlertTitle>
+      <AlertDescription>
+        O acesso global só pode ser alterado pelo administrador ou por uma coordenação responsável por todas as unidades deste usuário.
+      </AlertDescription>
+    </Alert>
+  );
+
   return (
     <div className="space-y-6">
       <AlertasFormularioUsuario conflito={conflito} ocupado={ocupado}
         recarregando={recarregando} carregarVersao={carregarVersao} erroVersao={errors.atualizadoEm?.message}
         erroSalvar={estado.status === "erro" && edicaoAceita !== estado ? estado.mensagem : undefined}
         erroAtivacao={ativacao.status === "erro" && ativacaoAceita !== ativacao ? ativacao.mensagem : undefined} />
-      <AbasUsuario bloqueada={conflito} atendimento={atendimento} convite={convite} dados={
-        <>
-          <FormularioEdicaoUsuario {...opcoes} formulario={formulario} valores={valores} unidadeIds={unidadeIds} equipeIds={equipeIds}
-            acao={enviar} bloqueado={bloqueado} enviando={enviando}
-            aoAlterar={() => { if (estado.status === "erro") aceitarEdicao(estado); }}
-            aoEnviar={(evento) => { if (bloqueado) evento.preventDefault(); else void aoEnviar(evento); }} />
-          {podeAlterarAcesso ? (
-            <ControleAtivacaoUsuario executar={executarAtivacao} executando={alterando} ativo={ativo} atualizadoEm={versao}
-              bloqueado={bloqueado || isDirty} bloqueadoPorRascunho={isDirty && !conflito} />
-          ) : (
-            <Alert>
-              <InfoIcon aria-hidden="true" />
-              <AlertTitle>Alteração de acesso indisponível</AlertTitle>
-              <AlertDescription>
-                O acesso global só pode ser alterado pelo administrador ou por uma coordenação responsável por todas as unidades deste usuário.
-              </AlertDescription>
-            </Alert>
-          )}
-        </>
-      } />
+      {secao === "dados" && formularioDados}
+      {secao === "ativacao" && controleAtivacao}
+      {secao === "atendimento" && atendimento}
+      {secao === "acesso" && convite}
+      {!secao && (
+        <AbasUsuario bloqueada={conflito} atendimento={atendimento} convite={convite} dados={
+          <>
+            {formularioDados}
+            {controleAtivacao}
+          </>
+        } />
+      )}
     </div>
   );
 }

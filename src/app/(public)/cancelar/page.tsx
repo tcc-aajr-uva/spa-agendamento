@@ -1,15 +1,24 @@
 import { Suspense } from "react";
+import Link from "next/link";
+import { ChevronLeftIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { IndicadorCarregando } from "@/components/indicador-carregando";
+import { tokenTemFormatoValido } from "@/lib/token";
 import { FormularioCancelamento } from "./formulario-cancelamento";
-import { TAMANHO_TOKEN } from "@/lib/token-constantes";
 
 export const metadata = { referrer: "no-referrer" };
 type Props = { searchParams: Promise<{ token?: string | string[] }> };
 
 export default function CancelarPage({ searchParams }: Props) {
   return (
-    <main className="mx-auto max-w-xl p-6">
-      <h1 className="text-2xl font-bold">Cancelar agendamento</h1>
-      <Suspense fallback={<p className="mt-4">Carregando…</p>}>
+    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8 sm:px-6">
+      <Button variant="ghost" size="sm" nativeButton={false} className="-ml-2 self-start text-muted-foreground" render={<Link href="/" />}>
+        <ChevronLeftIcon data-icon="inline-start" />
+        Voltar ao início
+      </Button>
+      <h1 className="text-2xl font-bold tracking-tight">Cancelar agendamento</h1>
+      <Suspense fallback={<IndicadorCarregando />}>
         <ConteudoCancelamento searchParams={searchParams} />
       </Suspense>
     </main>
@@ -18,8 +27,20 @@ export default function CancelarPage({ searchParams }: Props) {
 
 async function ConteudoCancelamento({ searchParams }: Props) {
   const { token } = await searchParams;
-  if (typeof token !== "string" || token.length !== TAMANHO_TOKEN) {
-    return <p className="mt-4">Link de cancelamento inválido. Use o link exibido ao final do seu agendamento.</p>;
-  }
-  return <FormularioCancelamento token={token} />;
+  const tokenValido = typeof token === "string" && tokenTemFormatoValido(token) ? token : undefined;
+  return (
+    <Card className="animate-in duration-300 ease-out fade-in zoom-in-95">
+      <CardHeader>
+        <CardTitle className="text-lg">{tokenValido ? "Confirme o código" : "Informe seus dados"}</CardTitle>
+        <CardDescription>
+          {tokenValido
+            ? "Digite o código de 6 caracteres que apareceu no fim do agendamento."
+            : "Digite o CPF do paciente e o código de 6 caracteres que apareceu no fim do agendamento."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <FormularioCancelamento token={tokenValido} />
+      </CardContent>
+    </Card>
+  );
 }

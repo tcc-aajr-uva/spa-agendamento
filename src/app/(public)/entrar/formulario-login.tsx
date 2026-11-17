@@ -1,11 +1,17 @@
 "use client";
 
+import { Loader2Icon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { signIn } from "@/lib/auth/client";
+import { rotaInicialDoPerfil } from "@/lib/auth/rota-inicial";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Informe um e-mail válido."),
@@ -62,34 +68,34 @@ export function FormularioLogin() {
       return;
     }
 
-    router.replace("/inicio");
+    router.replace(rotaInicialDoPerfil(resultado.data.user.perfil));
     router.refresh();
   });
 
   return (
-    <form className="space-y-4" onSubmit={entrar}>
-      <label className="block space-y-1">
-        <span>E-mail</span>
-        <input className="w-full rounded border px-3 py-2" type="email" autoComplete="email" {...register("email")} />
-        {errors.email && <span className="block text-sm text-red-700">{errors.email.message}</span>}
-      </label>
+    <form className="flex flex-col gap-4" onSubmit={entrar} noValidate>
+      <Field data-invalid={Boolean(errors.email)}>
+        <FieldLabel htmlFor="login-email">E-mail</FieldLabel>
+        <Input id="login-email" type="email" autoComplete="email" aria-invalid={Boolean(errors.email)} {...register("email")} />
+        <FieldError errors={[errors.email]} />
+      </Field>
 
-      <label className="block space-y-1">
-        <span>Senha</span>
-        <input
-          className="w-full rounded border px-3 py-2"
-          type="password"
-          autoComplete="current-password"
-          {...register("senha")}
-        />
-        {errors.senha && <span className="block text-sm text-red-700">{errors.senha.message}</span>}
-      </label>
+      <Field data-invalid={Boolean(errors.senha)}>
+        <FieldLabel htmlFor="login-senha">Senha</FieldLabel>
+        <Input id="login-senha" type="password" autoComplete="current-password" aria-invalid={Boolean(errors.senha)} {...register("senha")} />
+        <FieldError errors={[errors.senha]} />
+      </Field>
 
-      {errors.root && <p className="text-sm text-red-700">{errors.root.message}</p>}
+      {errors.root && (
+        <Alert variant="destructive" aria-live="polite">
+          <AlertDescription className="text-destructive">{errors.root.message}</AlertDescription>
+        </Alert>
+      )}
 
-      <button className="w-full rounded border px-3 py-2" disabled={isSubmitting} type="submit">
+      <Button size="lg" className="w-full" disabled={isSubmitting} type="submit">
+        {isSubmitting && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
         {isSubmitting ? "Entrando…" : "Entrar"}
-      </button>
+      </Button>
     </form>
   );
 }

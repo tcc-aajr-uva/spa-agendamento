@@ -1,24 +1,24 @@
-import Link from "next/link";
-import { ChevronRightIcon } from "lucide-react";
+import { PencilIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatarDataPeriodo, ROTULOS_SITUACAO_PERIODO, type SituacaoPeriodo } from "@/lib/periodo-letivo/dados-periodo";
+import { BotaoEdicao } from "../../../../modal-edicao";
 
 type Props = {
   periodos: { id: string; inicio: string; fim: string; situacao: SituacaoPeriodo }[];
-  caminhoDetalhes: string;
+  hrefDoPeriodo: (periodoId: string) => string;
 };
 
-export function ListaPeriodos({ periodos, caminhoDetalhes }: Props) {
+export function ListaPeriodos({ periodos, hrefDoPeriodo }: Props) {
   return (
-    <div className="overflow-hidden rounded-lg border">
+    <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
       <Table aria-label="Períodos letivos" className="min-w-100">
         <TableHeader>
           <TableRow className="bg-muted/50">
             <TableHead scope="col" className="px-4">Início</TableHead>
             <TableHead scope="col">Fim</TableHead>
             <TableHead scope="col">Situação</TableHead>
-            <TableHead scope="col" className="w-10 px-4" aria-label="Detalhes do período" />
+            <TableHead scope="col" className="w-16 px-4">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -32,13 +32,9 @@ export function ListaPeriodos({ periodos, caminhoDetalhes }: Props) {
               </TableCell>
             </TableRow>
           ) : periodos.map((periodo) => (
-            <TableRow key={periodo.id} className="relative">
-              <TableHead scope="row" className="px-4 py-4">
-                <Link className="font-medium underline-offset-4 hover:underline after:absolute after:inset-0 after:z-10 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
-                  prefetch={false} href={`${caminhoDetalhes}/${periodo.id}`}
-                  aria-label={`Ver período de ${formatarDataPeriodo(periodo.inicio)} a ${formatarDataPeriodo(periodo.fim)}`}>
-                  {formatarDataPeriodo(periodo.inicio)}
-                </Link>
+            <TableRow key={periodo.id}>
+              <TableHead scope="row" className="px-4 py-4 font-medium">
+                {formatarDataPeriodo(periodo.inicio)}
               </TableHead>
               <TableCell>{formatarDataPeriodo(periodo.fim)}</TableCell>
               <TableCell>
@@ -46,8 +42,17 @@ export function ListaPeriodos({ periodos, caminhoDetalhes }: Props) {
                   {ROTULOS_SITUACAO_PERIODO[periodo.situacao]}
                 </Badge>
               </TableCell>
-              <TableCell className="px-4 text-right">
-                <ChevronRightIcon aria-hidden="true" className="ml-auto size-4 text-muted-foreground" />
+              <TableCell className="px-4">
+                <div className="flex justify-center">
+                  <BotaoEdicao
+                    parametro="periodo"
+                    tom="editar"
+                    href={hrefDoPeriodo(periodo.id)}
+                    rotulo={`Editar período de ${formatarDataPeriodo(periodo.inicio)} a ${formatarDataPeriodo(periodo.fim)}`}
+                  >
+                    <PencilIcon />
+                  </BotaoEdicao>
+                </div>
               </TableCell>
             </TableRow>
           ))}

@@ -26,7 +26,7 @@ export function GradeOcupacao({ grade }: { grade: GradeDeOcupacao }) {
       <table className="w-full min-w-[40rem] border-separate border-spacing-1 text-sm">
         <thead>
           <tr>
-            <th scope="col" className="px-2 py-1 text-left font-normal text-muted-foreground">
+            <th scope="col" className="px-2 py-1 text-center font-normal text-muted-foreground">
               Horário
             </th>
             {grade.salas.map((sala) => (
@@ -39,7 +39,7 @@ export function GradeOcupacao({ grade }: { grade: GradeDeOcupacao }) {
         <tbody>
           {grade.linhas.map((linha) => (
             <tr key={linha.horaInicio}>
-              <th scope="row" className="px-2 text-left font-normal text-muted-foreground">
+              <th scope="row" className="px-2 text-center font-normal text-muted-foreground">
                 {formatarHora(linha.horaInicio)}
               </th>
               {linha.celulas.map((situacao, indice) => (

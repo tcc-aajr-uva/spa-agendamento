@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { perfisDaRota } from "../../../../menu";
+import { IndicadorCarregando } from "@/components/indicador-carregando";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -10,7 +11,7 @@ type Props = {
 
 export default function ConvitesUsuarioPage({ params }: Props) {
   return (
-    <Suspense fallback={<p>Redirecionando para o convite…</p>}>
+    <Suspense fallback={<IndicadorCarregando texto="Redirecionando para o convite…" />}>
       <RedirecionarParaConvite params={params} />
     </Suspense>
   );

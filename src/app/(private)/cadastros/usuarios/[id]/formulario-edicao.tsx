@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, type FormEventHandler } from "react";
-import { InfoIcon } from "lucide-react";
+import { InfoIcon, Loader2Icon } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -79,6 +79,7 @@ export function FormularioEdicaoUsuario({ formulario, acao, aoEnviar, aoAlterar,
         </CardContent>
         <CardFooter className="justify-end">
           <Button size="lg" disabled={bloqueado || !!erroDeUnidade || !!erroDeRemocao} type="submit">
+            {enviando && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
             {enviando ? "Salvando…" : "Salvar alterações"}
           </Button>
         </CardFooter>

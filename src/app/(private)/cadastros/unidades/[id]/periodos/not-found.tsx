@@ -5,7 +5,7 @@ export default function PeriodoNaoEncontrado() {
     <section className="space-y-4">
       <h1 className="text-2xl font-bold">Unidade ou período não encontrado</h1>
       <p>O registro não existe ou não pertence ao seu escopo de atuação.</p>
-      <Link className="underline" prefetch={false} href="/cadastros/periodos">Voltar para unidades dos períodos letivos</Link>
+      <Link className="underline underline-offset-4 hover:text-primary" prefetch={false} href="/cadastros/periodos">Voltar para unidades dos períodos letivos</Link>
     </section>
   );
 }

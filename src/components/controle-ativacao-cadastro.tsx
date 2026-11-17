@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2Icon } from "lucide-react";
 import { useId, useState } from "react";
 
 import {
@@ -67,6 +68,7 @@ export function ControleAtivacaoCadastro({ executar, executando, ativo, atualiza
             <AlertDialog open={confirmacaoAberta}
               onOpenChange={(aberta) => definirVersaoDaConfirmacao(aberta ? atualizadoEm : null)}>
               <AlertDialogTrigger render={<Button variant="destructive" disabled={indisponivel} type="button" />}>
+                {executando && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
                 {executando ? "Processando…" : textos.rotuloInativar}
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -86,6 +88,7 @@ export function ControleAtivacaoCadastro({ executar, executando, ativo, atualiza
             </AlertDialog>
           ) : (
             <Button disabled={indisponivel} type="submit">
+              {executando && <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />}
               {executando ? "Processando…" : textos.rotuloAtivar}
             </Button>
           )}
