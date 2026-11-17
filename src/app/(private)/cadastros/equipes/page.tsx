@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { PencilIcon, PowerIcon } from "lucide-react";
+import { PencilIcon, PowerIcon, UsersIcon } from "lucide-react";
 
 import { CabecalhoListagem } from "@/components/cabecalho-listagem";
 import { EstadoVazioTabela } from "@/components/estado-vazio-tabela";
@@ -8,7 +8,7 @@ import { PaginacaoLista } from "@/components/paginacao-lista";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { listarUnidadesParaEquipe } from "@/lib/equipe/consultar-equipe";
-import { PERFIS_EQUIPES } from "@/lib/equipe/escopo-equipe";
+import { PERFIS_EQUIPES, podeConsultarEstagiariosDaEquipe } from "@/lib/equipe/escopo-equipe";
 import { listarEquipes } from "@/lib/equipe/listar-equipes";
 import { FiltrosEquipes } from "./filtros-equipes";
 import { IndicadorCarregando } from "@/components/indicador-carregando";
@@ -17,12 +17,15 @@ import { ModalFormulario } from "../../modal-formulario";
 import { hrefDeEdicao } from "../../parametros";
 import { DetalheEquipe } from "./[id]/detalhe-equipe";
 import { ConteudoNovaEquipe } from "./nova/conteudo-nova-equipe";
+import type { ParametrosBusca } from "@/lib/url/parametros-busca";
+import { EstagiariosEquipe } from "./estagiarios-equipe";
 
 type Props = {
-  searchParams: Promise<{ busca?: string | string[]; unidadeId?: string | string[]; status?: string | string[]; pagina?: string | string[]; editar?: string | string[]; ativacao?: string | string[] }>;
+  searchParams: Promise<ParametrosBusca>;
 };
 
-const PARAMETROS_DOS_MODAIS = ["editar", "ativacao", "equipeCriada"];
+const PARAMETROS_DOS_ESTAGIARIOS = ["estagiarios", "buscaEstagiarios", "paginaEstagiarios"];
+const PARAMETROS_DOS_MODAIS = ["editar", "ativacao", "equipeCriada", ...PARAMETROS_DOS_ESTAGIARIOS];
 
 export default function EquipesPage({ searchParams }: Props) {
   return (
@@ -50,6 +53,8 @@ async function Conteudo({ searchParams }: Props) {
   ]);
   const editar = valorUnico(parametros.editar);
   const ativacao = valorUnico(parametros.ativacao);
+  const estagiarios = valorUnico(parametros.estagiarios);
+  const podeConsultarEstagiarios = podeConsultarEstagiariosDaEquipe(autor);
   const hrefDoModal = (chave: string, id: string) => hrefDeEdicao("/cadastros/equipes", parametros, chave, id, PARAMETROS_DOS_MODAIS);
 
   return (
@@ -80,7 +85,7 @@ async function Conteudo({ searchParams }: Props) {
               <TableHead scope="col">Situação</TableHead>
               <TableHead scope="col">Unidade</TableHead>
               <TableHead scope="col">Supervisor</TableHead>
-              <TableHead scope="col" className="w-24 px-4">Ações</TableHead>
+              <TableHead scope="col" className="w-32 px-4">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -106,6 +111,11 @@ async function Conteudo({ searchParams }: Props) {
                 </TableCell>
                 <TableCell className="px-4">
                   <div className="flex justify-center gap-1">
+                    {podeConsultarEstagiarios && (
+                      <BotaoEdicao parametro="estagiarios" tom="lista" href={hrefDoModal("estagiarios", equipe.id)} rotulo={`Estagiários de ${equipe.nome}`}>
+                        <UsersIcon />
+                      </BotaoEdicao>
+                    )}
                     <BotaoEdicao parametro="editar" tom="editar" href={hrefDoModal("editar", equipe.id)} rotulo={`Editar ${equipe.nome}`}>
                       <PencilIcon />
                     </BotaoEdicao>
@@ -142,6 +152,13 @@ async function Conteudo({ searchParams }: Props) {
         {ativacao && (
           <Suspense fallback={<IndicadorCarregando texto="Carregando equipe…" />}>
             <DetalheEquipe id={ativacao} secao="ativacao" />
+          </Suspense>
+        )}
+      </ModalEdicao>
+      <ModalEdicao parametro="estagiarios" aberto={Boolean(estagiarios)} titulo="Estagiários da equipe" limpar={PARAMETROS_DOS_ESTAGIARIOS}>
+        {estagiarios && (
+          <Suspense fallback={<IndicadorCarregando texto="Carregando estagiários…" />}>
+            <EstagiariosEquipe id={estagiarios} parametros={parametros} />
           </Suspense>
         )}
       </ModalEdicao>

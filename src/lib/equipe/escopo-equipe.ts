@@ -10,6 +10,10 @@ export function podeGerenciarEquipes(autor: ContextoAutorizacao): boolean {
   return autor.perfil === "ADMINISTRADOR" || autor.perfil === "COORDENACAO" || autor.perfil === "SECRETARIA";
 }
 
+export function podeConsultarEstagiariosDaEquipe(autor: ContextoAutorizacao): boolean {
+  return autor.perfil === "ADMINISTRADOR" || autor.perfil === "COORDENACAO" || autor.perfil === "SUPERVISOR";
+}
+
 export function filtroDeEquipesVisiveis(autor: ContextoAutorizacao): Prisma.EquipeWhereInput {
   if (autor.perfil === "ADMINISTRADOR") return {};
   const unidade = { unidadeId: { in: autor.unidades }, unidade: { ativa: true } };
