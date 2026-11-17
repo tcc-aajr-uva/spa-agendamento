@@ -1,5 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
+import { io } from "next/cache";
 import { ArrowLeft, Building2, CalendarClock, ChevronRight, Clock, Info, Users } from "lucide-react";
 import { FaChildren } from "react-icons/fa6";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -210,6 +211,7 @@ function agruparPorDia(horarios: HorarioLivre[]): [number, number[]][] {
 }
 
 async function EscolherHorario({ unidadeId, equipeId }: { unidadeId: string; equipeId: string }) {
+  await io();
   const horarios = await listarHorariosLivres(unidadeId, equipeId);
 
   if (horarios.length === 0) {
