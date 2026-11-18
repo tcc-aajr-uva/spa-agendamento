@@ -36,19 +36,15 @@ function filtroDeVinculos(autor: ContextoAutorizacao, estagiarioId: string): Pri
 }
 
 export async function consultarAtendimentoEstagiario(
-  estagiarioId: string, autor: ContextoAutorizacao, equipeId?: string, periodoLetivoId?: string,
+  estagiarioId: string, autor: ContextoAutorizacao, equipeId: string, periodoLetivoId?: string,
 ) {
   if (!podeConfigurarAtendimento(autor) || !z.cuid2().safeParse(estagiarioId).success) return null;
-  const vinculos = await prisma.usuarioEquipe.findMany({
-    where: filtroDeVinculos(autor, estagiarioId),
-    orderBy: [{ equipe: { unidade: { nome: "asc" } } }, { equipe: { nome: "asc" } }],
-    select: { equipe: { select: { id: true, nome: true, unidadeId: true, unidade: { select: { nome: true } } } } },
+  const vinculo = await prisma.usuarioEquipe.findFirst({
+    where: { AND: [filtroDeVinculos(autor, estagiarioId), { equipeId }] },
+    select: { equipe: { select: { id: true, unidadeId: true } } },
   });
-  const equipes = vinculos.map(({ equipe }) => ({
-    id: equipe.id, unidadeId: equipe.unidadeId, nome: `${equipe.unidade.nome} — ${equipe.nome}`,
-  }));
-  const equipe = equipeId ? equipes.find(({ id }) => id === equipeId) : equipes[0];
-  if (!equipe) return { equipes, periodos: [], equipe: null, periodo: null, configuracao: null };
+  const equipe = vinculo?.equipe;
+  if (!equipe) return { periodos: [], equipe: null, periodo: null, configuracao: null };
   const periodos = await prisma.periodoLetivo.findMany({
     where: { unidadeId: equipe.unidadeId }, orderBy: { inicio: "asc" },
     select: { id: true, inicio: true, fim: true },
@@ -56,12 +52,12 @@ export async function consultarAtendimentoEstagiario(
   const hoje = hojeNoBrasil(new Date());
   const periodo = periodoLetivoId
     ? periodos.find(({ id }) => id === periodoLetivoId)
-    : periodos.find(({ fim }) => fim >= hoje) ?? periodos.at(-1);
+    : periodos.find(({ inicio, fim }) => inicio <= hoje && fim >= hoje);
   const configuracao = periodo ? await prisma.configuracaoAtendimentoEstagiario.findUnique({
     where: { estagiarioId_equipeId_periodoLetivoId: { estagiarioId, equipeId: equipe.id, periodoLetivoId: periodo.id } },
     select: { liberado: true, limitePacientes: true, atualizadoEm: true },
   }) : null;
-  return { equipes, periodos, equipe, periodo: periodo ?? null, configuracao };
+  return { periodos, equipe, periodo: periodo ?? null, configuracao };
 }
 
 export async function salvarAtendimentoEstagiario(

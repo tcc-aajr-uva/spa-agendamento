@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { CalendarClockIcon, KeyRoundIcon, PencilIcon, PowerIcon } from "lucide-react";
+import { KeyRoundIcon, PencilIcon, PowerIcon } from "lucide-react";
 
 import { CabecalhoListagem } from "@/components/cabecalho-listagem";
 import { EstadoVazioTabela } from "@/components/estado-vazio-tabela";
@@ -16,7 +16,6 @@ import { IndicadorCarregando } from "@/components/indicador-carregando";
 import { ModalFormulario } from "../../modal-formulario";
 import { ConteudoNovoUsuario } from "./novo/conteudo-novo-usuario";
 import type { ParametrosBusca } from "@/lib/url/parametros-busca";
-import { podeConfigurarAtendimento } from "@/lib/usuario/atendimento-estagiario";
 import { BotaoEdicao, ModalEdicao } from "../../modal-edicao";
 import { hrefDeEdicao } from "../../parametros";
 import { DetalheUsuario } from "./[id]/detalhe-usuario";
@@ -25,14 +24,12 @@ type Props = {
   searchParams: Promise<ParametrosBusca>;
 };
 
-const PARAMETROS_DO_ATENDIMENTO = ["atendimento", "atendimentoEquipe", "atendimentoPeriodo"];
-const PARAMETROS_DOS_MODAIS = ["editar", "ativacao", "acesso", ...PARAMETROS_DO_ATENDIMENTO];
+const PARAMETROS_DOS_MODAIS = ["editar", "ativacao", "acesso"];
 
 const MODAIS = [
   { parametro: "editar", titulo: "Editar usuário", secao: "dados", limpar: ["editar"] },
   { parametro: "ativacao", titulo: "Situação do usuário", secao: "ativacao", limpar: ["ativacao"] },
   { parametro: "acesso", titulo: "Acesso ao sistema", secao: "acesso", limpar: ["acesso"] },
-  { parametro: "atendimento", titulo: "Configuração de atendimento", secao: "atendimento", limpar: PARAMETROS_DO_ATENDIMENTO },
 ] as const;
 
 export default function UsuariosPage({ searchParams }: Props) {
@@ -42,7 +39,7 @@ export default function UsuariosPage({ searchParams }: Props) {
         titulo="Usuários"
         descricao="Consulte os usuários que pertencem ao seu escopo de atuação."
         acao={
-          <ModalFormulario rotulo="Novo usuário" titulo="Novo usuário" descricao="Cadastre a pessoa e gere o link para definição da senha.">
+          <ModalFormulario rotulo="Novo usuário" titulo="Novo usuário">
             <Suspense fallback={<IndicadorCarregando texto="Carregando formulário…" />}>
               <ConteudoNovoUsuario />
             </Suspense>
@@ -65,7 +62,6 @@ async function ListaUsuarios({ searchParams }: Props) {
   const statusInformado = valorUnico(parametros.status);
   const status = situacaoListagemUsuarioSchema.parse(statusInformado);
   const resultado = await listarUsuarios({ busca, pagina, status }, autor);
-  const configuraAtendimento = podeConfigurarAtendimento(autor);
   const hrefDoModal = (chave: string, id: string) => hrefDeEdicao("/cadastros/usuarios", parametros, chave, id, PARAMETROS_DOS_MODAIS);
 
   return (
@@ -124,11 +120,6 @@ async function ListaUsuarios({ searchParams }: Props) {
                       <BotaoEdicao parametro="acesso" tom="acesso" href={hrefDoModal("acesso", usuario.id)} rotulo={`Acesso ao sistema de ${usuario.nome}`}>
                         <KeyRoundIcon />
                       </BotaoEdicao>
-                      {usuario.perfil === "ESTAGIARIO" && configuraAtendimento && (
-                        <BotaoEdicao parametro="atendimento" tom="lista" href={hrefDoModal("atendimento", usuario.id)} rotulo={`Atendimento de ${usuario.nome}`}>
-                          <CalendarClockIcon />
-                        </BotaoEdicao>
-                      )}
                     </div>
                   )}
                 </TableCell>
@@ -153,7 +144,7 @@ async function ListaUsuarios({ searchParams }: Props) {
           <ModalEdicao key={modal.parametro} parametro={modal.parametro} aberto={Boolean(id)} titulo={modal.titulo} limpar={[...modal.limpar]}>
             {id && (
               <Suspense fallback={<IndicadorCarregando texto="Carregando usuário…" />}>
-                <DetalheUsuario id={id} searchParams={searchParams} secao={modal.secao} />
+                <DetalheUsuario id={id} secao={modal.secao} />
               </Suspense>
             )}
           </ModalEdicao>

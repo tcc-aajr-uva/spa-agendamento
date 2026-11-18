@@ -6,9 +6,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 type Props = {
   buscaInicial: string;
   filtros: Record<string, string>;
+  parametroBusca?: string;
+  parametroPagina?: string;
 };
 
-export function useFiltrosCadastro({ buscaInicial, filtros }: Props) {
+export function useFiltrosCadastro({ buscaInicial, filtros, parametroBusca = "busca", parametroPagina = "pagina" }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -29,9 +31,9 @@ export function useFiltrosCadastro({ buscaInicial, filtros }: Props) {
     const parametros = new URLSearchParams(searchParams.toString());
     const proximosFiltros = new URLSearchParams(filtrosAplicados);
     for (const [nome, valor] of Object.entries(alteracoes)) proximosFiltros.set(nome, valor);
-    proximosFiltros.set("busca", proximaBusca.trim());
+    proximosFiltros.set(parametroBusca, proximaBusca.trim());
 
-    parametros.delete("pagina");
+    parametros.delete(parametroPagina);
     for (const [nome, valor] of proximosFiltros) {
       if (valor) parametros.set(nome, valor);
       else parametros.delete(nome);
@@ -39,7 +41,7 @@ export function useFiltrosCadastro({ buscaInicial, filtros }: Props) {
 
     const consulta = parametros.toString();
     iniciarAtualizacao(() => router.replace(consulta ? `${pathname}?${consulta}` : pathname, { scroll: false }));
-  }, [filtrosAplicados, pathname, router, searchParams]);
+  }, [filtrosAplicados, parametroBusca, parametroPagina, pathname, router, searchParams]);
 
   useEffect(() => {
     if (atualizando || rascunhoBusca === null || rascunhoBusca.trim() === buscaInicial) return;

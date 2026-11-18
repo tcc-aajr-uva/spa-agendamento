@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { createContext, Suspense, useContext, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,12 @@ type Props = {
   atualizarAoFechar?: boolean;
   children: ReactNode;
 };
+
+const FecharModalFormulario = createContext<(() => void) | undefined>(undefined);
+
+export function useFecharModalFormulario() {
+  return useContext(FecharModalFormulario);
+}
 
 export function ModalFormulario({ rotulo, titulo, descricao, variante = "default", tamanho = "lg", atualizarAoFechar, children }: Props) {
   const router = useRouter();
@@ -37,13 +43,15 @@ export function ModalFormulario({ rotulo, titulo, descricao, variante = "default
       )}
       <DialogContent
         showCloseButton={false}
-        className="sm:max-w-2xl [&_[data-slot=card]]:bg-transparent [&_[data-slot=card]]:py-0 [&_[data-slot=card]]:ring-0 [&_[data-slot=card]]:shadow-none [&_[data-slot=card-content]]:px-0 [&_[data-slot=card-footer]]:border-0 [&_[data-slot=card-footer]]:bg-transparent [&_[data-slot=card-footer]]:px-0"
+        className="sm:max-w-2xl [&_form_[data-slot=card]]:bg-transparent [&_form_[data-slot=card]]:py-0 [&_form_[data-slot=card]]:ring-0 [&_form_[data-slot=card]]:shadow-none [&_form_[data-slot=card-content]]:px-0 [&_form_[data-slot=card-footer]]:border-0 [&_form_[data-slot=card-footer]]:bg-transparent [&_form_[data-slot=card-footer]]:px-0"
       >
         <DialogHeader>
           <DialogTitle>{titulo}</DialogTitle>
           {descricao && <DialogDescription>{descricao}</DialogDescription>}
         </DialogHeader>
-        {children}
+        <FecharModalFormulario value={() => setAberto(false)}>
+          {children}
+        </FecharModalFormulario>
         <Button
           ref={botaoFechar}
           type="button"

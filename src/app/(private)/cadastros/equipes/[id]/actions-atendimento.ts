@@ -28,8 +28,8 @@ export async function salvarAtendimento(
     if (erro instanceof ErroDeRegra) return { erro: erro.message };
     throw erro;
   }
-  revalidatePath("/cadastros/usuarios");
-  revalidatePath(`/cadastros/usuarios/${estagiarioId}`);
+  revalidatePath("/cadastros/equipes");
+  revalidatePath(`/cadastros/equipes/${equipeId}`);
   revalidatePath("/cadastros/unidades/[id]/periodos/[periodoId]", "page");
   revalidatePath("/agendar");
   revalidatePath("/agenda");
