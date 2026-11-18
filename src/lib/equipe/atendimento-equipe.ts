@@ -27,7 +27,7 @@ export async function listarAtendimentoVigenteDaEquipe(equipeId: string, filtros
   const porEstagiario = new Map(configuracoes.map((configuracao) => [configuracao.estagiarioId, configuracao]));
 
   return {
-    ...resultado, periodo, equipeDisponivel,
+    ...resultado, periodo,
     estagiarios: resultado.estagiarios.map((estagiario) => ({
       ...estagiario,
       disponivel: equipeDisponivel && estagiario.ativo,
