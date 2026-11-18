@@ -26,7 +26,6 @@ export async function listarEstagiariosDaEquipe(
   const filtros = filtrosSchema.parse(entrada);
   const where: Prisma.UsuarioWhereInput = {
     perfil: "ESTAGIARIO",
-    // A vigência pertence ao vínculo, independentemente do acesso da conta.
     equipes: { some: { equipeId: equipe.id, ativo: true, vinculoUnidade: { ativo: true } } },
     ...(filtros.busca ? {
       OR: [
