@@ -5,7 +5,6 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { prisma } from "@/lib/prisma";
 import { filtroDeUsuariosGerenciaveis } from "@/lib/usuario/escopo-usuario";
-import { determinarEstadoAcesso } from "@/lib/usuario/estado-acesso";
 import { consultarEquipe } from "./consultar-equipe";
 import { podeConsultarEstagiariosDaEquipe } from "./escopo-equipe";
 
@@ -19,7 +18,6 @@ export async function listarEstagiariosDaEquipe(
   equipeId: string,
   entrada: z.input<typeof filtrosSchema>,
   autor: ContextoAutorizacao,
-  agora = new Date(),
 ) {
   if (!podeConsultarEstagiariosDaEquipe(autor)) return null;
   const equipe = await consultarEquipe(equipeId, autor);
@@ -47,11 +45,6 @@ export async function listarEstagiariosDaEquipe(
     take: ITENS_POR_PAGINA,
     select: {
       id: true, nome: true, email: true, ativo: true,
-      accounts: { where: { providerId: "credential" }, take: 1, select: { id: true } },
-      convites: {
-        orderBy: [{ criadoEm: "desc" }, { id: "desc" }], take: 1,
-        select: { expiraEm: true, usadoEm: true, revogadoEm: true },
-      },
     },
   });
   const gerenciaveis = usuarios.length > 0 ? await prisma.usuario.findMany({
@@ -64,7 +57,7 @@ export async function listarEstagiariosDaEquipe(
     equipe, busca: filtros.busca, pagina, total, totalPaginas,
     estagiarios: usuarios.map((usuario) => ({
       id: usuario.id, nome: usuario.nome, email: usuario.email,
-      estadoAcesso: determinarEstadoAcesso(usuario, agora),
+      ativo: usuario.ativo,
       podeAbrirCadastro: idsGerenciaveis.has(usuario.id),
     })),
   };

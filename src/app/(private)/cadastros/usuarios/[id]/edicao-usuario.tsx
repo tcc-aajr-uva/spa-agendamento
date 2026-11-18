@@ -22,9 +22,8 @@ type Props = OpcoesEdicaoUsuario & {
   podeAlterarAcesso: boolean;
   acaoAtualizar: Acao;
   acaoAtivacao: Acao;
-  atendimento?: ReactNode;
   convite: ReactNode;
-  secao?: "dados" | "ativacao" | "atendimento" | "acesso";
+  secao?: "dados" | "ativacao" | "acesso";
 };
 
 export function EdicaoUsuario(props: Props) {
@@ -33,7 +32,7 @@ export function EdicaoUsuario(props: Props) {
   return <EdicaoUsuarioInterna key={chave} {...props} />;
 }
 
-function EdicaoUsuarioInterna({ valores, ativo, podeAlterarAcesso, acaoAtualizar, acaoAtivacao, atendimento, convite, secao, ...opcoes }: Props) {
+function EdicaoUsuarioInterna({ valores, ativo, podeAlterarAcesso, acaoAtualizar, acaoAtivacao, convite, secao, ...opcoes }: Props) {
   const router = useRouter();
   const [estado, enviar, enviando] = useActionState(acaoAtualizar, ESTADO_INICIAL_USUARIO);
   const [ativacao, executarAtivacao, alterando] = useActionState(acaoAtivacao, ESTADO_INICIAL_USUARIO);
@@ -118,10 +117,9 @@ function EdicaoUsuarioInterna({ valores, ativo, podeAlterarAcesso, acaoAtualizar
         erroAtivacao={ativacao.status === "erro" && ativacaoAceita !== ativacao ? ativacao.mensagem : undefined} />
       {secao === "dados" && formularioDados}
       {secao === "ativacao" && controleAtivacao}
-      {secao === "atendimento" && atendimento}
       {secao === "acesso" && convite}
       {!secao && (
-        <AbasUsuario bloqueada={conflito} atendimento={atendimento} convite={convite} dados={
+        <AbasUsuario bloqueada={conflito} convite={convite} dados={
           <>
             {formularioDados}
             {controleAtivacao}

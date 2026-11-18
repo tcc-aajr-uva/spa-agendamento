@@ -16,8 +16,6 @@ export function ResultadoConvite({ expiraEm, linkConvite, cadastrarOutro, voltar
   return (
     <CartaoLinkConvite
       key={linkConvite}
-      className="sm:[--card-spacing:--spacing(6)]"
-      classNameConteudo="space-y-4"
       titulo={<><CircleCheckIcon aria-hidden="true" /> Usuário criado</>}
       descricao="Compartilhe o link abaixo para que a pessoa defina sua senha."
       linkConvite={linkConvite}

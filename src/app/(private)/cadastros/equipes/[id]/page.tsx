@@ -1,28 +1,26 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { ArrowLeftIcon } from "lucide-react";
+import { notFound, redirect } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
 import { IndicadorCarregando } from "@/components/indicador-carregando";
-import { DetalheEquipe } from "./detalhe-equipe";
+import { exigirUsuario } from "@/lib/auth/autorizacao";
+import { consultarEquipe } from "@/lib/equipe/consultar-equipe";
+import { PERFIS_EQUIPES } from "@/lib/equipe/escopo-equipe";
 
 type Props = { params: Promise<{ id: string }> };
 
 export default function EquipePage({ params }: Props) {
   return (
     <section className="mx-auto w-full max-w-7xl space-y-6">
-      <Button variant="ghost" nativeButton={false} render={<Link href="/cadastros/equipes" prefetch={false} />}>
-        <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
-        Voltar para equipes
-      </Button>
       <Suspense fallback={<IndicadorCarregando texto="Carregando equipe…" />}>
-        <Conteudo params={params} />
+        <Redirecionar params={params} />
       </Suspense>
     </section>
   );
 }
 
-async function Conteudo({ params }: Props) {
+async function Redirecionar({ params }: Props) {
+  const autor = await exigirUsuario([...PERFIS_EQUIPES]);
   const { id } = await params;
-  return <DetalheEquipe id={id} paginaCheia />;
+  if (!await consultarEquipe(id, autor)) notFound();
+  return redirect(`/cadastros/equipes?editar=${id}&abaEquipe=dados`);
 }

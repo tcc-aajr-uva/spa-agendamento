@@ -23,5 +23,4 @@ export const atualizacaoUsuarioSchema = z.object({
 });
 
 export type NovoUsuario = z.input<typeof novoUsuarioSchema>;
-export type NovoUsuarioValidado = z.output<typeof novoUsuarioSchema>;
 export type AtualizacaoUsuario = z.input<typeof atualizacaoUsuarioSchema>;
