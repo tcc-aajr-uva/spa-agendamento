@@ -15,7 +15,6 @@ export default function NovoUsuarioPage() {
           Voltar para usuários
         </Button>
         <h1 className="text-2xl font-bold">Novo usuário</h1>
-        <p className="text-sm text-muted-foreground">Cadastre a pessoa e gere o link para definição da senha.</p>
       </div>
 
       <Suspense fallback={<IndicadorCarregando texto="Carregando formulário…" />}>

@@ -8,21 +8,26 @@ import { PaginacaoLista } from "@/components/paginacao-lista";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { listarUnidadesParaEquipe } from "@/lib/equipe/consultar-equipe";
-import { PERFIS_EQUIPES } from "@/lib/equipe/escopo-equipe";
+import { PERFIS_EQUIPES, podeConsultarEstagiariosDaEquipe } from "@/lib/equipe/escopo-equipe";
+import { podeConfigurarAtendimento } from "@/lib/usuario/atendimento-estagiario";
 import { listarEquipes } from "@/lib/equipe/listar-equipes";
 import { FiltrosEquipes } from "./filtros-equipes";
 import { IndicadorCarregando } from "@/components/indicador-carregando";
-import { BotaoEdicao, ModalEdicao } from "../../modal-edicao";
+import { BotaoEdicao, LinkEdicao, ModalEdicao } from "../../modal-edicao";
 import { ModalFormulario } from "../../modal-formulario";
 import { hrefDeEdicao } from "../../parametros";
 import { DetalheEquipe } from "./[id]/detalhe-equipe";
+import { ConfiguracaoAtendimentoEquipe } from "./[id]/configuracao-atendimento";
 import { ConteudoNovaEquipe } from "./nova/conteudo-nova-equipe";
+import type { ParametrosBusca } from "@/lib/url/parametros-busca";
 
 type Props = {
-  searchParams: Promise<{ busca?: string | string[]; unidadeId?: string | string[]; status?: string | string[]; pagina?: string | string[]; editar?: string | string[]; ativacao?: string | string[] }>;
+  searchParams: Promise<ParametrosBusca>;
 };
 
-const PARAMETROS_DOS_MODAIS = ["editar", "ativacao", "equipeCriada"];
+const PARAMETROS_DOS_ESTAGIARIOS = ["estagiarios", "buscaEstagiarios", "paginaEstagiarios", "atendimentoEstagiario", "atendimentoPeriodoEstagiario"];
+const PARAMETROS_DOS_DETALHES = ["editar", "abaEquipe", "equipeCriada", ...PARAMETROS_DOS_ESTAGIARIOS];
+const PARAMETROS_DOS_MODAIS = ["ativacao", ...PARAMETROS_DOS_DETALHES];
 
 export default function EquipesPage({ searchParams }: Props) {
   return (
@@ -48,9 +53,12 @@ async function Conteudo({ searchParams }: Props) {
     }, autor),
     listarUnidadesParaEquipe(autor, false),
   ]);
-  const editar = valorUnico(parametros.editar);
+  const editar = valorUnico(parametros.editar) ?? valorUnico(parametros.estagiarios);
   const ativacao = valorUnico(parametros.ativacao);
+  const atendimento = valorUnico(parametros.atendimentoEstagiario);
+  const periodoAtendimento = valorUnico(parametros.atendimentoPeriodoEstagiario);
   const hrefDoModal = (chave: string, id: string) => hrefDeEdicao("/cadastros/equipes", parametros, chave, id, PARAMETROS_DOS_MODAIS);
+  const hrefDosDetalhes = (id: string) => `${hrefDoModal("editar", id)}&abaEquipe=dados`;
 
   return (
     <div className="space-y-6">
@@ -93,7 +101,7 @@ async function Conteudo({ searchParams }: Props) {
             ) : resultado.equipes.map((equipe) => (
               <TableRow key={equipe.id}>
                 <TableHead scope="row" className="min-w-44 max-w-sm whitespace-normal wrap-break-word px-4 py-4 font-medium">
-                  {equipe.nome}
+                  <LinkEdicao parametro="editar" href={hrefDosDetalhes(equipe.id)} prefetch={false} className="hover:underline">{equipe.nome}</LinkEdicao>
                 </TableHead>
                 <TableCell>
                   <Badge variant={equipe.ativa ? "default" : "outline"}>{equipe.ativa ? "Ativa" : "Inativa"}</Badge>
@@ -106,7 +114,7 @@ async function Conteudo({ searchParams }: Props) {
                 </TableCell>
                 <TableCell className="px-4">
                   <div className="flex justify-center gap-1">
-                    <BotaoEdicao parametro="editar" tom="editar" href={hrefDoModal("editar", equipe.id)} rotulo={`Editar ${equipe.nome}`}>
+                    <BotaoEdicao parametro="editar" tom="editar" href={hrefDosDetalhes(equipe.id)} rotulo={`Editar ${equipe.nome}`}>
                       <PencilIcon />
                     </BotaoEdicao>
                     {resultado.podeGerenciar && (
@@ -131,10 +139,21 @@ async function Conteudo({ searchParams }: Props) {
         href={(pagina) => urlDaPagina(pagina, resultado.busca, resultado.unidadeId, resultado.status)}
       />
 
-      <ModalEdicao parametro="editar" aberto={Boolean(editar)} titulo="Editar equipe" limpar={["editar", "equipeCriada"]}>
+      <ModalEdicao parametro="editar" aberto={Boolean(editar)} titulo="Detalhes da equipe" limpar={PARAMETROS_DOS_DETALHES}
+        visaoInterna={podeConsultarEstagiariosDaEquipe(autor) ? {
+          parametro: "atendimentoEstagiario",
+          aberta: Boolean(atendimento),
+          titulo: "Configuração de atendimento",
+          hrefRetorno: hrefDeEdicao("/cadastros/equipes", parametros, "abaEquipe", "estagiarios", ["atendimentoEstagiario", "atendimentoPeriodoEstagiario"]),
+          conteudo: editar && atendimento && (podeConfigurarAtendimento(autor) ? (
+            <Suspense key={`${editar}:${atendimento}:${periodoAtendimento ?? "vigente"}`} fallback={<IndicadorCarregando texto="Carregando configuração…" />}>
+              <ConfiguracaoAtendimentoEquipe equipeId={editar} estagiarioId={atendimento} periodoId={periodoAtendimento} />
+            </Suspense>
+          ) : <p className="text-muted-foreground">Seu perfil não pode configurar o atendimento do estagiário.</p>),
+        } : undefined}>
         {editar && (
-          <Suspense fallback={<IndicadorCarregando texto="Carregando equipe…" />}>
-            <DetalheEquipe id={editar} secao="dados" />
+          <Suspense key={editar} fallback={<IndicadorCarregando texto="Carregando equipe…" />}>
+            <DetalheEquipe id={editar} secao="dados" searchParams={searchParams} />
           </Suspense>
         )}
       </ModalEdicao>

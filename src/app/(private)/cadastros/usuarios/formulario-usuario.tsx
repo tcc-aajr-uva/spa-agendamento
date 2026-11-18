@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast";
 import { rotuloDoPerfil } from "@/lib/usuario/rotulos";
 import { erroDeUnidadeDasEquipes } from "@/lib/usuario/regras-vinculos";
+import { useFecharModalFormulario } from "../../modal-formulario";
 import { CamposVinculosUsuario, type OpcoesVinculosUsuario } from "./campos-vinculos-usuario";
 import type { EstadoCriacaoUsuario } from "./estado-usuario";
 import { formDataDoUsuario, formularioCriacaoUsuarioSchema, type CamposCriacaoUsuario } from "./formulario-usuario-schema";
@@ -35,6 +36,7 @@ export function FormularioUsuario(props: Props) {
 
 function FormularioUsuarioInterno({ acao, configuracoes, exigeEquipe, cadastrarOutro }: Props & { cadastrarOutro: () => void }) {
   const router = useRouter();
+  const fecharModal = useFecharModalFormulario();
   const id = useId();
   const [estado, enviar, enviando] = useActionState(acao, { status: "inicial" });
   const criacaoNotificada = useRef(false);
@@ -68,11 +70,15 @@ function FormularioUsuarioInterno({ acao, configuracoes, exigeEquipe, cadastrarO
 
   if (estado.status === "sucesso") {
     return <ResultadoConvite linkConvite={estado.linkConvite} expiraEm={estado.expiraEm}
-      cadastrarOutro={cadastrarOutro} voltarParaLista={() => router.push("/cadastros/usuarios")} />;
+      cadastrarOutro={cadastrarOutro} voltarParaLista={() => {
+        if (fecharModal) fecharModal();
+        else router.push("/cadastros/usuarios");
+      }} />;
   }
 
   return (
     <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">Cadastre a pessoa e gere o link para definição da senha.</p>
       {estado.status === "erro" && erroOculto !== estado && (
         <AlertaErroOperacao titulo="Não foi possível criar o usuário" mensagem={estado.mensagem} />
       )}

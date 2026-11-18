@@ -1,11 +1,9 @@
 "use client";
 
 import { Loader2Icon } from "lucide-react";
-import { useActionState, useContext, useEffect, useState, useTransition } from "react";
-import { createPortal } from "react-dom";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { DestinoAlertasAba, useBloqueioAba, useConflitoAba } from "@/components/abas-cadastro";
 import { AlertaErroOperacao } from "@/components/alerta-erro-operacao";
 import { AlertaConflito } from "@/components/alerta-conflito";
 import { Button } from "@/components/ui/button";
@@ -39,7 +37,6 @@ function CamposAtendimento({ valores, estado, enviar, enviando }: Omit<Props, "a
   estado: EstadoAtendimento; enviar: (formData: FormData) => void; enviando: boolean;
 }) {
   const router = useRouter();
-  const destinoAlertas = useContext(DestinoAlertasAba);
   const [recarregando, iniciarRecarga] = useTransition();
   const [conflitoAceito, aceitarConflito] = useState<EstadoAtendimento | null>(null);
   const [rascunho, setRascunho] = useState<{ base: Valores; liberado: boolean; limite: string } | null>(null);
@@ -49,9 +46,7 @@ function CamposAtendimento({ valores, estado, enviar, enviando }: Omit<Props, "a
   const externo = rascunho !== null && base.versao !== valores.versao;
   const conflitoServidor = estado.conflito && conflitoAceito !== estado;
   const conflito = externo || !!conflitoServidor || recarregando;
-  const bloqueioDaAba = useBloqueioAba();
-  const bloqueado = enviando || conflito || bloqueioDaAba;
-  useConflitoAba(conflito);
+  const bloqueado = enviando || conflito;
 
   function carregarVersao() {
     iniciarRecarga(() => {
@@ -64,19 +59,17 @@ function CamposAtendimento({ valores, estado, enviar, enviando }: Omit<Props, "a
   return (
     <form action={enviar} className="space-y-5 rounded-lg border bg-muted/20 p-4"
       onSubmit={(evento) => { if (bloqueado) evento.preventDefault(); }}>
-      {destinoAlertas && conflito && createPortal(
+      {conflito && (
         <AlertaConflito
           titulo="Configuração alterada em outra sessão"
           descricao="A configuração foi atualizada depois que você abriu esta tela."
           carregando={recarregando}
           bloqueado={enviando}
           onCarregar={carregarVersao}
-        />,
-        destinoAlertas,
+        />
       )}
-      {destinoAlertas && estado.erro && !conflito && createPortal(
-        <AlertaErroOperacao titulo="Não foi possível salvar a configuração" mensagem={estado.erro} />,
-        destinoAlertas,
+      {estado.erro && !conflito && (
+        <AlertaErroOperacao titulo="Não foi possível salvar a configuração" mensagem={estado.erro} />
       )}
       <input name="versao" type="hidden" value={base.versao ?? ""} />
       <Field orientation="horizontal">

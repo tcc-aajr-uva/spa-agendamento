@@ -14,12 +14,10 @@ type Props = {
   linkConvite: string;
   validade?: ReactNode;
   acoes?: ReactNode;
-  className?: string;
-  classNameConteudo?: string;
 };
 
 export function CartaoLinkConvite({
-  titulo, descricao, linkConvite, validade, acoes, className, classNameConteudo = "space-y-3",
+  titulo, descricao, linkConvite, validade, acoes,
 }: Props) {
   const [copiado, setCopiado] = useState(false);
   const [erroCopia, setErroCopia] = useState(false);
@@ -35,12 +33,12 @@ export function CartaoLinkConvite({
   }
 
   return (
-    <Card className={className}>
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">{titulo}</CardTitle>
         <CardDescription>{descricao}</CardDescription>
       </CardHeader>
-      <CardContent className={classNameConteudo}>
+      <CardContent className="space-y-3">
         <Input className="h-auto px-3 py-2 leading-5 shadow-xs" aria-label="Link do convite" readOnly value={linkConvite} />
         {validade && <p className="text-sm text-muted-foreground">{validade}</p>}
         {erroCopia && (
