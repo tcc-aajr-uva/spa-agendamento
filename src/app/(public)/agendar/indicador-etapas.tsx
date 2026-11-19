@@ -44,12 +44,12 @@ export function IndicadorEtapas({ atual, selecao }: Props) {
               {concluida ? (
                 <Link
                   href={linkDaEtapa(indice, selecao)}
-                  className="group/etapa relative flex flex-col items-center gap-1.5 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="group/etapa relative z-10 flex flex-col items-center gap-1.5 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
                   {conteudo}
                 </Link>
               ) : (
-                <div aria-current={ativa ? "step" : undefined} className="relative flex flex-col items-center gap-1.5">
+                <div aria-current={ativa ? "step" : undefined} className="relative z-10 flex flex-col items-center gap-1.5">
                   {conteudo}
                 </div>
               )}

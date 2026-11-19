@@ -22,7 +22,7 @@ type Props = {
   searchParams: Promise<ParametrosBusca>;
 };
 
-const PARAMETROS_DOS_PERIODOS = ["periodos", "periodo", "periodosSituacao", "periodosPagina", "periodoSalvo", "excluido", "confirmacaoPeriodo"];
+const PARAMETROS_DOS_PERIODOS = ["periodos", "periodo", "novoPeriodo", "periodosSituacao", "periodosPagina", "periodoSalvo", "excluido", "confirmacaoPeriodo"];
 const PARAMETROS_DOS_MODAIS = ["editar", "ativacao", "unidadeCriada", ...PARAMETROS_DOS_PERIODOS];
 
 export default function UnidadesPage({ searchParams }: Props) {

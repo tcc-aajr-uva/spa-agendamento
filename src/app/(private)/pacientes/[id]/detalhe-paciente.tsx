@@ -12,8 +12,8 @@ import { formatarData, formatarDataHora } from "../../formatar";
 import { perfisDaRota } from "../../menu";
 import { AcoesConfirmacao } from "./acoes-confirmacao";
 import { FormSessao } from "./form-sessao";
+import { CodigoCancelamento } from "./codigo-cancelamento";
 import { FormTransferencia } from "./form-transferencia";
-import { LinkCancelamento } from "./link-cancelamento";
 
 function Dado({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   return (
@@ -138,7 +138,7 @@ export async function DetalhePaciente({ id, paginaCheia = false }: { id: string;
             />
             <AcoesConfirmacao agendamentoId={agendamento.id} status={agendamento.status} />
             <FormTransferencia agendamentoId={agendamento.id} status={agendamento.status} usuario={usuario} />
-            <LinkCancelamento agendamentoId={agendamento.id} codigo={agendamento.tokens[0]?.codigo} />
+            <CodigoCancelamento codigo={agendamento.tokens[0]?.codigo} />
           </div>
         )}
 

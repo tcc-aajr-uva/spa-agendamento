@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { descreverHorario, unidadeDaAgenda } from "@/lib/agenda/horarios";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { DIAS_DA_SEMANA, estaOcupando, formatarHora } from "@/lib/agendamento/regras";
@@ -32,7 +32,7 @@ async function MeusHorarios({ searchParams }: { searchParams: PageProps<"/agenda
     prisma.horarioDisponivel.findMany({
       where: { estagiarioId: usuario.id, ativo: true },
       orderBy: [{ diaSemana: "asc" }, { horaInicio: "asc" }],
-      select: { id: true, diaSemana: true, horaInicio: true, ocupadoPor: { select: { status: true, prazoConfirmacao: true, horarioAtivoId: true } } },
+      select: { id: true, diaSemana: true, horaInicio: true, ocupadoPor: { select: { status: true, prazoConfirmacao: true, horarioAtivoId: true, paciente: { select: { nome: true } } } } },
     }),
     prisma.unidade.findUnique({
       where: { id: unidadeId },
@@ -57,6 +57,7 @@ async function MeusHorarios({ searchParams }: { searchParams: PageProps<"/agenda
                       <span>{DIAS_DA_SEMANA[horario.diaSemana]}</span>
                       <span>{formatarHora(horario.horaInicio)}</span>
                     </ItemTitle>
+                    {comPaciente && <ItemDescription className="text-foreground">{horario.ocupadoPor?.paciente.nome}</ItemDescription>}
                   </ItemContent>
                   <ItemActions className="contents [&>form]:contents">
                     <Badge variant={comPaciente ? "accent" : "outline"}>{comPaciente ? "Com paciente" : "Livre"}</Badge>

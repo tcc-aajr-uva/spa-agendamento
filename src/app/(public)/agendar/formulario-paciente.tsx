@@ -2,7 +2,7 @@
 
 import { startTransition, useActionState, useId } from "react";
 import Link from "next/link";
-import { useForm, type FieldErrors, type UseFormRegister } from "react-hook-form";
+import { useForm, useWatch, type FieldErrors, type UseFormRegister } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, CheckCircle2, Home, Loader2, XCircle } from "lucide-react";
 import { z } from "zod";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldError, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { dadosPacienteSchema } from "@/lib/paciente/dados-paciente";
+import { dadosPacienteSchema, idadeEm, MAIORIDADE } from "@/lib/paciente/dados-paciente";
 import { formatarCpf, formatarTelefone } from "@/lib/paciente/mascaras";
 import type { EstadoInscricao } from "./actions";
 
@@ -83,6 +83,13 @@ function Campos({ campos, prefixo, register, errors }: CamposProps) {
   );
 }
 
+function ehMenorDeIdade(data: string | undefined): boolean {
+  if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
+  const nascimento = new Date(`${data}T00:00:00Z`);
+  const hoje = new Date();
+  return !Number.isNaN(nascimento.getTime()) && nascimento <= hoje && idadeEm(nascimento, hoje) < MAIORIDADE;
+}
+
 function Sucesso({ estado }: { estado: EstadoInscricao }) {
   return (
     <Card className="animate-in fade-in-0 zoom-in-95 duration-300 ease-out">
@@ -129,8 +136,10 @@ export function FormularioPaciente({ acao, rotuloBotao, camposOcultos }: Props) 
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
-  } = useForm({ resolver: zodResolver(dadosPacienteSchema) });
+  } = useForm({ resolver: zodResolver(dadosPacienteSchema), shouldUnregister: true });
+  const menorDeIdade = ehMenorDeIdade(useWatch({ control, name: "dataNascimento" }));
 
   const aoEnviar = handleSubmit((_dados, evento) => {
     const formData = new FormData(evento?.target as HTMLFormElement);
@@ -149,11 +158,13 @@ export function FormularioPaciente({ acao, rotuloBotao, camposOcultos }: Props) 
         <FieldDescription>Todos os campos são obrigatórios.</FieldDescription>
         <Campos campos={CAMPOS_PACIENTE} prefixo={prefixo} register={register} errors={errors} />
       </FieldSet>
-      <FieldSet className="rounded-xl border border-dashed bg-card p-4">
-        <FieldLegend>Se o paciente for menor de idade</FieldLegend>
-        <FieldDescription>Preencha com os dados do responsável legal, que fará a inscrição pelo paciente.</FieldDescription>
-        <Campos campos={CAMPOS_RESPONSAVEL} prefixo={prefixo} register={register} errors={errors} />
-      </FieldSet>
+      {menorDeIdade && (
+        <FieldSet className="rounded-xl border border-dashed bg-card p-4 animate-in fade-in-0 duration-200 ease-out">
+          <FieldLegend>Responsável legal</FieldLegend>
+          <FieldDescription>O paciente é menor de idade. Preencha com os dados do responsável legal, que fará a inscrição pelo paciente.</FieldDescription>
+          <Campos campos={CAMPOS_RESPONSAVEL} prefixo={prefixo} register={register} errors={errors} />
+        </FieldSet>
+      )}
       {estado.erro && (
         <Alert variant="destructive" aria-live="polite">
           <AlertCircle />
