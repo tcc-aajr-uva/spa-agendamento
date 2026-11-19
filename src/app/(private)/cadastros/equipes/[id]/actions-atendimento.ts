@@ -31,7 +31,6 @@ export async function salvarAtendimento(
   revalidatePath("/cadastros/equipes");
   revalidatePath(`/cadastros/equipes/${equipeId}`);
   revalidatePath("/cadastros/unidades/[id]/periodos/[periodoId]", "page");
-  revalidatePath("/agendar");
   revalidatePath("/agenda");
   revalidatePath("/lista-espera/[id]/chamar", "page");
   revalidatePath("/pacientes/[id]", "page");

@@ -75,7 +75,6 @@ function revalidar(unidadeId: string, id?: string) {
   revalidatePath(`/cadastros/unidades/${unidadeId}`);
   revalidatePath(`/cadastros/unidades/${unidadeId}/periodos`);
   if (id) revalidatePath(`/cadastros/unidades/${unidadeId}/periodos/${id}`);
-  revalidatePath("/agendar");
   revalidatePath("/reservas");
   revalidatePath("/lista-espera");
 }
