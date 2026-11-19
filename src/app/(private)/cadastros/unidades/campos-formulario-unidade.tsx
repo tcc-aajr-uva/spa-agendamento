@@ -11,14 +11,12 @@ import { Separator } from "@/components/ui/separator";
 import type { CamposFormularioUnidade } from "./formulario-unidade-schema";
 
 type Props = {
-  bloqueada: boolean;
   errors: FieldErrors<CamposFormularioUnidade>;
   podeAlterarDadosAdministrativos: boolean;
   register: UseFormRegister<CamposFormularioUnidade>;
 };
 
 export function CamposFormularioUnidade({
-  bloqueada,
   errors,
   podeAlterarDadosAdministrativos,
   register,
