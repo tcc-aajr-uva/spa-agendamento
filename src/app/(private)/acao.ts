@@ -4,7 +4,6 @@ import { ErroDeRegra } from "@/lib/erros";
 export type EstadoAcao = {
   erro?: string;
   mensagem?: string;
-  avisarAoSair?: boolean;
 };
 
 export async function executarAcao(operacao: () => Promise<string | EstadoAcao>): Promise<EstadoAcao> {
