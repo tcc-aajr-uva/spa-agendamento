@@ -57,7 +57,6 @@ export function ModalFormulario({ rotulo, titulo, descricao, variante = "default
           type="button"
           variant="ghost"
           size="icon-sm"
-          data-aviso-saida
           aria-label="Fechar"
           className="absolute top-3 right-3"
           onClick={() => setAberto(false)}

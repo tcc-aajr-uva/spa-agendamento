@@ -1,17 +1,15 @@
 "use client";
 
 import { Loader2Icon } from "lucide-react";
-import Link from "next/link";
 import { useActionState, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
-import { CampoSelect } from "../campo-select";
+import type { OpcaoDeHorario } from "@/lib/agendamento/opcoes-de-horario";
+import { SeletorHorarioSala } from "../seletor-horario-sala";
 import { type EstadoReserva, remarcarReserva } from "./actions";
 
-type HorarioLivre = { id: string; descricao: string };
-
-export function BotaoRemarcarReserva({ agendamentoId, descricao, horarios }: { agendamentoId: string; descricao: string; horarios: HorarioLivre[] }) {
+export function BotaoRemarcarReserva({ agendamentoId, descricao, horarios }: { agendamentoId: string; descricao: string; horarios: OpcaoDeHorario[] }) {
   const [aberto, setAberto] = useState(false);
   const [estado, enviar, enviando] = useActionState(async (anterior: EstadoReserva, formData: FormData) => {
     const resultado = await remarcarReserva(anterior, formData);
@@ -52,22 +50,9 @@ export function BotaoRemarcarReserva({ agendamentoId, descricao, horarios }: { a
           </Field>
         </FieldSet>
         {horarios.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Você não tem outro horário livre. Adicione um em{" "}
-            <Link href="/agenda" className="text-primary underline-offset-4 hover:underline">
-              Minha agenda
-            </Link>
-            .
-          </p>
+          <p className="text-sm text-muted-foreground">Nenhum outro horário com sala disponível e livre.</p>
         ) : (
-          <CampoSelect
-            id={`${agendamentoId}-horario`}
-            nome="horarioId"
-            rotulo="Novo horário"
-            opcoes={horarios.map((horario) => ({ value: horario.id, label: horario.descricao }))}
-            obrigatorio
-            className="sm:max-w-xs"
-          />
+          <SeletorHorarioSala idBase={`remarcar-${agendamentoId}`} opcoes={horarios} />
         )}
         <div className="flex gap-2">
           {horarios.length > 0 && (

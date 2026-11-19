@@ -10,17 +10,17 @@ export type Liberacao = {
   observacao?: string;
 };
 
-const CHAVES_LIBERADAS = { horarioAtivoId: null, salaAtivaChave: null, pacienteAtivoId: null } as const;
+const CHAVES_LIBERADAS = { estagiarioAtivoChave: null, salaAtivaChave: null, pacienteAtivoId: null } as const;
 
 export async function liberarAgendamento(agendamentoId: string, liberacao: Liberacao, tx?: Transacao): Promise<void> {
   if (!tx) return executarEmTransacao((novaTx) => liberarAgendamento(agendamentoId, liberacao, novaTx));
 
   const agendamento = await tx.agendamento.findUnique({
     where: { id: agendamentoId },
-    select: { horarioAtivoId: true },
+    select: { estagiarioAtivoChave: true },
   });
   if (!agendamento) throw new ErroDeRegra("NAO_ENCONTRADO", "Agendamento não encontrado.");
-  if (agendamento.horarioAtivoId === null) return;
+  if (agendamento.estagiarioAtivoChave === null) return;
 
   await tx.agendamento.update({
     where: { id: agendamentoId },
@@ -38,11 +38,12 @@ export async function liberarAgendamento(agendamentoId: string, liberacao: Liber
       },
     },
   });
+  await devolverParaLista(tx, [agendamentoId], liberacao);
 }
 
 export async function liberarPendentesVencidos(tx: Transacao, filtro: Prisma.AgendamentoWhereInput, agora: Date): Promise<number> {
   const vencidos = await tx.agendamento.findMany({
-    where: { ...filtro, status: "PENDENTE", prazoConfirmacao: { lte: agora }, horarioAtivoId: { not: null } },
+    where: { ...filtro, status: "PENDENTE", prazoConfirmacao: { lte: agora }, estagiarioAtivoChave: { not: null } },
     select: { id: true },
   });
   if (vencidos.length === 0) return 0;
@@ -64,4 +65,21 @@ export async function liberarEmLote(tx: Transacao, ids: string[], liberacao: Lib
       observacao: liberacao.observacao ?? liberacao.motivo,
     })),
   });
+  await devolverParaLista(tx, ids, liberacao);
+}
+
+async function devolverParaLista(tx: Transacao, ids: string[], liberacao: Liberacao): Promise<void> {
+  if (liberacao.motivo !== "NAO_CONFIRMADO") return;
+
+  const vindosDaLista = await tx.agendamento.findMany({
+    where: { id: { in: ids }, listaEsperaId: { not: null } },
+    select: { listaEsperaId: true, pacienteId: true },
+  });
+  for (const { listaEsperaId, pacienteId } of vindosDaLista) {
+    if (!listaEsperaId) continue;
+    await tx.listaEspera.updateMany({
+      where: { id: listaEsperaId, status: "CHAMADO" },
+      data: { status: "AGUARDANDO", pacienteAtivoId: pacienteId },
+    });
+  }
 }

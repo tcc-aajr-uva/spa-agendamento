@@ -1,4 +1,4 @@
-import type { Prisma, StatusAgendamento } from "@/generated/prisma/client";
+import type { Prisma, StatusAgendamento, Turno } from "@/generated/prisma/client";
 
 export const PRAZO_CONFIRMACAO_HORAS = 48;
 export const FALTAS_SEGUIDAS_PARA_ENCERRAR = 3;
@@ -7,19 +7,52 @@ export const DIAS_DA_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta
 
 const UM_DIA_MS = 24 * 60 * 60 * 1000;
 
+export const DIAS_EXIBIDOS = [1, 2, 3, 4, 5, 6];
+
+export const INICIO_DA_TARDE = 12 * 60;
+
+export const TURNOS: { valor: Turno; rotulo: string }[] = [
+  { valor: "MANHA", rotulo: "Manhã" },
+  { valor: "TARDE", rotulo: "Tarde" },
+];
+
+export type Grade = { horaAbertura: number; horaFechamento: number; duracaoBlocoMin: number };
+
+export const FILTRO_RESERVA_ATIVA = { estagiarioAtivoChave: { not: null } } satisfies Prisma.AgendamentoWhereInput;
+
 export function filtroAgendamentoAtivo(agora: Date): Prisma.AgendamentoWhereInput {
   return {
-    horarioAtivoId: { not: null },
+    ...FILTRO_RESERVA_ATIVA,
     OR: [{ status: { not: "PENDENTE" } }, { prazoConfirmacao: { gt: agora } }],
   };
 }
 
 export function estaOcupando(
-  agendamento: { status: StatusAgendamento; prazoConfirmacao: Date; horarioAtivoId: string | null },
+  agendamento: { status: StatusAgendamento; prazoConfirmacao: Date; estagiarioAtivoChave: string | null },
   agora: Date,
 ): boolean {
-  if (agendamento.horarioAtivoId === null) return false;
+  if (agendamento.estagiarioAtivoChave === null) return false;
   return agendamento.status !== "PENDENTE" || agendamento.prazoConfirmacao > agora;
+}
+
+export function turnoDoHorario(horaInicio: number): Turno {
+  return horaInicio < INICIO_DA_TARDE ? "MANHA" : "TARDE";
+}
+
+export function rotuloDoTurno(turno: Turno): string {
+  return TURNOS.find((opcao) => opcao.valor === turno)?.rotulo ?? turno;
+}
+
+export function horariosDaGrade(grade: Grade): number[] {
+  const horarios: number[] = [];
+  for (let hora = grade.horaAbertura; hora < grade.horaFechamento; hora += grade.duracaoBlocoMin) {
+    if (horarioNaGrade(grade, hora)) horarios.push(hora);
+  }
+  return horarios;
+}
+
+export function chaveEstagiario(estagiarioId: string, diaSemana: number, horaInicio: number): string {
+  return `${estagiarioId}:${diaSemana}:${horaInicio}`;
 }
 
 export function pendenteVencendo(agendamento: { status: StatusAgendamento; prazoConfirmacao: Date }, agora: Date, horas = 12): boolean {
@@ -46,10 +79,7 @@ export function primeiraDataNoDia(diaSemana: number, aPartirDe: Date): Date {
   return new Date(aPartirDe.getTime() + diferenca * UM_DIA_MS);
 }
 
-export function horarioNaGrade(
-  unidade: { horaAbertura: number; horaFechamento: number; duracaoBlocoMin: number },
-  horaInicio: number,
-): boolean {
+export function horarioNaGrade(unidade: Grade, horaInicio: number): boolean {
   return (
     horaInicio >= unidade.horaAbertura &&
     horaInicio + unidade.duracaoBlocoMin <= unidade.horaFechamento &&

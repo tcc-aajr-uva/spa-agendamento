@@ -1,99 +1,114 @@
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
-import { descreverHorario, unidadeDaAgenda } from "@/lib/agenda/horarios";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { unidadeDaAgenda } from "@/lib/agenda/horarios";
+import { DIAS_DA_SEMANA, DIAS_EXIBIDOS, filtroAgendamentoAtivo, formatarHora, TURNOS } from "@/lib/agendamento/regras";
+import { statusDoAgendamento } from "@/lib/atendimento/rotulos";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
-import { DIAS_DA_SEMANA, estaOcupando, formatarHora } from "@/lib/agendamento/regras";
 import { prisma } from "@/lib/prisma";
 import { Cartao, EstadoVazio } from "../cartao";
-import { FormularioAcao } from "../formulario-acao";
 import { CarregandoLista } from "../carregando-lista";
+import { FormularioAcao } from "../formulario-acao";
 import { PaginaModulo } from "../pagina-modulo";
 import { perfisDaRota } from "../menu";
-import { DIAS_EXIBIDOS, diaDaUrl, horariosDaGrade, OcupacaoSalas } from "../salas/ocupacao-salas";
-import { adicionarHorario, removerHorario } from "./actions";
-import { AvisosDaAgenda, BotaoTrocarHorario, SeletoresHorario } from "./formularios-agenda";
+import { diaDaUrl, OcupacaoSalas } from "../salas/ocupacao-salas";
+import { salvarMinhasPreferencias } from "./actions";
 
 export default function AgendaPage({ searchParams }: PageProps<"/agenda">) {
   return (
     <PaginaModulo titulo="Minha agenda" carregando={<CarregandoLista />}>
-      <MeusHorarios searchParams={searchParams} />
+      <MinhaAgenda searchParams={searchParams} />
     </PaginaModulo>
   );
 }
 
-async function MeusHorarios({ searchParams }: { searchParams: PageProps<"/agenda">["searchParams"] }) {
+async function MinhaAgenda({ searchParams }: { searchParams: PageProps<"/agenda">["searchParams"] }) {
   const usuario = await exigirUsuario(perfisDaRota("/agenda"));
   const unidadeId = unidadeDaAgenda(usuario);
   if (!unidadeId) return <EstadoVazio>Seu cadastro não tem unidade. Fale com a secretaria.</EstadoVazio>;
   const dia = diaDaUrl((await searchParams).dia);
 
-  const agora = new Date();
-  const [horarios, unidade] = await Promise.all([
-    prisma.horarioDisponivel.findMany({
-      where: { estagiarioId: usuario.id, ativo: true },
+  const [preferencias, pacientes] = await Promise.all([
+    prisma.preferenciaEstagiario.findMany({ where: { estagiarioId: usuario.id }, select: { diaSemana: true, turno: true } }),
+    prisma.agendamento.findMany({
+      where: { estagiarioId: usuario.id, ...filtroAgendamentoAtivo(new Date()) },
       orderBy: [{ diaSemana: "asc" }, { horaInicio: "asc" }],
-      select: { id: true, diaSemana: true, horaInicio: true, ocupadoPor: { select: { status: true, prazoConfirmacao: true, horarioAtivoId: true, paciente: { select: { nome: true } } } } },
-    }),
-    prisma.unidade.findUnique({
-      where: { id: unidadeId },
-      select: { horaAbertura: true, horaFechamento: true, duracaoBlocoMin: true },
+      select: { id: true, diaSemana: true, horaInicio: true, status: true, sala: { select: { nome: true } }, paciente: { select: { nome: true, telefone: true } } },
     }),
   ]);
+  const marcadas = new Set(preferencias.map((preferencia) => `${preferencia.diaSemana}:${preferencia.turno}`));
 
   return (
-    <AvisosDaAgenda>
+    <div className="flex flex-col gap-6">
       <div className="grid items-start gap-6 lg:grid-cols-[2fr_1fr]">
-        {horarios.length === 0 ? (
-          <EstadoVazio>Nenhum horário cadastrado ainda.</EstadoVazio>
-        ) : (
-          <ItemGroup className="gap-0 divide-y overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-foreground/10">
-            {horarios.map((horario) => {
-              const descricao = descreverHorario(horario.diaSemana, horario.horaInicio);
-              const comPaciente = horario.ocupadoPor !== null && estaOcupando(horario.ocupadoPor, agora);
-              return (
-                <Item key={horario.id} className="flex-wrap rounded-none [&_[data-slot=alert]]:basis-full">
-                  <ItemContent className="basis-full sm:basis-auto">
-                    <ItemTitle className="grid grid-cols-[5.5rem_3.5rem] text-base font-normal tabular-nums">
-                      <span>{DIAS_DA_SEMANA[horario.diaSemana]}</span>
-                      <span>{formatarHora(horario.horaInicio)}</span>
-                    </ItemTitle>
-                    {comPaciente && <ItemDescription className="text-foreground">{horario.ocupadoPor?.paciente.nome}</ItemDescription>}
-                  </ItemContent>
-                  <ItemActions className="contents [&>form]:contents">
-                    <Badge variant={comPaciente ? "accent" : "outline"}>{comPaciente ? "Com paciente" : "Livre"}</Badge>
-                    {!comPaciente && unidade && (
-                      <BotaoTrocarHorario horario={{ id: horario.id, diaSemana: horario.diaSemana, horaInicio: horario.horaInicio, descricao }} dias={DIAS_EXIBIDOS} horas={horariosDaGrade(unidade)} />
-                    )}
-                    <FormularioAcao
-                      acao={removerHorario}
-                      rotulo="Remover"
-                      confirmacao={comPaciente ? `${descricao} tem paciente. Remover mesmo assim?` : `Remover ${descricao} da sua agenda?`}
-                      variante="ghost"
-                      tamanho="sm"
-                    >
-                      <input type="hidden" name="horarioId" value={horario.id} />
-                    </FormularioAcao>
-                  </ItemActions>
-                </Item>
-              );
-            })}
-          </ItemGroup>
-        )}
-        {unidade && (
-          <Cartao titulo="Novo horário">
-            <FormularioAcao acao={adicionarHorario} rotulo="Adicionar horário" larguraTotal>
-              <SeletoresHorario id="novo-horario" dias={DIAS_EXIBIDOS} horas={horariosDaGrade(unidade)} />
-            </FormularioAcao>
-          </Cartao>
-        )}
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-medium text-muted-foreground">Meus pacientes</h2>
+          {pacientes.length === 0 ? (
+            <EstadoVazio>Nenhum paciente agendado ainda. Os pacientes designados pelo supervisor aparecem na Lista de espera.</EstadoVazio>
+          ) : (
+            <ItemGroup className="gap-0 divide-y overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-foreground/10">
+              {pacientes.map((paciente) => {
+                const status = statusDoAgendamento(paciente.status);
+                return (
+                  <Item key={paciente.id} className="rounded-none">
+                    <ItemContent>
+                      <ItemTitle className="grid grid-cols-[5.5rem_3.5rem_1fr] text-base font-normal tabular-nums">
+                        <span>{DIAS_DA_SEMANA[paciente.diaSemana]}</span>
+                        <span>{formatarHora(paciente.horaInicio)}</span>
+                        <span>{paciente.sala.nome}</span>
+                      </ItemTitle>
+                      <ItemDescription className="text-foreground">
+                        {paciente.paciente.nome} · {paciente.paciente.telefone}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <Badge variant={status.variante}>{status.rotulo}</Badge>
+                    </ItemActions>
+                  </Item>
+                );
+              })}
+            </ItemGroup>
+          )}
+        </section>
+        <Cartao titulo="Turnos de preferência">
+          <p className="text-sm text-muted-foreground">O supervisor vê estes turnos ao escolher para quem designar cada paciente.</p>
+          <FormularioAcao acao={salvarMinhasPreferencias} rotulo="Salvar preferências" larguraTotal>
+            <Table className="text-sm">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-1">Dia</TableHead>
+                  {TURNOS.map((turno) => (
+                    <TableHead key={turno.valor} className="px-1 text-center">
+                      {turno.rotulo}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {DIAS_EXIBIDOS.map((diaSemana) => (
+                  <TableRow key={diaSemana} className="hover:bg-transparent">
+                    <TableHead scope="row" className="px-1 font-normal">
+                      {DIAS_DA_SEMANA[diaSemana]}
+                    </TableHead>
+                    {TURNOS.map((turno) => {
+                      const valor = `${diaSemana}:${turno.valor}`;
+                      return (
+                        <TableCell key={turno.valor} className="px-1">
+                          <div className="flex justify-center">
+                            <Checkbox name="preferencias" value={valor} defaultChecked={marcadas.has(valor)} aria-label={`${DIAS_DA_SEMANA[diaSemana]}, ${turno.rotulo}`} />
+                          </div>
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </FormularioAcao>
+        </Cartao>
       </div>
-      <OcupacaoSalas
-        unidadeId={unidadeId}
-        dia={dia}
-        unidades={null}
-        estagiarioId={usuario.id}
-        link={({ dia: novoDia }) => `/agenda?dia=${novoDia}`}
-      />
-    </AvisosDaAgenda>
+      <OcupacaoSalas unidadeId={unidadeId} dia={dia} unidades={null} estagiarioId={usuario.id} link={({ dia: novoDia }) => `/agenda?dia=${novoDia}`} />
+    </div>
   );
 }

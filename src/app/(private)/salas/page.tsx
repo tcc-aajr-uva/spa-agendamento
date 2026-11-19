@@ -8,11 +8,13 @@ import { CampoSelect } from "../campo-select";
 import { Cartao, EstadoVazio } from "../cartao";
 import { FormularioAcao } from "../formulario-acao";
 import { CarregandoLista } from "../carregando-lista";
+import { ModalFormulario } from "../modal-formulario";
 import { PaginaModulo } from "../pagina-modulo";
 import { Paginacao } from "../paginacao";
 import { montarHref, numeroDaPagina, primeiro } from "../parametros";
 import { perfisDaRota } from "../menu";
 import { alterarSituacaoSala, criarSala } from "./actions";
+import { DisponibilidadeSala } from "./disponibilidade-sala";
 import { diaDaUrl, OcupacaoSalas } from "./ocupacao-salas";
 
 const SALAS_POR_PAGINA = 10;
@@ -36,7 +38,16 @@ async function Salas({ searchParams }: { searchParams: PageProps<"/salas">["sear
       orderBy: [{ unidade: { nome: "asc" } }, { nome: "asc" }],
       skip: (pagina - 1) * SALAS_POR_PAGINA,
       take: SALAS_POR_PAGINA,
-      select: { id: true, nome: true, ativa: true, unidade: { select: { nome: true } } },
+      select: {
+        id: true,
+        nome: true,
+        ativa: true,
+        unidade: { select: { nome: true, horaAbertura: true, horaFechamento: true, duracaoBlocoMin: true } },
+        disponibilidades: {
+          orderBy: [{ diaSemana: "asc" }, { horaInicio: "asc" }],
+          select: { id: true, diaSemana: true, horaInicio: true, horaFim: true },
+        },
+      },
     }),
     prisma.sala.count({ where: filtroDeUnidades(usuario) }),
     prisma.unidade.findMany({ where: filtroDeIdsDasUnidades(usuario), orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
@@ -65,6 +76,10 @@ async function Salas({ searchParams }: { searchParams: PageProps<"/salas">["sear
                   </ItemContent>
                   <ItemActions className="contents [&_form]:contents">
                     <Badge variant={sala.ativa ? "default" : "outline"}>{sala.ativa ? "Ativa" : "Inativa"}</Badge>
+                    {sala.disponibilidades.length === 0 && <Badge variant="outline">Sem disponibilidade</Badge>}
+                    <ModalFormulario rotulo="Disponibilidade" titulo={`Disponibilidade da ${sala.nome}`} variante="outline" tamanho="sm" atualizarAoFechar>
+                      <DisponibilidadeSala sala={sala} grade={sala.unidade} />
+                    </ModalFormulario>
                     <FormularioAcao acao={alterarSituacaoSala} rotulo={sala.ativa ? "Desativar" : "Ativar"} variante="ghost" tamanho="sm">
                       <input type="hidden" name="salaId" value={sala.id} />
                       <input type="hidden" name="ativar" value={String(!sala.ativa)} />

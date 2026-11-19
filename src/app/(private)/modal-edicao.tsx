@@ -124,7 +124,6 @@ function Modal({ parametro, aberto, titulo, limpar, largura = "sm:max-w-3xl", vi
           type="button"
           variant="ghost"
           size="icon-sm"
-          data-aviso-saida
           aria-label="Fechar"
           className="absolute top-3 right-3"
           onClick={fechar}

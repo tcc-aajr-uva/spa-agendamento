@@ -2,7 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
-import { horarioNaGrade } from "@/lib/agendamento/regras";
+import { FILTRO_RESERVA_ATIVA, horarioNaGrade } from "@/lib/agendamento/regras";
 import { ErroDeRegra } from "@/lib/erros";
 import { executarEmTransacao, type Transacao, violouUnicidade } from "@/lib/transacao";
 import { dadosUnidadeSchema, type DadosUnidade } from "@/lib/unidade/dados-unidade";
@@ -42,9 +42,6 @@ export async function atualizarUnidade(
         select: {
           id: true,
           nome: true,
-          permitePaciente: true,
-          permiteEstagiario: true,
-          permiteSecretaria: true,
           horaAbertura: true,
           horaFechamento: true,
           duracaoBlocoMin: true,
@@ -171,25 +168,11 @@ async function garantirNomeDisponivel(
 
 function validarCamposDaSecretaria(
   autor: ContextoAutorizacao,
-  unidade: {
-    nome: string;
-    permitePaciente: boolean;
-    permiteEstagiario: boolean;
-    permiteSecretaria: boolean;
-  },
+  unidade: { nome: string },
   dados: DadosUnidade,
 ): void {
-  if (
-    autor.perfil === "SECRETARIA" &&
-    (dados.nome !== unidade.nome ||
-      dados.permitePaciente !== unidade.permitePaciente ||
-      dados.permiteEstagiario !== unidade.permiteEstagiario ||
-      dados.permiteSecretaria !== unidade.permiteSecretaria)
-  ) {
-    throw new ErroDeRegra(
-      "SEM_PERMISSAO",
-      "Somente a coordenação ou o administrador pode alterar o nome e quem pode agendar.",
-    );
+  if (autor.perfil === "SECRETARIA" && dados.nome !== unidade.nome) {
+    throw new ErroDeRegra("SEM_PERMISSAO", "Somente a coordenação ou o administrador pode alterar o nome.");
   }
 }
 
@@ -209,20 +192,15 @@ async function validarHorariosAtivosNaGrade(
     dados.duracaoBlocoMin !== unidade.duracaoBlocoMin;
   if (!gradeAlterada) return;
 
-  const horarios = await tx.horarioDisponivel.findMany({
-    where: {
-      ativo: true,
-      estagiario: {
-        perfil: "ESTAGIARIO",
-        unidades: { some: { unidadeId: unidade.id, ativo: true } },
-      },
-    },
+  const horarios = await tx.agendamento.findMany({
+    where: { unidadeId: unidade.id, ...FILTRO_RESERVA_ATIVA },
+    distinct: ["horaInicio"],
     select: { horaInicio: true },
   });
   if (horarios.some(({ horaInicio }) => !horarioNaGrade(dados, horaInicio))) {
     throw new ErroDeRegra(
       "DADOS_INVALIDOS",
-      "Existem horários ativos fora da nova grade. Ajuste ou remova esses horários antes de alterar o funcionamento.",
+      "Existem atendimentos ativos em horários fora da nova grade. Remarque ou encerre esses atendimentos antes de alterar o funcionamento.",
     );
   }
 }

@@ -9,7 +9,7 @@ import { liberarEmLote } from "@/lib/agendamento/liberar-agendamento";
 import { hojeNoBrasil } from "@/lib/agendamento/regras";
 
 export function filtroPeriodoEncerrado(agora: Date): Prisma.AgendamentoWhereInput {
-  return { horarioAtivoId: { not: null }, dataFim: { lt: hojeNoBrasil(agora) } };
+  return { estagiarioAtivoChave: { not: null }, dataFim: { lt: hojeNoBrasil(agora) } };
 }
 
 export async function contarPeriodoEncerrado(tx: Prisma.TransactionClient, usuario: ContextoAutorizacao, agora = new Date()) {

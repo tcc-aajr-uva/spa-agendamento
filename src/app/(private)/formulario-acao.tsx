@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import type { EstadoAcao } from "./acao";
-import { AvisoAoSair } from "./aviso-ao-sair";
 
 type Props = {
   acao: (estado: EstadoAcao, formData: FormData) => Promise<EstadoAcao>;
@@ -74,7 +73,6 @@ function Formulario({ acao, rotulo, confirmacao, variante = "default", tamanho =
             <AlertDescription className="wrap-anywhere">{estado.mensagem}</AlertDescription>
           </Alert>
         )}
-        {estado.avisarAoSair && <AvisoAoSair />}
       </form>
       {confirmacao && (
         <AlertDialog open={confirmando} onOpenChange={setConfirmando}>
