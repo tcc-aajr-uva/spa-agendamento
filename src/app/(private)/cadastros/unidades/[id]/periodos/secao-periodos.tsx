@@ -1,7 +1,10 @@
 import "server-only";
 
 import { Suspense } from "react";
+import Link from "next/link";
+import { ArrowLeftIcon } from "lucide-react";
 import { IndicadorCarregando } from "@/components/indicador-carregando";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PaginacaoLista } from "@/components/paginacao-lista";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
@@ -11,8 +14,6 @@ import { podeGerenciarPeriodos } from "@/lib/periodo-letivo/escopo-periodo";
 import { criarParametrosBusca, type ParametrosBusca } from "@/lib/url/parametros-busca";
 import { FiltrosPeriodos } from "./filtros-periodos";
 import { ListaPeriodos } from "./lista-periodos";
-import { ModalEdicao } from "../../../../modal-edicao";
-import { ModalFormulario } from "../../../../modal-formulario";
 import { hrefDeEdicao } from "../../../../parametros";
 import { DetalhePeriodo } from "./[periodoId]/detalhe-periodo";
 import { NotificacaoPeriodo } from "./notificacao-periodo";
@@ -27,32 +28,57 @@ type Props = {
   searchParams: Promise<ParametrosPeriodos>;
 };
 
+const AVISOS = ["periodoSalvo", "excluido", "confirmacaoPeriodo"];
+
 export async function SecaoPeriodos({ unidadeId, autor, caminhoLista, searchParams }: Props) {
   const consulta = await searchParams;
+  const podeGerenciar = podeGerenciarPeriodos(autor);
+  const periodoAberto = valorUnico(consulta.periodo);
+  const novoAberto = podeGerenciar && valorUnico(consulta.novoPeriodo) === "1";
+
+  function caminhoSemPeriodo() {
+    const parametros = criarParametrosBusca(consulta);
+    for (const chave of ["periodo", "novoPeriodo", ...AVISOS]) parametros.delete(chave);
+    const texto = parametros.toString();
+    return texto ? `${caminhoLista}?${texto}` : caminhoLista;
+  }
+
+  if (periodoAberto || novoAberto) {
+    return (
+      <section id="periodos" aria-label="Períodos letivos" className="space-y-4">
+        <Button variant="ghost" nativeButton={false} render={<Link href={caminhoSemPeriodo()} scroll={false} prefetch={false} />}>
+          <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
+          Voltar para a lista
+        </Button>
+        {periodoAberto ? (
+          <Suspense fallback={<IndicadorCarregando texto="Carregando período letivo…" />}>
+            <DetalhePeriodo unidadeId={unidadeId} periodoId={periodoAberto} caminhoLista={caminhoSemPeriodo()} />
+          </Suspense>
+        ) : (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold">Novo período letivo</h2>
+            <Suspense fallback={<IndicadorCarregando texto="Carregando formulário…" />}>
+              <ConteudoNovoPeriodo id={unidadeId} />
+            </Suspense>
+          </div>
+        )}
+      </section>
+    );
+  }
+
   const situacao = situacaoPeriodoSchema.catch("TODOS").parse(valorUnico(consulta.periodosSituacao));
   const resultado = await listarPeriodos(unidadeId, { situacao, pagina: valorUnico(consulta.periodosPagina) ?? "1" }, autor);
   const salvo = periodoIdSchema.safeParse(valorUnico(consulta.periodoSalvo));
   const excluido = periodoIdSchema.safeParse(valorUnico(consulta.excluido));
   const confirmacao = valorUnico(consulta.confirmacaoPeriodo) ?? "";
-  const periodoAberto = valorUnico(consulta.periodo);
-  const avisos = ["periodoSalvo", "excluido", "confirmacaoPeriodo"];
 
   function hrefDoPeriodo(periodoId: string) {
-    return hrefDeEdicao(caminhoLista, consulta, "periodo", periodoId, avisos);
-  }
-
-  function caminhoSemPeriodo() {
-    const parametros = criarParametrosBusca(consulta);
-    for (const chave of ["periodo", ...avisos]) parametros.delete(chave);
-    const texto = parametros.toString();
-    return texto ? `${caminhoLista}?${texto}` : caminhoLista;
+    return hrefDeEdicao(caminhoLista, consulta, "periodo", periodoId, AVISOS);
   }
 
   function urlDaPagina(pagina: number) {
     const parametros = criarParametrosBusca(consulta);
-    parametros.delete("periodoSalvo");
-    parametros.delete("excluido");
-    parametros.delete("confirmacaoPeriodo");
+    for (const chave of AVISOS) parametros.delete(chave);
     parametros.set("periodosPagina", String(pagina));
     return `${caminhoLista}?${parametros}#periodos`;
   }
@@ -65,12 +91,10 @@ export async function SecaoPeriodos({ unidadeId, autor, caminhoLista, searchPara
             <CardTitle><h2>Períodos letivos</h2></CardTitle>
             <CardDescription>Gerencie as datas dos períodos letivos desta unidade.</CardDescription>
           </div>
-          {podeGerenciarPeriodos(autor) && (
-            <ModalFormulario rotulo="Novo período" titulo="Novo período letivo">
-              <Suspense fallback={<IndicadorCarregando texto="Carregando formulário…" />}>
-                <ConteudoNovoPeriodo id={unidadeId} />
-              </Suspense>
-            </ModalFormulario>
+          {podeGerenciar && (
+            <Button size="lg" nativeButton={false} render={<Link href={hrefDeEdicao(caminhoLista, consulta, "novoPeriodo", "1", AVISOS)} scroll={false} prefetch={false} />}>
+              Novo período
+            </Button>
           )}
         </CardHeader>
         <CardContent className="space-y-6">
@@ -88,13 +112,6 @@ export async function SecaoPeriodos({ unidadeId, autor, caminhoLista, searchPara
           />
         </CardContent>
       </Card>
-      <ModalEdicao parametro="periodo" aberto={Boolean(periodoAberto)} titulo="Editar período letivo" limpar={["periodo", ...avisos]}>
-        {periodoAberto && (
-          <Suspense fallback={<IndicadorCarregando texto="Carregando período letivo…" />}>
-            <DetalhePeriodo unidadeId={unidadeId} periodoId={periodoAberto} caminhoLista={caminhoSemPeriodo()} />
-          </Suspense>
-        )}
-      </ModalEdicao>
     </section>
   );
 }
