@@ -32,7 +32,7 @@ export async function obterGradeDeOcupacao(
     prisma.sala.findMany({ where: { unidadeId, ativa: true }, select: { id: true, nome: true } }),
     prisma.agendamento.findMany({
       where: { unidadeId, diaSemana, dataFim: { gte: hojeNoBrasil(agora) } },
-      select: { salaId: true, horaInicio: true, status: true, prazoConfirmacao: true, horarioAtivoId: true },
+      select: { salaId: true, horaInicio: true, status: true, prazoConfirmacao: true, estagiarioAtivoChave: true },
     }),
   ]);
 

@@ -31,7 +31,7 @@ export async function carregarAgendamentoAtivo(
   if (!perfis.includes(usuario.perfil)) throw new ErroDeRegra("SEM_PERMISSAO", "Você não pode alterar este atendimento.");
 
   const agendamento = await tx.agendamento.findFirst({
-    where: { id: agendamentoId, horarioAtivoId: { not: null } },
+    where: { id: agendamentoId, estagiarioAtivoChave: { not: null } },
     select: {
       id: true,
       unidadeId: true,

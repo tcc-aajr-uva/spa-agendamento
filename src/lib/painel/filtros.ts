@@ -12,7 +12,7 @@ export function filtroPendentesPertoDeVencer(usuario: ContextoAutorizacao, agora
   return {
     ...filtroDeEscopo(usuario),
     status: "PENDENTE",
-    horarioAtivoId: { not: null },
+    estagiarioAtivoChave: { not: null },
     prazoConfirmacao: { gt: agora, lte: limite },
   };
 }

@@ -52,7 +52,6 @@ const ROTULOS_EVENTO: Record<TipoEvento, string> = {
   TERMO_ASSINADO: "Termo assinado",
   TRANSFERIDO: "Transferido",
   ENCERRADO: "Encerrado",
-  LINK_CANCELAMENTO_GERADO: "Link de cancelamento gerado",
 };
 
 export function rotuloDoEvento(tipo: TipoEvento): string {
