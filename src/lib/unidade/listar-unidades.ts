@@ -40,10 +40,6 @@ export async function listarUnidades(entrada: FiltrosUnidades, autor: ContextoAu
         id: true,
         nome: true,
         ativa: true,
-        agendamentoAberto: true,
-        permitePaciente: true,
-        permiteEstagiario: true,
-        permiteSecretaria: true,
       },
     }),
   ]);

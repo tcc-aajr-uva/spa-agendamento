@@ -39,10 +39,6 @@ const duracaoConvertidaSchema = z.object({
 
 export type ValoresUnidade = {
   nome: string;
-  permitePaciente: boolean;
-  permiteEstagiario: boolean;
-  permiteSecretaria: boolean;
-  agendamentoAberto: boolean;
   horaAbertura: number;
   horaFechamento: number;
   duracaoBlocoMin: number;
@@ -51,10 +47,6 @@ export type ValoresUnidade = {
 
 export const VALORES_PADRAO_UNIDADE: ValoresUnidade = {
   nome: "",
-  permitePaciente: true,
-  permiteEstagiario: true,
-  permiteSecretaria: true,
-  agendamentoAberto: false,
   horaAbertura: 480,
   horaFechamento: 1260,
   duracaoBlocoMin: 50,
@@ -64,10 +56,6 @@ export const VALORES_PADRAO_UNIDADE: ValoresUnidade = {
 export const formularioUnidadeSchema = z
   .object({
     nome: dadosUnidadeSchema.shape.nome,
-    permitePaciente: z.boolean(),
-    permiteEstagiario: z.boolean(),
-    permiteSecretaria: z.boolean(),
-    agendamentoAberto: z.boolean(),
     ...funcionamentoSchema.shape,
     atualizadoEm: z.string().refine(
       (valor) => valor === "" || z.iso.datetime().safeParse(valor).success,
@@ -123,10 +111,6 @@ export type DadosFormularioUnidade = z.output<typeof formularioUnidadeSchema>;
 export function valoresDoFormulario(valores: ValoresUnidade): CamposFormularioUnidade {
   return {
     nome: valores.nome,
-    permitePaciente: valores.permitePaciente,
-    permiteEstagiario: valores.permiteEstagiario,
-    permiteSecretaria: valores.permiteSecretaria,
-    agendamentoAberto: valores.agendamentoAberto,
     horaAbertura: formatarHora(valores.horaAbertura),
     horaFechamento: formatarHora(valores.horaFechamento),
     duracaoBlocoMin: String(valores.duracaoBlocoMin),
@@ -137,10 +121,6 @@ export function valoresDoFormulario(valores: ValoresUnidade): CamposFormularioUn
 export function camposDoFormData(formData: FormData): CamposFormularioUnidade {
   return {
     nome: String(formData.get("nome") ?? ""),
-    permitePaciente: valorBooleano(formData, "permitePaciente"),
-    permiteEstagiario: valorBooleano(formData, "permiteEstagiario"),
-    permiteSecretaria: valorBooleano(formData, "permiteSecretaria"),
-    agendamentoAberto: valorBooleano(formData, "agendamentoAberto"),
     horaAbertura: String(formData.get("horaAbertura") ?? ""),
     horaFechamento: String(formData.get("horaFechamento") ?? ""),
     duracaoBlocoMin: String(formData.get("duracaoBlocoMin") ?? ""),
@@ -151,10 +131,6 @@ export function camposDoFormData(formData: FormData): CamposFormularioUnidade {
 export function formDataDosDados({ dados, atualizadoEm }: DadosFormularioUnidade): FormData {
   const formData = new FormData();
   formData.set("nome", dados.nome);
-  formData.set("permitePaciente", String(dados.permitePaciente));
-  formData.set("permiteEstagiario", String(dados.permiteEstagiario));
-  formData.set("permiteSecretaria", String(dados.permiteSecretaria));
-  formData.set("agendamentoAberto", String(dados.agendamentoAberto));
   formData.set("horaAbertura", formatarHora(dados.horaAbertura));
   formData.set("horaFechamento", formatarHora(dados.horaFechamento));
   formData.set("duracaoBlocoMin", String(dados.duracaoBlocoMin));
@@ -166,10 +142,6 @@ export function chaveDosValores(valores: ValoresUnidade): string {
   return JSON.stringify(valoresDoFormulario(valores));
 }
 
-function valorBooleano(formData: FormData, campo: string): boolean {
-  const valor = formData.get(campo);
-  return valor === "on" || valor === "true";
-}
 
 function converterHoraEmMinutos(valor: string): number {
   const partes = valor.match(/^(\d{2}):(\d{2})$/);

@@ -228,7 +228,6 @@ export function FormularioUnidadeControlado({
           <fieldset className="m-0 min-w-0 border-0 p-0" disabled={bloqueado}>
             <CamposFormularioUnidade
               bloqueada={bloqueado}
-              control={control}
               errors={errors}
               podeAlterarDadosAdministrativos={podeAlterarDadosAdministrativos}
               register={register}
