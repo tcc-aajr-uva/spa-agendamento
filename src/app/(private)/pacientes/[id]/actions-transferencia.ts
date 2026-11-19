@@ -8,7 +8,7 @@ import { perfisDaRota } from "../../menu";
 export async function transferir(agendamentoId: string, _estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
   const usuario = await exigirUsuario(perfisDaRota("/pacientes"));
   return executarAcao(async () => {
-    await transferirAgendamento(agendamentoId, texto(formData, "horarioDisponivelId"), usuario);
+    await transferirAgendamento(agendamentoId, texto(formData, "estagiarioId"), usuario);
     return "Caso transferido.";
   });
 }

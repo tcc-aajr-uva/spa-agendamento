@@ -1,8 +1,9 @@
 import { Badge } from "@/components/ui/badge";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
-import { descreverHorario } from "@/lib/agenda/horarios";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
+import { listarOpcoesDeHorario } from "@/lib/agendamento/opcoes-de-horario";
 import { DIAS_DA_SEMANA, estaOcupando, formatarHora } from "@/lib/agendamento/regras";
+import { unidadeDaAgenda } from "@/lib/agenda/horarios";
 import { statusDoAgendamento } from "@/lib/atendimento/rotulos";
 import { prisma } from "@/lib/prisma";
 import { EstadoVazio } from "../cartao";
@@ -24,6 +25,7 @@ export default function ReservasPage() {
 async function MinhasReservas() {
   const usuario = await exigirUsuario(perfisDaRota("/reservas"));
   const agora = new Date();
+  const unidadeId = unidadeDaAgenda(usuario);
   const [reservas, horarios] = await Promise.all([
     prisma.agendamento.findMany({
       where: { estagiarioId: usuario.id },
@@ -35,45 +37,37 @@ async function MinhasReservas() {
         horaInicio: true,
         status: true,
         prazoConfirmacao: true,
-        horarioAtivoId: true,
+        estagiarioAtivoChave: true,
         sala: { select: { nome: true } },
         paciente: { select: { nome: true } },
       },
     }),
-    prisma.horarioDisponivel.findMany({
-      where: { estagiarioId: usuario.id, ativo: true },
-      orderBy: [{ diaSemana: "asc" }, { horaInicio: "asc" }],
-      select: { id: true, diaSemana: true, horaInicio: true, ocupadoPor: { select: { status: true, prazoConfirmacao: true, horarioAtivoId: true } } },
-    }),
+    unidadeId ? listarOpcoesDeHorario({ unidadeId, estagiarioId: usuario.id }, agora) : Promise.resolve([]),
   ]);
 
   if (reservas.length === 0) return <EstadoVazio>Nenhuma reserva.</EstadoVazio>;
 
   reservas.sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio - b.horaInicio);
-  const ativas = reservas.filter((reserva) => reserva.horarioAtivoId);
-  const historico = reservas.filter((reserva) => !reserva.horarioAtivoId);
-
-  const horariosLivres = horarios
-    .filter((horario) => horario.ocupadoPor === null || !estaOcupando(horario.ocupadoPor, agora))
-    .map((horario) => ({ id: horario.id, descricao: descreverHorario(horario.diaSemana, horario.horaInicio) }));
+  const ativas = reservas.filter((reserva) => reserva.estagiarioAtivoChave);
+  const historico = reservas.filter((reserva) => !reserva.estagiarioAtivoChave);
 
   const linha = (reserva: (typeof reservas)[number]) => {
-    const descricao = descreverHorario(reserva.diaSemana, reserva.horaInicio);
+    const descricao = `${DIAS_DA_SEMANA[reserva.diaSemana]} ${formatarHora(reserva.horaInicio)}`;
     const status = statusDoAgendamento(reserva.status);
     return (
       <Item key={reserva.id} className="flex-wrap rounded-none [&_[data-slot=alert]]:basis-full">
         <ItemContent className="basis-full sm:basis-auto">
-          <ItemTitle className={`grid grid-cols-[5.5rem_3.5rem_1fr] text-base font-normal tabular-nums ${reserva.horarioAtivoId ? "" : "text-muted-foreground"}`}>
+          <ItemTitle className={`grid grid-cols-[5.5rem_3.5rem_1fr] text-base font-normal tabular-nums ${reserva.estagiarioAtivoChave ? "" : "text-muted-foreground"}`}>
             <span>{DIAS_DA_SEMANA[reserva.diaSemana]}</span>
             <span>{formatarHora(reserva.horaInicio)}</span>
             <span>{reserva.sala.nome}</span>
           </ItemTitle>
-          <ItemDescription className={reserva.horarioAtivoId ? "text-foreground" : undefined}>{reserva.paciente.nome}</ItemDescription>
+          <ItemDescription className={reserva.estagiarioAtivoChave ? "text-foreground" : undefined}>{reserva.paciente.nome}</ItemDescription>
         </ItemContent>
         <ItemActions className="contents [&>form]:contents">
           <Badge variant={status.variante}>{status.rotulo}</Badge>
-          {estaOcupando(reserva, agora) && <BotaoRemarcarReserva agendamentoId={reserva.id} descricao={descricao} horarios={horariosLivres} />}
-          {reserva.horarioAtivoId && (
+          {estaOcupando(reserva, agora) && <BotaoRemarcarReserva agendamentoId={reserva.id} descricao={descricao} horarios={horarios} />}
+          {reserva.estagiarioAtivoChave && (
             <FormularioAcao
               acao={cancelarReserva}
               rotulo="Cancelar"
