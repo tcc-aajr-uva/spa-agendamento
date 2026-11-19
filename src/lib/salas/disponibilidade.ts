@@ -19,9 +19,7 @@ const novaDisponibilidadeSchema = z.discriminatedUnion("modo", [
   }),
 ]);
 
-export type NovaDisponibilidade = z.input<typeof novaDisponibilidadeSchema>;
-
-export async function adicionarDisponibilidade(usuario: ContextoAutorizacao, entrada: NovaDisponibilidade): Promise<number> {
+export async function adicionarDisponibilidade(usuario: ContextoAutorizacao, entrada: unknown): Promise<number> {
   const dados = novaDisponibilidadeSchema.safeParse(entrada);
   if (!dados.success) throw new ErroDeRegra("DADOS_INVALIDOS", dados.error.issues[0]?.message ?? "Dados inválidos.");
 

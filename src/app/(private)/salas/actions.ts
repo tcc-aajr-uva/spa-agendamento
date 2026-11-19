@@ -5,8 +5,10 @@ import { z } from "zod";
 import { exigirUsuario, podeAcessar } from "@/lib/auth/autorizacao";
 import { prisma } from "@/lib/prisma";
 import { ErroDeRegra } from "@/lib/erros";
+import { adicionarDisponibilidade, removerDisponibilidade } from "@/lib/salas/disponibilidade";
 import { alterarSituacaoDaSala } from "@/lib/salas/situacao-sala";
 import { violouUnicidade } from "@/lib/transacao";
+import { executarAcao, texto, type EstadoAcao } from "../acao";
 import { perfisDaRota } from "../menu";
 
 export type EstadoSala = { erro?: string; mensagem?: string };
@@ -53,6 +55,25 @@ export async function alterarSituacaoSala(_estado: EstadoSala, formData: FormDat
   return {};
 }
 
-function texto(formData: FormData, campo: string): string {
-  return String(formData.get(campo) ?? "");
+export async function salvarDisponibilidade(salaId: string, _estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
+  const usuario = await exigirUsuario(perfisDaRota("/salas"));
+  return executarAcao(async () => {
+    const total = await adicionarDisponibilidade(usuario, {
+      salaId,
+      modo: texto(formData, "modo"),
+      dias: formData.getAll("dias").map(String),
+      horaInicio: texto(formData, "horaInicio"),
+      horaFim: texto(formData, "horaFim"),
+      horarios: formData.getAll("horarios").map(String),
+    });
+    return total === 1 ? "Disponibilidade adicionada." : `${total} disponibilidades adicionadas.`;
+  });
+}
+
+export async function excluirDisponibilidade(disponibilidadeId: string): Promise<EstadoAcao> {
+  const usuario = await exigirUsuario(perfisDaRota("/salas"));
+  return executarAcao(async () => {
+    await removerDisponibilidade(usuario, disponibilidadeId);
+    return "Disponibilidade removida.";
+  });
 }

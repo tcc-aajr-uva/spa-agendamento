@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { chaveSala, DIAS_DA_SEMANA, estaOcupando, formatarHora, FUSO_HORARIO, horarioNaGrade } from "@/lib/agendamento/regras";
+import { chaveSala, DIAS_DA_SEMANA, DIAS_EXIBIDOS, estaOcupando, formatarHora, FUSO_HORARIO, horariosDaGrade } from "@/lib/agendamento/regras";
+import { salaDisponivel } from "@/lib/salas/faixas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,8 +14,6 @@ type Props = {
   estagiarioId?: string;
 };
 
-export const DIAS_EXIBIDOS = [1, 2, 3, 4, 5, 6];
-
 const DIAS_EM_INGLES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function diaDaUrl(valor: string | string[] | undefined, agora = new Date()): number {
@@ -22,14 +21,6 @@ export function diaDaUrl(valor: string | string[] | undefined, agora = new Date(
   if (DIAS_EXIBIDOS.includes(pedido)) return pedido;
   const hoje = DIAS_EM_INGLES.indexOf(new Intl.DateTimeFormat("en-US", { timeZone: FUSO_HORARIO, weekday: "short" }).format(agora));
   return DIAS_EXIBIDOS.includes(hoje) ? hoje : DIAS_EXIBIDOS[0];
-}
-
-export function horariosDaGrade(unidade: { horaAbertura: number; horaFechamento: number; duracaoBlocoMin: number }): number[] {
-  const horarios: number[] = [];
-  for (let hora = unidade.horaAbertura; hora < unidade.horaFechamento; hora += unidade.duracaoBlocoMin) {
-    if (horarioNaGrade(unidade, hora)) horarios.push(hora);
-  }
-  return horarios;
 }
 
 export async function OcupacaoSalas({ unidadeId, dia, unidades, link, estagiarioId }: Props) {
@@ -40,10 +31,14 @@ export async function OcupacaoSalas({ unidadeId, dia, unidades, link, estagiario
       horaAbertura: true,
       horaFechamento: true,
       duracaoBlocoMin: true,
-      salas: { where: { ativa: true }, orderBy: { nome: "asc" }, select: { id: true, nome: true } },
+      salas: {
+        where: { ativa: true },
+        orderBy: { nome: "asc" },
+        select: { id: true, nome: true, disponibilidades: { where: { diaSemana: dia }, select: { diaSemana: true, horaInicio: true, horaFim: true } } },
+      },
       agendamentos: {
-        where: { diaSemana: dia, horarioAtivoId: { not: null }, sala: { ativa: true } },
-        select: { salaId: true, horaInicio: true, status: true, prazoConfirmacao: true, horarioAtivoId: true, estagiarioId: true },
+        where: { diaSemana: dia, estagiarioAtivoChave: { not: null }, sala: { ativa: true } },
+        select: { salaId: true, horaInicio: true, status: true, prazoConfirmacao: true, estagiarioAtivoChave: true, estagiarioId: true },
       },
     },
   });
@@ -115,7 +110,7 @@ export async function OcupacaoSalas({ unidadeId, dia, unidades, link, estagiario
                   <TableRow key={hora} className="border-0 hover:bg-transparent">
                     <TableHead scope="row" className="h-auto px-0.5 text-xs font-normal text-muted-foreground">{formatarHora(hora)}</TableHead>
                     {unidade.salas.map((sala) => {
-                      const situacao = situacaoDaCelula(ocupacao.get(chaveSala(sala.id, dia, hora)), estagiarioId);
+                      const situacao = situacaoDaCelula(ocupacao.get(chaveSala(sala.id, dia, hora)), estagiarioId, salaDisponivel(sala.disponibilidades, dia, hora, unidade.duracaoBlocoMin));
                       return (
                         <TableCell key={sala.id} title={`${sala.nome}, ${formatarHora(hora)}: ${situacao.texto}`} className={`h-6 rounded-sm p-0 ${situacao.cor}`}>
                           <span className="sr-only">{situacao.texto}</span>
@@ -135,13 +130,14 @@ export async function OcupacaoSalas({ unidadeId, dia, unidades, link, estagiario
 
 const SITUACOES = {
   livre: { texto: "Livre", cor: "bg-muted" },
+  indisponivel: { texto: "Indisponível", cor: "bg-[repeating-linear-gradient(45deg,var(--muted),var(--muted)_3px,transparent_3px,transparent_6px)] ring-1 ring-inset ring-border" },
   pendente: { texto: "Pendente", cor: "bg-secondary" },
   ocupada: { texto: "Ocupada", cor: "bg-primary" },
   sua: { texto: "Sua reserva", cor: "bg-accent ring-1 ring-inset ring-primary" },
 };
 
-function situacaoDaCelula(agendamento: { status: string; estagiarioId: string } | undefined, estagiarioId?: string) {
-  if (!agendamento) return SITUACOES.livre;
+function situacaoDaCelula(agendamento: { status: string; estagiarioId: string } | undefined, estagiarioId: string | undefined, salaLivreNoHorario: boolean) {
+  if (!agendamento) return salaLivreNoHorario ? SITUACOES.livre : SITUACOES.indisponivel;
   if (estagiarioId && agendamento.estagiarioId === estagiarioId) return SITUACOES.sua;
   return agendamento.status === "PENDENTE" ? SITUACOES.pendente : SITUACOES.ocupada;
 }
