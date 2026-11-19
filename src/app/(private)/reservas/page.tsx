@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { descreverHorario } from "@/lib/agenda/horarios";
 import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { DIAS_DA_SEMANA, estaOcupando, formatarHora } from "@/lib/agendamento/regras";
@@ -37,6 +37,7 @@ async function MinhasReservas() {
         prazoConfirmacao: true,
         horarioAtivoId: true,
         sala: { select: { nome: true } },
+        paciente: { select: { nome: true } },
       },
     }),
     prisma.horarioDisponivel.findMany({
@@ -67,6 +68,7 @@ async function MinhasReservas() {
             <span>{formatarHora(reserva.horaInicio)}</span>
             <span>{reserva.sala.nome}</span>
           </ItemTitle>
+          <ItemDescription className={reserva.horarioAtivoId ? "text-foreground" : undefined}>{reserva.paciente.nome}</ItemDescription>
         </ItemContent>
         <ItemActions className="contents [&>form]:contents">
           <Badge variant={status.variante}>{status.rotulo}</Badge>
