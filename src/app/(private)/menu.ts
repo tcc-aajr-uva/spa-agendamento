@@ -38,7 +38,7 @@ export const MENU: ItemMenu[] = [
   { href: "/agenda", rotulo: "Minha agenda", card: "#2", perfis: ["ADMINISTRADOR", "ESTAGIARIO"] },
   { href: "/reservas", rotulo: "Minhas reservas", card: "#2", perfis: ["ADMINISTRADOR", "ESTAGIARIO"] },
   { href: "/pacientes", rotulo: "Pacientes", card: "#3", perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "ESTAGIARIO"] },
-  { href: "/lista-espera", rotulo: "Lista de espera", card: "#3", perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "ESTAGIARIO"] },
+  { href: "/lista-espera", rotulo: "Lista de espera", card: "#3", perfis: ["ADMINISTRADOR", "COORDENACAO", "SECRETARIA", "SUPERVISOR", "ESTAGIARIO"] },
 ];
 
 export function perfisDaRota(href: string): Perfil[] {

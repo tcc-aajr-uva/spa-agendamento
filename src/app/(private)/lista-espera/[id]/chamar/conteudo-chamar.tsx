@@ -1,29 +1,25 @@
 import { notFound } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { listarHorariosLivres } from "@/lib/agendamento/horarios-livres";
-import { DIAS_DA_SEMANA, formatarHora } from "@/lib/agendamento/regras";
+import { listarOpcoesDeHorario, type OpcaoDeHorario } from "@/lib/agendamento/opcoes-de-horario";
 import { exigirUsuario, podeAcessar } from "@/lib/auth/autorizacao";
-import { PERFIS_QUE_CHAMAM } from "@/lib/lista-espera/inscricao";
+import { PERFIS_QUE_AGENDAM } from "@/lib/lista-espera/inscricao";
 import { prisma } from "@/lib/prisma";
-import { CampoSelect } from "../../../campo-select";
 import { Cartao } from "../../../cartao";
 import { formatarData } from "../../../formatar";
 import { FormularioAcao } from "../../../formulario-acao";
 import { LinkVoltar } from "../../../link-voltar";
-import { chamar } from "../../actions";
+import { SeletorHorarioSala } from "../../../seletor-horario-sala";
+import { agendar } from "../../actions";
 
-export type HorariosLivres = Awaited<ReturnType<typeof listarHorariosLivres>>;
-
-type DadosChamar = {
+type DadosAgendar = {
   inscricaoId: string;
   inscritoEm: Date;
   equipe: string;
   paciente: { nome: string; telefone: string; email: string; dataNascimento: Date; responsavelNome: string | null };
-  horarios: HorariosLivres;
-  ehEstagiario: boolean;
+  opcoes: OpcaoDeHorario[];
 };
 
-export function PainelChamar({ inscricaoId, inscritoEm, equipe, paciente, horarios, ehEstagiario }: DadosChamar) {
+export function PainelAgendar({ inscricaoId, inscritoEm, equipe, paciente, opcoes }: DadosAgendar) {
   return (
     <div className="flex flex-col gap-4">
       <Cartao titulo={paciente.nome}>
@@ -35,23 +31,14 @@ export function PainelChamar({ inscricaoId, inscritoEm, equipe, paciente, horari
           {equipe} — na lista desde {formatarData(inscritoEm)}
         </p>
       </Cartao>
-      {horarios.length === 0 ? (
+      {opcoes.length === 0 ? (
         <Alert variant="warning">
-          <AlertDescription>Nenhum horário livre {ehEstagiario ? "na sua agenda" : "nesta equipe"}. O paciente continua na lista.</AlertDescription>
+          <AlertDescription>Nenhum horário com sala disponível e livre. O paciente continua na sua lista.</AlertDescription>
         </Alert>
       ) : (
-        <Cartao titulo="Agendar">
-          <FormularioAcao acao={chamar.bind(null, inscricaoId)} rotulo="Agendar com este horário" larguraTotal>
-            <CampoSelect
-              id={`chamar-horario-${inscricaoId}`}
-              nome="horario"
-              rotulo="Horário combinado com o paciente"
-              opcoes={horarios.map((horario) => ({
-                value: `${horario.diaSemana}:${horario.horaInicio}`,
-                label: `${DIAS_DA_SEMANA[horario.diaSemana]} às ${formatarHora(horario.horaInicio)}`,
-              }))}
-              obrigatorio
-            />
+        <Cartao titulo="Horário combinado com o paciente">
+          <FormularioAcao acao={agendar.bind(null, inscricaoId)} rotulo="Agendar" larguraTotal>
+            <SeletorHorarioSala idBase={`agendar-${inscricaoId}`} opcoes={opcoes} />
           </FormularioAcao>
         </Cartao>
       )}
@@ -60,13 +47,14 @@ export function PainelChamar({ inscricaoId, inscritoEm, equipe, paciente, horari
 }
 
 export async function ConteudoChamar({ id }: { id: string }) {
-  const usuario = await exigirUsuario(PERFIS_QUE_CHAMAM);
+  const usuario = await exigirUsuario(PERFIS_QUE_AGENDAM);
   const inscricao = await prisma.listaEspera.findUnique({
     where: { id },
     select: {
       id: true,
       unidadeId: true,
       equipeId: true,
+      estagiarioId: true,
       status: true,
       inscritoEm: true,
       equipe: { select: { nome: true, unidade: { select: { nome: true } } } },
@@ -87,22 +75,18 @@ export async function ConteudoChamar({ id }: { id: string }) {
     );
   }
 
-  const ehEstagiario = usuario.perfil === "ESTAGIARIO";
-  const horarios = await listarHorariosLivres(inscricao.unidadeId, inscricao.equipeId, {
-    estagiarioId: ehEstagiario ? usuario.id : undefined,
-  });
+  const opcoes = await listarOpcoesDeHorario({ unidadeId: inscricao.unidadeId, estagiarioId: inscricao.estagiarioId });
 
   return (
     <div className="flex max-w-2xl flex-col gap-4">
       {voltar}
-      <h1 className="text-2xl font-bold">Chamar da lista de espera</h1>
-      <PainelChamar
+      <h1 className="text-2xl font-bold">Agendar paciente da lista</h1>
+      <PainelAgendar
         inscricaoId={inscricao.id}
         inscritoEm={inscricao.inscritoEm}
         equipe={`${inscricao.equipe.unidade.nome} / ${inscricao.equipe.nome}`}
         paciente={inscricao.paciente}
-        horarios={horarios}
-        ehEstagiario={ehEstagiario}
+        opcoes={opcoes}
       />
     </div>
   );
