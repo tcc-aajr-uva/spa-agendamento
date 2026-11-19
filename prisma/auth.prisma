@@ -21,7 +21,7 @@ model Usuario {
   equipes  UsuarioEquipe[]
   convites Convite[]
 
-  horarios                 HorarioDisponivel[]
+  preferencias             PreferenciaEstagiario[]
   configuracoesAtendimento ConfiguracaoAtendimentoEstagiario[] @relation("ConfiguracoesDoEstagiario")
   agendamentos             Agendamento[]                       @relation("EstagiarioDoAgendamento")
   equipesSupervisionadas   Equipe[]                            @relation("SupervisorDaEquipe")
@@ -29,6 +29,8 @@ model Usuario {
   agendamentosCriados Agendamento[]       @relation("CriadorDoAgendamento")
   sessoesRegistradas  Sessao[]
   eventos             EventoAgendamento[]
+  listaEspera         ListaEspera[]       @relation("EstagiarioDaLista")
+  designacoes         ListaEspera[]       @relation("DesignadorDaLista")
 
   accounts ContaAutenticacao[]
   sessions SessaoAutenticacao[]
