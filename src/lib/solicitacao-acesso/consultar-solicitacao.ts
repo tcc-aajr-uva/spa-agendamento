@@ -10,6 +10,6 @@ export async function consultarSolicitacao(id: string, autor: ContextoAutorizaca
 
   return prisma.solicitacaoAcesso.findFirst({
     where: { id, ...filtroDeUnidades(autor) },
-    select: { id: true, nome: true, email: true, unidadeId: true, status: true },
+    select: { id: true, nome: true, email: true, unidadeId: true, status: true, unidade: { select: { nome: true } } },
   });
 }

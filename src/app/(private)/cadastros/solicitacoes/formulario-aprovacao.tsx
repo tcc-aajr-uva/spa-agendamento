@@ -2,7 +2,6 @@
 
 import { CircleCheckIcon, Loader2Icon } from "lucide-react";
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 
@@ -18,6 +17,7 @@ import { rotuloDoPerfil } from "@/lib/usuario/rotulos";
 import { CamposVinculosUsuario, type OpcoesVinculosUsuario } from "../usuarios/campos-vinculos-usuario";
 import { CartaoLinkConvite } from "../usuarios/cartao-link-convite";
 import { ESTADO_INICIAL_APROVACAO, type EstadoAprovacaoSolicitacao } from "./estado-solicitacao";
+import { useFecharModal } from "./use-fechar-modal";
 
 type Props = Pick<OpcoesVinculosUsuario, "unidades" | "equipes"> & {
   acao: (estado: EstadoAprovacaoSolicitacao, formData: FormData) => Promise<EstadoAprovacaoSolicitacao>;
@@ -26,7 +26,7 @@ type Props = Pick<OpcoesVinculosUsuario, "unidades" | "equipes"> & {
 };
 
 export function FormularioAprovacao({ acao, solicitacao, pendente, unidades, equipes }: Props) {
-  const fecharModal = useFecharModalAprovacao();
+  const fecharModal = useFecharModal("aprovar");
   const [estado, enviar, enviando] = useActionState(acao, ESTADO_INICIAL_APROVACAO);
   const aprovacaoNotificada = useRef(false);
   const [erroOculto, ocultarErro] = useState<EstadoAprovacaoSolicitacao | null>(null);
@@ -110,19 +110,6 @@ export function FormularioAprovacao({ acao, solicitacao, pendente, unidades, equ
       )}
     </div>
   );
-}
-
-function useFecharModalAprovacao() {
-  const router = useRouter();
-  const caminho = usePathname();
-  const busca = useSearchParams();
-
-  return () => {
-    const parametros = new URLSearchParams(busca.toString());
-    parametros.delete("aprovar");
-    const consulta = parametros.toString();
-    router.replace(consulta ? `${caminho}?${consulta}` : caminho, { scroll: false });
-  };
 }
 
 function formDataDaAprovacao(dados: AprovacaoSolicitacao): FormData {

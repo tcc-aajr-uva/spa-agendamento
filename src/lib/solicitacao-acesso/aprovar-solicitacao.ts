@@ -1,14 +1,14 @@
 import "server-only";
 
-import { filtroDeUnidades } from "@/lib/auth/autorizacao";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
 import { executarEmTransacao, violouUnicidade } from "@/lib/transacao";
+import { aprovacaoSolicitacaoSchema, type AprovacaoSolicitacao } from "@/lib/solicitacao-acesso/dados-solicitacao";
 import {
-  aprovacaoSolicitacaoSchema,
-  solicitacaoIdSchema,
-  type AprovacaoSolicitacao,
-} from "@/lib/solicitacao-acesso/dados-solicitacao";
+  exigirSolicitacaoPendente,
+  registrarDecisao,
+  validarIdDaSolicitacao,
+} from "@/lib/solicitacao-acesso/decisao-solicitacao";
 import { criarUsuarioNaTransacao, type UsuarioComConviteCriado } from "@/lib/usuario/criar-usuario";
 
 export async function aprovarSolicitacao(
@@ -17,9 +17,7 @@ export async function aprovarSolicitacao(
   autor: ContextoAutorizacao,
   agora = new Date(),
 ): Promise<UsuarioComConviteCriado> {
-  if (!solicitacaoIdSchema.safeParse(id).success) {
-    throw new ErroDeRegra("NAO_ENCONTRADO", "Solicitação não encontrada.");
-  }
+  validarIdDaSolicitacao(id);
   const resultado = aprovacaoSolicitacaoSchema.safeParse(entrada);
   if (!resultado.success) {
     throw new ErroDeRegra("DADOS_INVALIDOS", resultado.error.issues[0]?.message ?? "Dados inválidos.");
@@ -27,36 +25,13 @@ export async function aprovarSolicitacao(
 
   try {
     return await executarEmTransacao(async (tx) => {
-      const solicitacao = await tx.solicitacaoAcesso.findFirst({
-        where: { id, ...filtroDeUnidades(autor) },
-        select: { nome: true, email: true, status: true },
-      });
-      if (!solicitacao) throw new ErroDeRegra("NAO_ENCONTRADO", "Solicitação não encontrada.");
-      if (solicitacao.status !== "PENDENTE") {
-        throw new ErroDeRegra("STATUS_INVALIDO", "Esta solicitação já foi analisada.");
-      }
-
+      const solicitacao = await exigirSolicitacaoPendente(tx, id, autor);
       const criado = await criarUsuarioNaTransacao(tx, {
-        nome: solicitacao.nome,
-        email: solicitacao.email,
+        ...solicitacao,
         perfil: "ESTAGIARIO",
         ...resultado.data,
       }, autor, agora);
-
-      const decisao = await tx.solicitacaoAcesso.updateMany({
-        where: { id, status: "PENDENTE" },
-        data: {
-          status: "APROVADA",
-          emailPendente: null,
-          decididoPorId: autor.id,
-          decididoEm: agora,
-          usuarioId: criado.usuarioId,
-        },
-      });
-      if (decisao.count !== 1) {
-        throw new ErroDeRegra("STATUS_INVALIDO", "Esta solicitação já foi analisada.");
-      }
-
+      await registrarDecisao(tx, id, { status: "APROVADA", usuarioId: criado.usuarioId }, autor, agora);
       return criado;
     });
   } catch (erro) {

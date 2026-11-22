@@ -19,5 +19,12 @@ export const aprovacaoSolicitacaoSchema = z.object({
   if (erro) contexto.addIssue({ code: "custom", path: [erro.campo], message: erro.mensagem });
 });
 
+export const TAMANHO_MAXIMO_MOTIVO = 500;
+
+export const recusaSolicitacaoSchema = z.object({
+  motivo: z.string().trim().max(TAMANHO_MAXIMO_MOTIVO, `O motivo deve possuir no máximo ${TAMANHO_MAXIMO_MOTIVO} caracteres.`),
+});
+
 export type NovaSolicitacao = z.input<typeof novaSolicitacaoSchema>;
 export type AprovacaoSolicitacao = z.input<typeof aprovacaoSolicitacaoSchema>;
+export type RecusaSolicitacao = z.input<typeof recusaSolicitacaoSchema>;

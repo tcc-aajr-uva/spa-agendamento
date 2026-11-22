@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, XIcon } from "lucide-react";
 
 import { CabecalhoListagem } from "@/components/cabecalho-listagem";
 import { EstadoVazioTabela } from "@/components/estado-vazio-tabela";
@@ -29,6 +29,7 @@ type Props = {
 
 const MODAIS = [
   { parametro: "aprovar", titulo: "Aprovar solicitação" },
+  { parametro: "recusar", titulo: "Recusar solicitação" },
 ] as const;
 
 const PARAMETROS_DOS_MODAIS = MODAIS.map((modal) => modal.parametro);
@@ -118,6 +119,10 @@ async function ListaSolicitacoes({ searchParams }: Props) {
                         rotulo={`Aprovar a solicitação de ${solicitacao.nome}`}>
                         <CheckIcon />
                       </BotaoEdicao>
+                      <BotaoEdicao parametro="recusar" tom="inativar" href={hrefDoModal("recusar", solicitacao.id)}
+                        rotulo={`Recusar a solicitação de ${solicitacao.nome}`}>
+                        <XIcon />
+                      </BotaoEdicao>
                     </div>
                   )}
                 </TableCell>
@@ -142,7 +147,7 @@ async function ListaSolicitacoes({ searchParams }: Props) {
           <ModalEdicao key={modal.parametro} parametro={modal.parametro} aberto={Boolean(id)} titulo={modal.titulo} limpar={[modal.parametro]}>
             {id && (
               <Suspense fallback={<IndicadorCarregando texto="Carregando solicitação…" />}>
-                <DetalheSolicitacao id={id} />
+                <DetalheSolicitacao id={id} secao={modal.parametro} />
               </Suspense>
             )}
           </ModalEdicao>
