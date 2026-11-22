@@ -5,6 +5,9 @@ CREATE SCHEMA IF NOT EXISTS "public";
 CREATE TYPE "Perfil" AS ENUM ('ADMINISTRADOR', 'COORDENACAO', 'SECRETARIA', 'SUPERVISOR', 'ESTAGIARIO');
 
 -- CreateEnum
+CREATE TYPE "StatusSolicitacaoAcesso" AS ENUM ('PENDENTE', 'APROVADA', 'RECUSADA');
+
+-- CreateEnum
 CREATE TYPE "StatusAgendamento" AS ENUM ('PENDENTE', 'CONFIRMADO', 'EM_ATENDIMENTO', 'ENCERRADO', 'CANCELADO');
 
 -- CreateEnum
@@ -71,6 +74,24 @@ CREATE TABLE "Convite" (
     "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Convite_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SolicitacaoAcesso" (
+    "id" TEXT NOT NULL,
+    "nome" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "emailPendente" TEXT,
+    "unidadeId" TEXT NOT NULL,
+    "status" "StatusSolicitacaoAcesso" NOT NULL DEFAULT 'PENDENTE',
+    "motivoRecusa" TEXT,
+    "decididoPorId" TEXT,
+    "decididoEm" TIMESTAMP(3),
+    "usuarioId" TEXT,
+    "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "atualizadoEm" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SolicitacaoAcesso_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -324,6 +345,18 @@ CREATE INDEX "Convite_usuarioId_idx" ON "Convite"("usuarioId");
 CREATE INDEX "Convite_expiraEm_idx" ON "Convite"("expiraEm");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "SolicitacaoAcesso_emailPendente_key" ON "SolicitacaoAcesso"("emailPendente");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SolicitacaoAcesso_usuarioId_key" ON "SolicitacaoAcesso"("usuarioId");
+
+-- CreateIndex
+CREATE INDEX "SolicitacaoAcesso_unidadeId_status_criadoEm_idx" ON "SolicitacaoAcesso"("unidadeId", "status", "criadoEm");
+
+-- CreateIndex
+CREATE INDEX "SolicitacaoAcesso_status_criadoEm_idx" ON "SolicitacaoAcesso"("status", "criadoEm");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "SessaoAutenticacao_token_key" ON "SessaoAutenticacao"("token");
 
 -- CreateIndex
@@ -427,6 +460,15 @@ ALTER TABLE "UsuarioEquipe" ADD CONSTRAINT "UsuarioEquipe_equipeId_unidadeId_fke
 
 -- AddForeignKey
 ALTER TABLE "Convite" ADD CONSTRAINT "Convite_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SolicitacaoAcesso" ADD CONSTRAINT "SolicitacaoAcesso_unidadeId_fkey" FOREIGN KEY ("unidadeId") REFERENCES "Unidade"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SolicitacaoAcesso" ADD CONSTRAINT "SolicitacaoAcesso_decididoPorId_fkey" FOREIGN KEY ("decididoPorId") REFERENCES "Usuario"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SolicitacaoAcesso" ADD CONSTRAINT "SolicitacaoAcesso_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SessaoAutenticacao" ADD CONSTRAINT "SessaoAutenticacao_userId_fkey" FOREIGN KEY ("userId") REFERENCES "Usuario"("id") ON DELETE CASCADE ON UPDATE CASCADE;

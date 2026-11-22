@@ -66,12 +66,13 @@ model Unidade {
   criadoEm        DateTime @default(now())
   atualizadoEm    DateTime @updatedAt
 
-  equipes      Equipe[]
-  periodos     PeriodoLetivo[]
-  usuarios     UsuarioUnidade[]
-  salas        Sala[]
-  agendamentos Agendamento[]
-  listaEspera  ListaEspera[]
+  equipes            Equipe[]
+  periodos           PeriodoLetivo[]
+  usuarios           UsuarioUnidade[]
+  salas              Sala[]
+  agendamentos       Agendamento[]
+  listaEspera        ListaEspera[]
+  solicitacoesAcesso SolicitacaoAcesso[]
 }
 
 model Equipe {
