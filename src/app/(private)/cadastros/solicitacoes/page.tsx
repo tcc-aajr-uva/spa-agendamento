@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CheckIcon } from "lucide-react";
 
 import { CabecalhoListagem } from "@/components/cabecalho-listagem";
 import { EstadoVazioTabela } from "@/components/estado-vazio-tabela";
@@ -17,12 +18,20 @@ import {
 import type { ParametrosBusca } from "@/lib/url/parametros-busca";
 import { formatarDataHora } from "../../formatar";
 import { perfisDaRota } from "../../menu";
-import { primeiro } from "../../parametros";
+import { BotaoEdicao, ModalEdicao } from "../../modal-edicao";
+import { hrefDeEdicao, primeiro } from "../../parametros";
+import { DetalheSolicitacao } from "./detalhe-solicitacao";
 import { FiltrosSolicitacoes } from "./filtros-solicitacoes";
 
 type Props = {
   searchParams: Promise<ParametrosBusca>;
 };
+
+const MODAIS = [
+  { parametro: "aprovar", titulo: "Aprovar solicitação" },
+] as const;
+
+const PARAMETROS_DOS_MODAIS = MODAIS.map((modal) => modal.parametro);
 
 export default function SolicitacoesPage({ searchParams }: Props) {
   return (
@@ -48,6 +57,8 @@ async function ListaSolicitacoes({ searchParams }: Props) {
     status: situacaoSolicitacaoSchema.parse(primeiro(parametros.status)),
   }, autor);
   const { busca, status } = resultado;
+  const hrefDoModal = (chave: string, id: string) =>
+    hrefDeEdicao("/cadastros/solicitacoes", parametros, chave, id, PARAMETROS_DOS_MODAIS);
 
   return (
     <div className="space-y-6">
@@ -61,13 +72,14 @@ async function ListaSolicitacoes({ searchParams }: Props) {
               <TableHead scope="col">Unidade</TableHead>
               <TableHead scope="col">Solicitada em</TableHead>
               <TableHead scope="col">Situação</TableHead>
-              <TableHead scope="col" className="px-4">Decisão</TableHead>
+              <TableHead scope="col">Decisão</TableHead>
+              <TableHead scope="col" className="w-28 px-4">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {resultado.solicitacoes.length === 0 ? (
               <EstadoVazioTabela
-                colunas={5}
+                colunas={6}
                 titulo="Nenhuma solicitação encontrada."
                 descricao={busca || status !== SITUACAO_PADRAO_SOLICITACAO
                   ? "Altere ou limpe os filtros para tentar novamente."
@@ -88,7 +100,7 @@ async function ListaSolicitacoes({ searchParams }: Props) {
                     {rotuloDoStatusSolicitacao(solicitacao.status)}
                   </Badge>
                 </TableCell>
-                <TableCell className="max-w-sm whitespace-normal px-4 text-muted-foreground">
+                <TableCell className="max-w-sm whitespace-normal text-muted-foreground">
                   {solicitacao.decididoEm ? (
                     <div className="space-y-1">
                       <p>
@@ -98,6 +110,16 @@ async function ListaSolicitacoes({ searchParams }: Props) {
                       {solicitacao.motivoRecusa && <p>Motivo: {solicitacao.motivoRecusa}</p>}
                     </div>
                   ) : "—"}
+                </TableCell>
+                <TableCell className="px-4">
+                  {solicitacao.status === "PENDENTE" && (
+                    <div className="flex justify-center gap-1">
+                      <BotaoEdicao parametro="aprovar" tom="ativar" href={hrefDoModal("aprovar", solicitacao.id)}
+                        rotulo={`Aprovar a solicitação de ${solicitacao.nome}`}>
+                        <CheckIcon />
+                      </BotaoEdicao>
+                    </div>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -113,6 +135,19 @@ async function ListaSolicitacoes({ searchParams }: Props) {
         ariaLabel="Paginação das solicitações"
         href={(pagina) => urlDaPagina(pagina, busca, status)}
       />
+
+      {MODAIS.map((modal) => {
+        const id = primeiro(parametros[modal.parametro]);
+        return (
+          <ModalEdicao key={modal.parametro} parametro={modal.parametro} aberto={Boolean(id)} titulo={modal.titulo} limpar={[modal.parametro]}>
+            {id && (
+              <Suspense fallback={<IndicadorCarregando texto="Carregando solicitação…" />}>
+                <DetalheSolicitacao id={id} />
+              </Suspense>
+            )}
+          </ModalEdicao>
+        );
+      })}
     </div>
   );
 }
