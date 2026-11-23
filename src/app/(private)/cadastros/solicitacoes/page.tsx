@@ -15,6 +15,7 @@ import {
   situacaoSolicitacaoSchema,
   type SituacaoSolicitacao,
 } from "@/lib/solicitacao-acesso/situacao-listagem";
+import { lerBuscaSalva } from "@/lib/url/busca-salva";
 import type { ParametrosBusca } from "@/lib/url/parametros-busca";
 import { formatarDataHora } from "../../formatar";
 import { perfisDaRota } from "../../menu";
@@ -53,7 +54,7 @@ async function ListaSolicitacoes({ searchParams }: Props) {
   const autor = await exigirUsuario(perfisDaRota("/cadastros/solicitacoes"));
   const parametros = await searchParams;
   const resultado = await listarSolicitacoes({
-    busca: primeiro(parametros.busca) ?? "",
+    busca: await lerBuscaSalva("solicitacoes", autor),
     pagina: primeiro(parametros.pagina) ?? "1",
     status: situacaoSolicitacaoSchema.parse(primeiro(parametros.status)),
   }, autor);
@@ -138,7 +139,7 @@ async function ListaSolicitacoes({ searchParams }: Props) {
         total={resultado.total}
         rotuloTotal="solicitação(ões)"
         ariaLabel="Paginação das solicitações"
-        href={(pagina) => urlDaPagina(pagina, busca, status)}
+        href={(pagina) => urlDaPagina(pagina, status)}
       />
 
       {MODAIS.map((modal) => {
@@ -157,9 +158,8 @@ async function ListaSolicitacoes({ searchParams }: Props) {
   );
 }
 
-function urlDaPagina(pagina: number, busca: string, status: SituacaoSolicitacao): string {
+function urlDaPagina(pagina: number, status: SituacaoSolicitacao): string {
   const parametros = new URLSearchParams({ pagina: String(pagina) });
   if (status !== SITUACAO_PADRAO_SOLICITACAO) parametros.set("status", status);
-  if (busca) parametros.set("busca", busca);
   return `/cadastros/solicitacoes?${parametros}`;
 }

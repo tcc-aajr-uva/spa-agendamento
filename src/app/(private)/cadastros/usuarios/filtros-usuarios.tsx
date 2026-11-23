@@ -4,6 +4,9 @@ import { CampoBuscaCadastro, FiltroSelecaoCadastro } from "@/components/campos-f
 import { useFiltrosCadastro } from "@/components/use-filtros-cadastro";
 import { Button } from "@/components/ui/button";
 import { OPCOES_SITUACAO_USUARIO, type SituacaoListagemUsuario } from "@/lib/usuario/situacao-listagem";
+import { salvarBusca } from "../../busca-salva";
+
+const salvarBuscaDeUsuarios = (texto: string) => salvarBusca("usuarios", texto);
 
 type Props = {
   buscaInicial: string;
@@ -14,6 +17,7 @@ export function FiltrosUsuarios({ buscaInicial, statusInicial }: Props) {
   const { busca, setRascunhoBusca, atualizando, atualizar, limpar } = useFiltrosCadastro({
     buscaInicial,
     filtros: { status: statusInicial === "TODOS" ? "" : statusInicial },
+    salvarBusca: salvarBuscaDeUsuarios,
   });
 
   return (

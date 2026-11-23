@@ -9,6 +9,7 @@ import { exigirUsuario } from "@/lib/auth/autorizacao";
 import { PERFIS_EQUIPES } from "@/lib/equipe/escopo-equipe";
 import { listarAtendimentoVigenteDaEquipe } from "@/lib/equipe/atendimento-equipe";
 import { dataDoPeriodo, formatarDataPeriodo } from "@/lib/periodo-letivo/dados-periodo";
+import { lerBuscaSalva } from "@/lib/url/busca-salva";
 import { criarParametrosBusca, type ParametrosBusca } from "@/lib/url/parametros-busca";
 import { primeiro } from "../../parametros";
 import { LinkEdicao } from "../../modal-edicao";
@@ -18,7 +19,7 @@ import { podeConfigurarAtendimento } from "@/lib/usuario/atendimento-estagiario"
 export async function EstagiariosEquipe({ id, parametros }: { id: string; parametros: ParametrosBusca }) {
   const autor = await exigirUsuario([...PERFIS_EQUIPES]);
   const resultado = await listarAtendimentoVigenteDaEquipe(id, {
-    busca: primeiro(parametros.buscaEstagiarios) ?? "",
+    busca: await lerBuscaSalva("estagiarios-equipe", autor, id),
     pagina: primeiro(parametros.paginaEstagiarios) ?? "1",
   }, autor);
   if (!resultado) return <p className="text-muted-foreground">Equipe não encontrada ou consulta não permitida.</p>;
@@ -37,7 +38,7 @@ export async function EstagiariosEquipe({ id, parametros }: { id: string; parame
 
   return (
     <div className="min-w-0 space-y-6">
-      <FiltrosEstagiariosEquipe key={equipe.id} buscaInicial={resultado.busca} />
+      <FiltrosEstagiariosEquipe key={equipe.id} equipeId={equipe.id} buscaInicial={resultado.busca} />
 
       <p className="text-sm text-muted-foreground">
         {resultado.periodo

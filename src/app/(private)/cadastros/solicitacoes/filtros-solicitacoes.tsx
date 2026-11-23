@@ -8,6 +8,9 @@ import {
   SITUACAO_PADRAO_SOLICITACAO,
   type SituacaoSolicitacao,
 } from "@/lib/solicitacao-acesso/situacao-listagem";
+import { salvarBusca } from "../../busca-salva";
+
+const salvarBuscaDeSolicitacoes = (texto: string) => salvarBusca("solicitacoes", texto);
 
 type Props = {
   buscaInicial: string;
@@ -18,6 +21,7 @@ export function FiltrosSolicitacoes({ buscaInicial, statusInicial }: Props) {
   const { busca, setRascunhoBusca, atualizando, atualizar, limpar } = useFiltrosCadastro({
     buscaInicial,
     filtros: { status: statusInicial === SITUACAO_PADRAO_SOLICITACAO ? "" : statusInicial },
+    salvarBusca: salvarBuscaDeSolicitacoes,
   });
 
   return (

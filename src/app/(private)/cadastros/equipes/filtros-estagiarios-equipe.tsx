@@ -1,15 +1,19 @@
 "use client";
 
+import { useCallback } from "react";
+
 import { CampoBuscaCadastro } from "@/components/campos-filtros-cadastro";
 import { useFiltrosCadastro } from "@/components/use-filtros-cadastro";
 import { Button } from "@/components/ui/button";
+import { salvarBusca } from "../../busca-salva";
 
-export function FiltrosEstagiariosEquipe({ buscaInicial }: { buscaInicial: string }) {
+export function FiltrosEstagiariosEquipe({ equipeId, buscaInicial }: { equipeId: string; buscaInicial: string }) {
+  const salvarBuscaDaEquipe = useCallback((texto: string) => salvarBusca("estagiarios-equipe", texto, equipeId), [equipeId]);
   const { busca, setRascunhoBusca, atualizando, atualizar } = useFiltrosCadastro({
     buscaInicial,
     filtros: {},
-    parametroBusca: "buscaEstagiarios",
     parametroPagina: "paginaEstagiarios",
+    salvarBusca: salvarBuscaDaEquipe,
   });
 
   return (

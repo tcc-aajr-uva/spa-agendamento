@@ -16,6 +16,7 @@ import { IndicadorCarregando } from "@/components/indicador-carregando";
 import { ModalFormulario } from "../../modal-formulario";
 import { ConteudoNovoUsuario } from "./novo/conteudo-novo-usuario";
 import type { ParametrosBusca } from "@/lib/url/parametros-busca";
+import { lerBuscaSalva } from "@/lib/url/busca-salva";
 import { BotaoEdicao, ModalEdicao } from "../../modal-edicao";
 import { hrefDeEdicao } from "../../parametros";
 import { DetalheUsuario } from "./[id]/detalhe-usuario";
@@ -57,7 +58,7 @@ export default function UsuariosPage({ searchParams }: Props) {
 async function ListaUsuarios({ searchParams }: Props) {
   const autor = await exigirUsuario(perfisDaRota("/cadastros"));
   const parametros = await searchParams;
-  const busca = valorUnico(parametros.busca) ?? "";
+  const busca = await lerBuscaSalva("usuarios", autor);
   const pagina = valorUnico(parametros.pagina) ?? "1";
   const statusInformado = valorUnico(parametros.status);
   const status = situacaoListagemUsuarioSchema.parse(statusInformado);
@@ -135,7 +136,7 @@ async function ListaUsuarios({ searchParams }: Props) {
         total={resultado.total}
         rotuloTotal="usuário(s)"
         ariaLabel="Paginação dos usuários"
-        href={(paginaAtual) => urlDaPagina(paginaAtual, busca, status)}
+        href={(paginaAtual) => urlDaPagina(paginaAtual, status)}
       />
 
       {MODAIS.map((modal) => {
@@ -158,9 +159,8 @@ function valorUnico(valor: string | string[] | undefined): string | undefined {
   return Array.isArray(valor) ? valor[0] : valor;
 }
 
-function urlDaPagina(pagina: number, busca: string, status: string): string {
+function urlDaPagina(pagina: number, status: string): string {
   const parametros = new URLSearchParams({ pagina: String(pagina), status });
-  if (busca) parametros.set("busca", busca);
   return `/cadastros/usuarios?${parametros}`;
 }
 
