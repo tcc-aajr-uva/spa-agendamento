@@ -8,6 +8,7 @@ import { ErroDeRegra } from "@/lib/erros";
 import { criarUsuarioComConvite } from "@/lib/usuario/criar-usuario";
 import { usuarioIdSchema } from "@/lib/usuario/dados-usuario";
 import { gerarNovoConvite, revogarConvite } from "@/lib/usuario/gerenciar-convite";
+import { urlDoConvite } from "@/lib/usuario/url-convite";
 import type { EstadoCriacaoUsuario } from "./estado-usuario";
 import { camposDoFormData, formularioCriacaoUsuarioSchema } from "./formulario-usuario-schema";
 
@@ -45,10 +46,9 @@ export async function criarUsuario(
     revalidatePath("/cadastros/equipes/[id]", "page");
     revalidatePath("/cadastros/equipes/nova");
 
-    const baseURL = process.env.BETTER_AUTH_URL;
     return {
       status: "sucesso",
-      linkConvite: baseURL ? new URL(resultado.linkConvite, baseURL).toString() : resultado.linkConvite,
+      linkConvite: urlDoConvite(resultado.linkConvite),
       expiraEm: resultado.expiraEm.toISOString(),
     };
   } catch (erro) {
@@ -81,10 +81,9 @@ export async function gerenciarConvite(
     const resultado = await gerarNovoConvite(entrada.data.usuarioId, autor);
     revalidatePath("/cadastros/usuarios");
     revalidatePath(caminhoUsuario);
-    const baseURL = process.env.BETTER_AUTH_URL;
     return {
       mensagem: "Novo convite gerado.",
-      linkConvite: baseURL ? new URL(resultado.linkConvite, baseURL).toString() : resultado.linkConvite,
+      linkConvite: urlDoConvite(resultado.linkConvite),
       expiraEm: resultado.expiraEm.toISOString(),
     };
   } catch (erro) {

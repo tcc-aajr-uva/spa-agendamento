@@ -38,6 +38,12 @@ export default function EntrarPage() {
           <FormularioLogin />
         </CardContent>
       </Card>
+      <p className="text-center text-sm">
+        Estagiário sem acesso?{" "}
+        <Link className="font-medium underline underline-offset-4" href="/solicitar-acesso">
+          Solicitar acesso
+        </Link>
+      </p>
     </main>
   );
 }

@@ -8,9 +8,10 @@ type Props = {
   filtros: Record<string, string>;
   parametroBusca?: string;
   parametroPagina?: string;
+  salvarBusca?: (texto: string) => Promise<void>;
 };
 
-export function useFiltrosCadastro({ buscaInicial, filtros, parametroBusca = "busca", parametroPagina = "pagina" }: Props) {
+export function useFiltrosCadastro({ buscaInicial, filtros, parametroBusca = "busca", parametroPagina = "pagina", salvarBusca }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -31,7 +32,7 @@ export function useFiltrosCadastro({ buscaInicial, filtros, parametroBusca = "bu
     const parametros = new URLSearchParams(searchParams.toString());
     const proximosFiltros = new URLSearchParams(filtrosAplicados);
     for (const [nome, valor] of Object.entries(alteracoes)) proximosFiltros.set(nome, valor);
-    proximosFiltros.set(parametroBusca, proximaBusca.trim());
+    if (!salvarBusca) proximosFiltros.set(parametroBusca, proximaBusca.trim());
 
     parametros.delete(parametroPagina);
     for (const [nome, valor] of proximosFiltros) {
@@ -40,8 +41,12 @@ export function useFiltrosCadastro({ buscaInicial, filtros, parametroBusca = "bu
     }
 
     const consulta = parametros.toString();
-    iniciarAtualizacao(() => router.replace(consulta ? `${pathname}?${consulta}` : pathname, { scroll: false }));
-  }, [filtrosAplicados, parametroBusca, parametroPagina, pathname, router, searchParams]);
+    const destino = consulta ? `${pathname}?${consulta}` : pathname;
+    iniciarAtualizacao(async () => {
+      if (salvarBusca && proximaBusca.trim() !== buscaInicial) await salvarBusca(proximaBusca.trim());
+      router.replace(destino, { scroll: false });
+    });
+  }, [buscaInicial, filtrosAplicados, parametroBusca, parametroPagina, pathname, router, salvarBusca, searchParams]);
 
   useEffect(() => {
     if (atualizando || rascunhoBusca === null || rascunhoBusca.trim() === buscaInicial) return;
@@ -51,8 +56,11 @@ export function useFiltrosCadastro({ buscaInicial, filtros, parametroBusca = "bu
 
   function limpar() {
     setRascunhoBusca(null);
-    iniciarAtualizacao(() => router.replace(pathname, { scroll: false }));
+    iniciarAtualizacao(async () => {
+      if (salvarBusca) await salvarBusca("");
+      router.replace(pathname, { scroll: false });
+    });
   }
 
-  return { busca, setRascunhoBusca, atualizando, atualizar, limpar };
+  return { busca, setRascunhoBusca, atualizar, atualizando, limpar };
 }

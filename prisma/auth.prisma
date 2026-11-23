@@ -35,6 +35,9 @@ model Usuario {
   accounts ContaAutenticacao[]
   sessions SessaoAutenticacao[]
 
+  solicitacoesDecididas SolicitacaoAcesso[] @relation("DecisoesDeSolicitacao")
+  solicitacaoAcesso     SolicitacaoAcesso?  @relation("UsuarioDaSolicitacao")
+
   @@index([perfil, ativo])
 }
 
@@ -86,6 +89,34 @@ model Convite {
 
   @@index([usuarioId])
   @@index([expiraEm])
+}
+
+enum StatusSolicitacaoAcesso {
+  PENDENTE
+  APROVADA
+  RECUSADA
+}
+
+model SolicitacaoAcesso {
+  id            String                  @id @default(cuid(2))
+  nome          String
+  email         String
+  emailPendente String?                 @unique
+  unidadeId     String
+  status        StatusSolicitacaoAcesso @default(PENDENTE)
+  motivoRecusa  String?
+  decididoPorId String?
+  decididoEm    DateTime?
+  usuarioId     String?                 @unique
+  criadoEm      DateTime                @default(now())
+  atualizadoEm  DateTime                @updatedAt
+
+  unidade     Unidade  @relation(fields: [unidadeId], references: [id])
+  decididoPor Usuario? @relation("DecisoesDeSolicitacao", fields: [decididoPorId], references: [id])
+  usuario     Usuario? @relation("UsuarioDaSolicitacao", fields: [usuarioId], references: [id])
+
+  @@index([unidadeId, status, criadoEm])
+  @@index([status, criadoEm])
 }
 
 model SessaoAutenticacao {
