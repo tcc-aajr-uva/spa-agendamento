@@ -21,6 +21,8 @@ export const aprovacaoSolicitacaoSchema = z.object({
 
 export const TAMANHO_MAXIMO_MOTIVO = 500;
 
+export const DIAS_DE_RETENCAO_DA_RECUSA = 90;
+
 export const recusaSolicitacaoSchema = z.object({
   motivo: z.string().trim().max(TAMANHO_MAXIMO_MOTIVO, `O motivo deve possuir no máximo ${TAMANHO_MAXIMO_MOTIVO} caracteres.`),
 });

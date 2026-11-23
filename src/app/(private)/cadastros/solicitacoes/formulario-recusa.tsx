@@ -105,7 +105,7 @@ export function FormularioRecusa({ acao, solicitacao, pendente }: Props) {
                   <Textarea id={`${id}-motivo`} className="field-sizing-fixed" rows={4} maxLength={TAMANHO_MAXIMO_MOTIVO} disabled={bloqueado}
                     aria-invalid={!!errors.motivo} aria-describedby={errors.motivo ? `${id}-motivo-erro` : undefined}
                     {...register("motivo", { onChange: () => { if (estado.status === "erro") ocultarErro(estado); } })} />
-                  <FieldDescription>O motivo fica registrado para consulta interna.</FieldDescription>
+                  <FieldDescription>Fica registrado para consulta interna. Não inclua dados pessoais ou clínicos.</FieldDescription>
                   <FieldError id={`${id}-motivo-erro`} errors={[errors.motivo]} />
                 </Field>
               </CardContent>

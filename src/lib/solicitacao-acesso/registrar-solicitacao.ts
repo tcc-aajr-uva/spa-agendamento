@@ -2,15 +2,23 @@ import "server-only";
 
 import { ErroDeRegra } from "@/lib/erros";
 import { executarEmTransacao, violouUnicidade } from "@/lib/transacao";
-import { novaSolicitacaoSchema, type NovaSolicitacao } from "@/lib/solicitacao-acesso/dados-solicitacao";
+import { prisma } from "@/lib/prisma";
+import {
+  DIAS_DE_RETENCAO_DA_RECUSA,
+  novaSolicitacaoSchema,
+  type NovaSolicitacao,
+} from "@/lib/solicitacao-acesso/dados-solicitacao";
 
-export async function registrarSolicitacao(entrada: NovaSolicitacao): Promise<void> {
+const RETENCAO_DA_RECUSA_MS = DIAS_DE_RETENCAO_DA_RECUSA * 24 * 60 * 60 * 1000;
+
+export async function registrarSolicitacao(entrada: NovaSolicitacao, agora = new Date()): Promise<void> {
   const resultado = novaSolicitacaoSchema.safeParse(entrada);
   if (!resultado.success) {
     throw new ErroDeRegra("DADOS_INVALIDOS", resultado.error.issues[0]?.message ?? "Dados inválidos.");
   }
 
   const { nome, email, unidadeId } = resultado.data;
+  await apagarRecusasVencidas(agora);
 
   try {
     await executarEmTransacao(async (tx) => {
@@ -34,4 +42,10 @@ export async function registrarSolicitacao(entrada: NovaSolicitacao): Promise<vo
     if (violouUnicidade(erro, "emailPendente")) return;
     throw erro;
   }
+}
+
+async function apagarRecusasVencidas(agora: Date): Promise<void> {
+  await prisma.solicitacaoAcesso.deleteMany({
+    where: { status: "RECUSADA", decididoEm: { lt: new Date(agora.getTime() - RETENCAO_DA_RECUSA_MS) } },
+  });
 }

@@ -12,7 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { novaSolicitacaoSchema, type NovaSolicitacao } from "@/lib/solicitacao-acesso/dados-solicitacao";
+import {
+  DIAS_DE_RETENCAO_DA_RECUSA,
+  novaSolicitacaoSchema,
+  type NovaSolicitacao,
+} from "@/lib/solicitacao-acesso/dados-solicitacao";
 import { rotuloDoPerfil } from "@/lib/usuario/rotulos";
 import { ESTADO_INICIAL_SOLICITACAO, type EstadoSolicitacaoAcesso } from "./estado-solicitacao";
 
@@ -104,6 +108,7 @@ function FormularioSolicitacaoInterno({ acao, unidades }: Props) {
 
         <FieldDescription>
           Usamos o nome, o e-mail e a unidade só para analisar o pedido e criar o seu acesso.
+          Se o pedido for recusado, os dados são apagados depois de {DIAS_DE_RETENCAO_DA_RECUSA} dias.
         </FieldDescription>
       </FieldGroup>
 
