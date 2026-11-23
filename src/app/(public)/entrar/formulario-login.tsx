@@ -3,6 +3,7 @@
 import { Loader2Icon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
+import { useLayoutEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -29,6 +30,12 @@ function mensagemDeLimiteExcedido(segundos: number | null) {
 }
 
 export function FormularioLogin() {
+  const [chave, definirChave] = useState(0);
+  useLayoutEffect(() => () => definirChave((anterior) => anterior + 1), []);
+  return <FormularioLoginInterno key={chave} />;
+}
+
+function FormularioLoginInterno() {
   const router = useRouter();
   const {
     formState: { errors, isSubmitting },

@@ -11,10 +11,6 @@ import { perfisDaRota } from "../menu";
 export type EstadoReserva = { erro?: string; mensagem?: string };
 
 const agendamentoIdSchema = z.string().min(1, "Reserva não encontrada.");
-const remarcacaoSchema = z.object({
-  agendamentoId: agendamentoIdSchema,
-  horarioId: z.string().min(1, "Escolha o novo horário."),
-});
 
 export async function cancelarReserva(_estado: EstadoReserva, formData: FormData): Promise<EstadoReserva> {
   const usuario = await exigirUsuario(perfisDaRota("/reservas"));
@@ -32,14 +28,15 @@ export async function cancelarReserva(_estado: EstadoReserva, formData: FormData
 
 export async function remarcarReserva(_estado: EstadoReserva, formData: FormData): Promise<EstadoReserva> {
   const usuario = await exigirUsuario(perfisDaRota("/reservas"));
-  const dados = remarcacaoSchema.safeParse({
-    agendamentoId: String(formData.get("agendamentoId") ?? ""),
-    horarioId: String(formData.get("horarioId") ?? ""),
-  });
-  if (!dados.success) return { erro: dados.error.issues[0].message };
+  const agendamentoId = agendamentoIdSchema.safeParse(String(formData.get("agendamentoId") ?? ""));
+  if (!agendamentoId.success) return { erro: agendamentoId.error.issues[0].message };
 
   try {
-    const novo = await remarcarReservaDoEstagiario(usuario, dados.data.agendamentoId, dados.data.horarioId);
+    const novo = await remarcarReservaDoEstagiario(usuario, agendamentoId.data, {
+      diaSemana: String(formData.get("diaSemana") ?? ""),
+      horaInicio: String(formData.get("horaInicio") ?? ""),
+      salaId: String(formData.get("salaId") ?? ""),
+    });
     refresh();
     return { mensagem: `Remarcado para ${descreverHorario(novo.diaSemana, novo.horaInicio)}, ${novo.sala}.` };
   } catch (erro) {

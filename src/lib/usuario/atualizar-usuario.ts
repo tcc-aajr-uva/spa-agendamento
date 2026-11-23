@@ -198,12 +198,12 @@ async function validarAlteracaoDosVinculos(
   if (perfil !== "ESTAGIARIO") return unidadesRemovidas.map(({ unidadeId }) => unidadeId);
   const unidadeMudou = unidades.some(({ unidadeId }) => !unidadesFinais.includes(unidadeId));
   if (unidadeMudou) {
-    const [horario, atendimento] = await Promise.all([
-      tx.horarioDisponivel.findFirst({ where: { estagiarioId: usuarioId }, select: { id: true } }),
+    const [inscricao, atendimento] = await Promise.all([
+      tx.listaEspera.findFirst({ where: { estagiarioId: usuarioId }, select: { id: true } }),
       tx.agendamento.findFirst({ where: { estagiarioId: usuarioId }, select: { id: true } }),
     ]);
-    if (horario || atendimento) throw new ErroDeRegra(
-      "DADOS_INVALIDOS", "Não é possível trocar a unidade de um estagiário com horários ou histórico de atendimentos.",
+    if (inscricao || atendimento) throw new ErroDeRegra(
+      "DADOS_INVALIDOS", "Não é possível trocar a unidade de um estagiário com pacientes designados ou histórico de atendimentos.",
     );
   }
   const removidas = equipes.filter(({ equipeId, unidadeId, equipe }) =>
@@ -212,7 +212,7 @@ async function validarAlteracaoDosVinculos(
   );
   if (removidas.length > 0) {
     const atendimento = await tx.agendamento.findFirst({
-      where: { estagiarioId: usuarioId, equipeId: { in: removidas.map(({ equipeId }) => equipeId) }, horarioAtivoId: { not: null } },
+      where: { estagiarioId: usuarioId, equipeId: { in: removidas.map(({ equipeId }) => equipeId) }, estagiarioAtivoChave: { not: null } },
       select: { id: true },
     });
     if (atendimento) throw new ErroDeRegra("DADOS_INVALIDOS", "Não é possível remover uma equipe com atendimentos ativos do estagiário.");

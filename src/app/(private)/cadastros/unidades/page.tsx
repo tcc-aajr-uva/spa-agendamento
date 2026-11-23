@@ -80,8 +80,6 @@ async function ConteudoUnidades({ searchParams }: Props) {
             <TableRow className="bg-muted/50">
               <TableHead scope="col" className="px-4">Nome</TableHead>
               <TableHead scope="col">Situação</TableHead>
-              <TableHead scope="col">Agendamento</TableHead>
-              <TableHead scope="col">Podem agendar</TableHead>
               <TableHead scope="col" className="w-32 px-4">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -101,14 +99,6 @@ async function ConteudoUnidades({ searchParams }: Props) {
                   <Badge variant={unidade.ativa ? "default" : "outline"}>
                     {unidade.ativa ? "Ativa" : "Inativa"}
                   </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={unidade.agendamentoAberto ? "accent" : "outline"}>
-                    {unidade.agendamentoAberto ? "Aberto" : "Fechado"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="whitespace-normal text-muted-foreground">
-                  {rotuloDosAgendadores(unidade) || "ninguém"}
                 </TableCell>
                 <TableCell className="px-4">
                   <div className="flex justify-center gap-1">
@@ -175,14 +165,3 @@ function urlDaPagina(pagina: number, busca: string, status: string): string {
   return `/cadastros/unidades?${parametros}`;
 }
 
-function rotuloDosAgendadores(unidade: {
-  permitePaciente: boolean;
-  permiteEstagiario: boolean;
-  permiteSecretaria: boolean;
-}): string {
-  return [
-    unidade.permitePaciente && "paciente",
-    unidade.permiteEstagiario && "estagiário",
-    unidade.permiteSecretaria && "secretaria",
-  ].filter(Boolean).join(", ");
-}

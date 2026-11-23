@@ -40,7 +40,6 @@ export function BotaoSair({ className }: { className?: string }) {
         aria-busy={saindo}
         onClick={sair}
         type="button"
-        data-aviso-saida
       >
         {saindo ? (
           <Loader2Icon data-icon="inline-start" aria-hidden className="size-4 animate-spin" />

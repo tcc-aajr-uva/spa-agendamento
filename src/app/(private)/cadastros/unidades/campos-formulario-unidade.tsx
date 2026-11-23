@@ -1,27 +1,22 @@
 "use client";
 
 import { useId } from "react";
-import { Controller, type Control, type FieldErrors, type UseFormRegister } from "react-hook-form";
+import type { FieldErrors, UseFormRegister } from "react-hook-form";
 
-import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { Separator } from "@/components/ui/separator";
 
-import type { CamposFormularioUnidade, DadosFormularioUnidade } from "./formulario-unidade-schema";
+import type { CamposFormularioUnidade } from "./formulario-unidade-schema";
 
 type Props = {
-  bloqueada: boolean;
-  control: Control<CamposFormularioUnidade, unknown, DadosFormularioUnidade>;
   errors: FieldErrors<CamposFormularioUnidade>;
   podeAlterarDadosAdministrativos: boolean;
   register: UseFormRegister<CamposFormularioUnidade>;
 };
 
 export function CamposFormularioUnidade({
-  bloqueada,
-  control,
   errors,
   podeAlterarDadosAdministrativos,
   register,
@@ -53,24 +48,8 @@ export function CamposFormularioUnidade({
         <Separator />
 
         <FieldSet>
-          <FieldLegend className="text-base font-semibold">Permissões de agendamento</FieldLegend>
-          <FieldDescription>Selecione os perfis que podem realizar agendamentos nesta unidade.</FieldDescription>
-          {!podeAlterarDadosAdministrativos && (
-            <FieldDescription>Somente a coordenação ou o administrador pode alterar estas permissões.</FieldDescription>
-          )}
-          <div className="grid gap-4 sm:grid-cols-3">
-            <OpcaoBooleana bloqueada={bloqueada} control={control} nome="permitePaciente" rotulo="Paciente" habilitada={podeAlterarDadosAdministrativos} />
-            <OpcaoBooleana bloqueada={bloqueada} control={control} nome="permiteEstagiario" rotulo="Estagiário" habilitada={podeAlterarDadosAdministrativos} />
-            <OpcaoBooleana bloqueada={bloqueada} control={control} nome="permiteSecretaria" rotulo="Secretaria" habilitada={podeAlterarDadosAdministrativos} />
-          </div>
-        </FieldSet>
-
-        <Separator />
-
-        <FieldSet>
           <FieldLegend className="text-base font-semibold">Funcionamento</FieldLegend>
-          <FieldDescription>Defina a abertura de agendamentos, os horários de funcionamento e a duração dos blocos.</FieldDescription>
-          <OpcaoBooleana bloqueada={bloqueada} control={control} nome="agendamentoAberto" rotulo="Agendamento aberto" />
+          <FieldDescription>Defina os horários de funcionamento e a duração dos blocos.</FieldDescription>
           <div className="grid gap-4 sm:grid-cols-3">
             <Field data-invalid={Boolean(errors.horaAbertura)}>
               <FieldLabel htmlFor={`${id}-abertura`}>Abertura</FieldLabel>
@@ -132,42 +111,3 @@ export function CamposFormularioUnidade({
   );
 }
 
-function OpcaoBooleana({
-  bloqueada,
-  control,
-  nome,
-  rotulo,
-  habilitada = true,
-}: {
-  bloqueada: boolean;
-  control: Control<CamposFormularioUnidade, unknown, DadosFormularioUnidade>;
-  nome: "permitePaciente" | "permiteEstagiario" | "permiteSecretaria" | "agendamentoAberto";
-  rotulo: string;
-  habilitada?: boolean;
-}) {
-  const desabilitada = bloqueada || !habilitada;
-  const id = useId();
-
-  return (
-    <Controller
-      control={control}
-      name={nome}
-      render={({ field }) => (
-        <Field orientation="horizontal" data-disabled={desabilitada}>
-          {!habilitada && <input name={nome} type="hidden" value={String(field.value)} />}
-          <Checkbox
-            checked={field.value}
-            disabled={desabilitada}
-            id={id}
-            inputRef={field.ref}
-            name={desabilitada ? undefined : nome}
-            onBlur={field.onBlur}
-            onCheckedChange={field.onChange}
-            value="on"
-          />
-          <FieldLabel htmlFor={id}>{rotulo}</FieldLabel>
-        </Field>
-      )}
-    />
-  );
-}

@@ -2,118 +2,78 @@ import "server-only";
 import { z } from "zod";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
+import { contarCarga } from "@/lib/lista-espera/carga";
 import { prisma } from "@/lib/prisma";
 import { executarEmTransacao, violouUnicidade, type Transacao } from "@/lib/transacao";
 import { carregarAgendamentoAtivo, PERFIS_DA_SECRETARIA } from "@/lib/atendimento/acesso";
-import { escolherSala } from "@/lib/agendamento/criar-agendamento";
-import { chaveSala, DIAS_DA_SEMANA, formatarHora, hojeNoBrasil } from "@/lib/agendamento/regras";
+import { chaveEstagiario, DIAS_DA_SEMANA, formatarHora, hojeNoBrasil } from "@/lib/agendamento/regras";
 
-export type HorarioParaTransferencia = {
-  id: string;
-  diaSemana: number;
-  horaInicio: number;
-  estagiarioNome: string;
-};
+export type EstagiarioParaTransferencia = { id: string; nome: string };
 
 const transferenciaSchema = z.object({
-  horarioDisponivelId: z.string().min(1, "Escolha o novo estagiário e horário."),
+  estagiarioId: z.string().min(1, "Escolha o novo estagiário."),
 });
 
-type Destino = { unidadeId: string; equipeId: string; estagiarioId: string };
+type Atendimento = Awaited<ReturnType<typeof carregarAgendamentoAtivo>>;
 
-async function buscarPeriodoId(tx: Transacao, unidadeId: string, agora: Date): Promise<string | null> {
+async function estagiariosElegiveis(tx: Transacao, agendamento: Atendimento, agora: Date, estagiarioId?: string): Promise<EstagiarioParaTransferencia[]> {
   const periodo = await tx.periodoLetivo.findFirst({
-    where: { unidadeId, fim: { gte: hojeNoBrasil(agora) } },
+    where: { unidadeId: agendamento.unidadeId, fim: { gte: hojeNoBrasil(agora) } },
     orderBy: { inicio: "asc" },
     select: { id: true },
   });
-  return periodo?.id ?? null;
-}
+  if (!periodo) return [];
 
-function horariosDaEquipe(destino: Destino, periodoLetivoId: string) {
-  const { unidadeId, equipeId } = destino;
-  return {
-    ativo: true,
-    estagiarioId: { not: destino.estagiarioId },
-    estagiario: {
-      perfil: "ESTAGIARIO" as const,
-      ativo: true,
-      configuracoesAtendimento: { some: { unidadeId, equipeId, periodoLetivoId, liberado: true, vinculoEquipe: { ativo: true } } },
+  const configuracoes = await tx.configuracaoAtendimentoEstagiario.findMany({
+    where: {
+      equipeId: agendamento.equipeId,
+      periodoLetivoId: periodo.id,
+      liberado: true,
+      vinculoEquipe: { ativo: true },
+      estagiario: { perfil: "ESTAGIARIO", ativo: true },
+      ...(estagiarioId ? { estagiarioId } : {}),
+      NOT: { estagiarioId: agendamento.estagiarioId },
     },
-  };
-}
-
-function dadosDoHorario(destino: Destino, periodoLetivoId: string) {
-  const { unidadeId, equipeId } = destino;
-  return {
-    id: true,
-    diaSemana: true,
-    horaInicio: true,
-    estagiarioId: true,
-    estagiario: {
-      select: {
-        nome: true,
-        configuracoesAtendimento: {
-          where: { unidadeId, equipeId, periodoLetivoId, liberado: true },
-          take: 1,
-          select: { limitePacientes: true },
-        },
-      },
-    },
-  };
-}
-
-async function contarAtivos(tx: Transacao, estagiarioIds: string[]): Promise<Map<string, number>> {
-  const carga = await tx.agendamento.groupBy({
-    by: ["estagiarioId"],
-    where: { estagiarioId: { in: estagiarioIds }, horarioAtivoId: { not: null } },
-    _count: { _all: true },
+    orderBy: { estagiario: { nome: "asc" } },
+    select: { limitePacientes: true, estagiario: { select: { id: true, nome: true } } },
   });
-  return new Map(carga.map((linha) => [linha.estagiarioId, linha._count._all]));
+  const ids = configuracoes.map(({ estagiario }) => estagiario.id);
+  const [carga, ocupados] = await Promise.all([
+    contarCarga(tx, ids),
+    tx.agendamento.findMany({
+      where: { estagiarioAtivoChave: { in: ids.map((id) => chaveEstagiario(id, agendamento.diaSemana, agendamento.horaInicio)) } },
+      select: { estagiarioId: true },
+    }),
+  ]);
+  const ocupadosNoHorario = new Set(ocupados.map((ocupado) => ocupado.estagiarioId));
+
+  return configuracoes
+    .filter(({ estagiario, limitePacientes }) => (carga.get(estagiario.id) ?? 0) < limitePacientes && !ocupadosNoHorario.has(estagiario.id))
+    .map(({ estagiario }) => estagiario);
 }
 
-function abaixoDoLimite(
-  horario: { estagiarioId: string; estagiario: { configuracoesAtendimento: { limitePacientes: number }[] } },
-  ativos: Map<string, number>,
-): boolean {
-  const limite = horario.estagiario.configuracoesAtendimento[0]?.limitePacientes ?? 0;
-  return (ativos.get(horario.estagiarioId) ?? 0) < limite;
-}
-
-export async function listarHorariosParaTransferencia(
+export async function listarEstagiariosParaTransferencia(
   agendamentoId: string,
   usuario: ContextoAutorizacao,
   agora = new Date(),
-): Promise<HorarioParaTransferencia[]> {
+): Promise<EstagiarioParaTransferencia[]> {
   const agendamento = await carregarAgendamentoAtivo(prisma, agendamentoId, usuario, PERFIS_DA_SECRETARIA);
-  const periodoLetivoId = await buscarPeriodoId(prisma, agendamento.unidadeId, agora);
-  if (!periodoLetivoId) return [];
-
-  const horarios = await prisma.horarioDisponivel.findMany({
-    where: { ...horariosDaEquipe(agendamento, periodoLetivoId), ocupadoPor: { is: null } },
-    orderBy: [{ estagiario: { nome: "asc" } }, { diaSemana: "asc" }, { horaInicio: "asc" }],
-    select: dadosDoHorario(agendamento, periodoLetivoId),
-  });
-  const ativos = await contarAtivos(prisma, [...new Set(horarios.map((horario) => horario.estagiarioId))]);
-
-  return horarios
-    .filter((horario) => abaixoDoLimite(horario, ativos))
-    .map((horario) => ({ id: horario.id, diaSemana: horario.diaSemana, horaInicio: horario.horaInicio, estagiarioNome: horario.estagiario.nome }));
+  return estagiariosElegiveis(prisma, agendamento, agora);
 }
 
 export async function transferirAgendamento(
   agendamentoId: string,
-  horarioDisponivelId: string,
+  estagiarioId: string,
   usuario: ContextoAutorizacao,
   agora = new Date(),
 ): Promise<void> {
-  const dados = transferenciaSchema.safeParse({ horarioDisponivelId });
+  const dados = transferenciaSchema.safeParse({ estagiarioId });
   if (!dados.success) throw new ErroDeRegra("DADOS_INVALIDOS", dados.error.issues[0]?.message ?? "Dados inválidos.");
 
   try {
-    await executarEmTransacao((tx) => transferirNaTransacao(tx, agendamentoId, dados.data.horarioDisponivelId, usuario, agora));
+    await executarEmTransacao((tx) => transferirNaTransacao(tx, agendamentoId, dados.data.estagiarioId, usuario, agora));
   } catch (erro) {
-    if (violouUnicidade(erro)) throw new ErroDeRegra("HORARIO_OCUPADO", "Este horário acabou de ser ocupado. Escolha outro.");
+    if (violouUnicidade(erro)) throw new ErroDeRegra("HORARIO_OCUPADO", "O estagiário escolhido acabou de ocupar este horário. Escolha outro.");
     throw erro;
   }
 }
@@ -121,7 +81,7 @@ export async function transferirAgendamento(
 async function transferirNaTransacao(
   tx: Transacao,
   agendamentoId: string,
-  horarioDisponivelId: string,
+  estagiarioId: string,
   usuario: ContextoAutorizacao,
   agora: Date,
 ): Promise<void> {
@@ -130,39 +90,20 @@ async function transferirNaTransacao(
     throw new ErroDeRegra("STATUS_INVALIDO", "Só é possível transferir um atendimento confirmado.");
   }
 
-  const periodoLetivoId = await buscarPeriodoId(tx, agendamento.unidadeId, agora);
-  if (!periodoLetivoId) throw new ErroDeRegra("SEM_PERIODO_LETIVO", "Não há período letivo aberto nesta unidade.");
-
-  const horario = await tx.horarioDisponivel.findFirst({
-    where: { ...horariosDaEquipe(agendamento, periodoLetivoId), id: horarioDisponivelId },
-    select: dadosDoHorario(agendamento, periodoLetivoId),
-  });
-  if (!horario) throw new ErroDeRegra("NAO_ENCONTRADO", "Horário não encontrado entre os estagiários desta equipe.");
-
-  const ativos = await contarAtivos(tx, [horario.estagiarioId]);
-  if (!abaixoDoLimite(horario, ativos)) {
-    throw new ErroDeRegra("HORARIO_OCUPADO", "O estagiário escolhido já atingiu o limite de pacientes.");
-  }
-
-  const mesmoHorario = horario.diaSemana === agendamento.diaSemana && horario.horaInicio === agendamento.horaInicio;
-  const salaId = mesmoHorario ? agendamento.salaId : await escolherSala(tx, agendamento.unidadeId, horario.diaSemana, horario.horaInicio);
+  const [novo] = await estagiariosElegiveis(tx, agendamento, agora, estagiarioId);
+  if (!novo) throw new ErroDeRegra("SEM_VAGA", "O estagiário escolhido não está liberado, não tem vaga ou já tem paciente neste horário.");
   const anterior = await tx.usuario.findUnique({ where: { id: agendamento.estagiarioId }, select: { nome: true } });
 
   await tx.agendamento.update({
     where: { id: agendamentoId },
     data: {
-      estagiarioId: horario.estagiarioId,
-      horarioDisponivelId: horario.id,
-      horarioAtivoId: horario.id,
-      diaSemana: horario.diaSemana,
-      horaInicio: horario.horaInicio,
-      salaId,
-      salaAtivaChave: chaveSala(salaId, horario.diaSemana, horario.horaInicio),
+      estagiarioId: novo.id,
+      estagiarioAtivoChave: chaveEstagiario(novo.id, agendamento.diaSemana, agendamento.horaInicio),
       eventos: {
         create: {
           tipo: "TRANSFERIDO",
           usuarioId: usuario.id,
-          observacao: `De ${anterior?.nome ?? "estagiário anterior"} para ${horario.estagiario.nome}, ${DIAS_DA_SEMANA[horario.diaSemana]} às ${formatarHora(horario.horaInicio)}`,
+          observacao: `De ${anterior?.nome ?? "estagiário anterior"} para ${novo.nome}, ${DIAS_DA_SEMANA[agendamento.diaSemana]} às ${formatarHora(agendamento.horaInicio)}`,
         },
       },
     },

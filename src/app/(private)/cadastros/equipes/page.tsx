@@ -25,7 +25,7 @@ type Props = {
   searchParams: Promise<ParametrosBusca>;
 };
 
-const PARAMETROS_DOS_ESTAGIARIOS = ["estagiarios", "buscaEstagiarios", "paginaEstagiarios", "atendimentoEstagiario", "atendimentoPeriodoEstagiario"];
+const PARAMETROS_DOS_ESTAGIARIOS = ["estagiarios", "paginaEstagiarios", "atendimentoEstagiario", "atendimentoPeriodoEstagiario"];
 const PARAMETROS_DOS_DETALHES = ["editar", "abaEquipe", "equipeCriada", ...PARAMETROS_DOS_ESTAGIARIOS];
 const PARAMETROS_DOS_MODAIS = ["ativacao", ...PARAMETROS_DOS_DETALHES];
 

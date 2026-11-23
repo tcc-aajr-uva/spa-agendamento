@@ -2,197 +2,129 @@ import "server-only";
 import { z } from "zod";
 import type { ContextoAutorizacao } from "@/lib/auth/sessao";
 import { ErroDeRegra } from "@/lib/erros";
-import { dadosPacienteSchema } from "@/lib/paciente/dados-paciente";
-import { salvarPaciente } from "@/lib/paciente/salvar-paciente";
-import { gerarCodigo, gerarToken, hashToken } from "@/lib/token";
+import { carregarInscricaoAguardando, PERFIS_QUE_AGENDAM } from "@/lib/lista-espera/inscricao";
+import { salaDisponivel } from "@/lib/salas/faixas";
 import { executarEmTransacao, violouUnicidade, type Transacao } from "@/lib/transacao";
-import { autorizarAgendamento, carregarUnidadeParaAgendar, garantirPacienteSemVinculoAtivo } from "@/lib/agendamento/autorizacao";
+import { carregarUnidadeParaAgendar } from "@/lib/agendamento/autorizacao";
 import { liberarPendentesVencidos } from "@/lib/agendamento/liberar-agendamento";
-import { chaveSala, hojeNoBrasil, prazoDeConfirmacao, primeiraDataNoDia } from "@/lib/agendamento/regras";
+import { chaveEstagiario, chaveSala, hojeNoBrasil, horarioNaGrade, prazoDeConfirmacao, primeiraDataNoDia, type Grade } from "@/lib/agendamento/regras";
 
-export const novoAgendamentoSchema = z.object({
-  unidadeId: z.string().min(1),
-  equipeId: z.string().min(1),
+export const horarioComSalaSchema = z.object({
   diaSemana: z.coerce.number().int().min(0).max(6),
   horaInicio: z.coerce.number().int().min(0).max(24 * 60 - 1),
-  paciente: dadosPacienteSchema,
-  listaEsperaId: z.string().min(1).optional(),
+  salaId: z.string().min(1, "Escolha a sala."),
 });
 
-export type NovoAgendamento = z.input<typeof novoAgendamentoSchema>;
+const agendamentoDaListaSchema = horarioComSalaSchema.extend({ listaEsperaId: z.string().min(1) });
+
+export type HorarioComSala = z.input<typeof horarioComSalaSchema>;
+export type AgendamentoDaLista = z.input<typeof agendamentoDaListaSchema>;
 
 export type AgendamentoCriado = {
   agendamentoId: string;
-  codigo: string;
-  token: string;
   dataInicio: Date;
   diaSemana: number;
   horaInicio: number;
+  sala: string;
 };
 
-export async function criarAgendamento(entrada: NovoAgendamento, usuario: ContextoAutorizacao | null, agora = new Date()): Promise<AgendamentoCriado> {
-  const dados = novoAgendamentoSchema.safeParse(entrada);
+export async function agendarDaLista(entrada: AgendamentoDaLista, usuario: ContextoAutorizacao, agora = new Date()): Promise<AgendamentoCriado> {
+  const dados = agendamentoDaListaSchema.safeParse(entrada);
   if (!dados.success) throw new ErroDeRegra("DADOS_INVALIDOS", dados.error.issues[0]?.message ?? "Dados inválidos.");
 
   try {
-    return await executarEmTransacao((tx) => criarNaTransacao(tx, dados.data, usuario, agora));
+    return await executarEmTransacao((tx) => agendarNaTransacao(tx, dados.data, usuario, agora));
   } catch (erro) {
-    if (violouUnicidade(erro, "pacienteAtivoId")) {
-      throw new ErroDeRegra("PACIENTE_JA_ATIVO", "Este CPF já tem um agendamento ativo ou uma posição na lista de espera.");
-    }
-    if (violouUnicidade(erro)) {
-      throw new ErroDeRegra("HORARIO_OCUPADO", "Este horário acabou de ser ocupado. Escolha outro.");
-    }
-    throw erro;
+    throw traduzirUnicidade(erro);
   }
 }
 
-async function criarNaTransacao(
-  tx: Transacao,
-  dados: z.output<typeof novoAgendamentoSchema>,
-  usuario: ContextoAutorizacao | null,
-  agora: Date,
-): Promise<AgendamentoCriado> {
-  const { unidadeId, equipeId, diaSemana, horaInicio, listaEsperaId } = dados;
-  const unidade = await carregarUnidadeParaAgendar(tx, unidadeId, equipeId, agora);
-  autorizarAgendamento(unidade, equipeId, usuario, listaEsperaId !== undefined);
-
-  const periodo = unidade.periodos[0];
-  if (!periodo) throw new ErroDeRegra("SEM_PERIODO_LETIVO", "Não há período letivo aberto nesta unidade.");
-
-  await liberarPendentesVencidos(tx, { OR: [{ unidadeId }, { paciente: { cpf: dados.paciente.cpf } }] }, agora);
-  await garantirPacienteSemVinculoAtivo(tx, dados.paciente.cpf, listaEsperaId);
-
-  const horario = await escolherHorario(
-    tx,
-    { unidadeId, equipeId, periodoLetivoId: periodo.id, diaSemana, horaInicio },
-    usuario,
-  );
-  const salaId = await escolherSala(tx, unidadeId, diaSemana, horaInicio);
-  const paciente = await salvarPaciente(tx, dados.paciente);
-
-  if (listaEsperaId) {
-    const chamado = await tx.listaEspera.updateMany({
-      where: { id: listaEsperaId, pacienteId: paciente.id, equipeId, status: "AGUARDANDO" },
-      data: { status: "CHAMADO", pacienteAtivoId: null },
-    });
-    if (chamado.count === 0) throw new ErroDeRegra("NAO_ENCONTRADO", "Inscrição da lista de espera não encontrada.");
+export function traduzirUnicidade(erro: unknown): unknown {
+  if (violouUnicidade(erro, "pacienteAtivoId")) {
+    return new ErroDeRegra("PACIENTE_JA_ATIVO", "Este paciente já tem um agendamento ativo.");
   }
+  if (violouUnicidade(erro, "estagiarioAtivoChave")) {
+    return new ErroDeRegra("HORARIO_OCUPADO", "O estagiário já tem paciente neste dia e horário. Escolha outro.");
+  }
+  if (violouUnicidade(erro, "salaAtivaChave")) {
+    return new ErroDeRegra("HORARIO_OCUPADO", "Esta sala acabou de ser ocupada neste horário. Escolha outra.");
+  }
+  return erro;
+}
 
+export async function validarSalaNoHorario(
+  tx: Transacao,
+  alvo: { unidadeId: string; salaId: string; diaSemana: number; horaInicio: number },
+  grade: Grade,
+): Promise<string> {
+  if (!horarioNaGrade(grade, alvo.horaInicio)) throw new ErroDeRegra("DADOS_INVALIDOS", "Escolha um horário da grade.");
+
+  const sala = await tx.sala.findFirst({
+    where: { id: alvo.salaId, unidadeId: alvo.unidadeId, ativa: true },
+    select: { nome: true, disponibilidades: { where: { diaSemana: alvo.diaSemana }, select: { diaSemana: true, horaInicio: true, horaFim: true } } },
+  });
+  if (!sala) throw new ErroDeRegra("NAO_ENCONTRADO", "Sala não encontrada nesta unidade.");
+  if (!salaDisponivel(sala.disponibilidades, alvo.diaSemana, alvo.horaInicio, grade.duracaoBlocoMin)) {
+    throw new ErroDeRegra("SALA_INDISPONIVEL", `A ${sala.nome} não está disponível neste dia e horário.`);
+  }
+  return sala.nome;
+}
+
+export function dataDeInicio(periodo: { inicio: Date; fim: Date }, diaSemana: number, agora: Date): Date {
   const hoje = hojeNoBrasil(agora);
   const dataInicio = primeiraDataNoDia(diaSemana, periodo.inicio > hoje ? periodo.inicio : hoje);
   if (dataInicio > periodo.fim) throw new ErroDeRegra("SEM_PERIODO_LETIVO", "Não há mais datas neste período letivo.");
+  return dataInicio;
+}
 
-  const token = gerarToken();
-  const codigo = gerarCodigo();
+async function agendarNaTransacao(
+  tx: Transacao,
+  dados: z.output<typeof agendamentoDaListaSchema>,
+  usuario: ContextoAutorizacao,
+  agora: Date,
+): Promise<AgendamentoCriado> {
+  const { listaEsperaId, diaSemana, horaInicio, salaId } = dados;
+  const inscricao = await carregarInscricaoAguardando(tx, listaEsperaId, usuario, PERFIS_QUE_AGENDAM);
+  if (usuario.perfil === "ESTAGIARIO" && inscricao.estagiarioId !== usuario.id) {
+    throw new ErroDeRegra("SEM_PERMISSAO", "Este paciente foi designado para outro estagiário.");
+  }
+
+  const { unidadeId, equipeId, estagiarioId, pacienteId } = inscricao;
+  const unidade = await carregarUnidadeParaAgendar(tx, unidadeId, equipeId, agora);
+  const periodo = unidade.periodos[0];
+  if (!periodo) throw new ErroDeRegra("SEM_PERIODO_LETIVO", "Não há período letivo aberto nesta unidade.");
+
+  await liberarPendentesVencidos(tx, { OR: [{ unidadeId }, { estagiarioId }] }, agora);
+  const sala = await validarSalaNoHorario(tx, { unidadeId, salaId, diaSemana, horaInicio }, unidade);
+  const dataInicio = dataDeInicio(periodo, diaSemana, agora);
+
+  const chamado = await tx.listaEspera.updateMany({
+    where: { id: listaEsperaId, status: "AGUARDANDO" },
+    data: { status: "CHAMADO", pacienteAtivoId: null },
+  });
+  if (chamado.count === 0) throw new ErroDeRegra("NAO_ENCONTRADO", "Inscrição não encontrada ou já chamada.");
+
   const agendamento = await tx.agendamento.create({
     data: {
       unidadeId,
       equipeId,
-      horarioDisponivelId: horario.id,
-      estagiarioId: horario.estagiarioId,
+      estagiarioId,
       salaId,
-      pacienteId: paciente.id,
+      pacienteId,
+      listaEsperaId,
       diaSemana,
       horaInicio,
       dataInicio,
       dataFim: periodo.fim,
       prazoConfirmacao: prazoDeConfirmacao(agora),
-      criadoPorId: usuario?.id ?? null,
-      horarioAtivoId: horario.id,
+      criadoPorId: usuario.id,
+      estagiarioAtivoChave: chaveEstagiario(estagiarioId, diaSemana, horaInicio),
       salaAtivaChave: chaveSala(salaId, diaSemana, horaInicio),
-      pacienteAtivoId: paciente.id,
-      eventos: { create: { tipo: "CRIADO", usuarioId: usuario?.id ?? null } },
-      tokens: {
-        create: {
-          tokenHash: hashToken(token),
-          codigo,
-          tipo: "CANCELAMENTO",
-          expiraEm: new Date(periodo.fim.getTime() + 24 * 60 * 60 * 1000),
-        },
-      },
+      pacienteAtivoId: pacienteId,
+      eventos: { create: { tipo: "CRIADO", usuarioId: usuario.id } },
     },
     select: { id: true },
   });
 
-  return { agendamentoId: agendamento.id, codigo, token, dataInicio, diaSemana, horaInicio };
-}
-
-async function escolherHorario(
-  tx: Transacao,
-  alvo: { unidadeId: string; equipeId: string; periodoLetivoId: string; diaSemana: number; horaInicio: number },
-  usuario: ContextoAutorizacao | null,
-) {
-  const candidatos = await tx.horarioDisponivel.findMany({
-    where: {
-      diaSemana: alvo.diaSemana,
-      horaInicio: alvo.horaInicio,
-      ativo: true,
-      ocupadoPor: { is: null },
-      estagiario: {
-        perfil: "ESTAGIARIO",
-        ativo: true,
-        configuracoesAtendimento: {
-          some: {
-            unidadeId: alvo.unidadeId,
-            equipeId: alvo.equipeId,
-            periodoLetivoId: alvo.periodoLetivoId,
-            liberado: true,
-            vinculoEquipe: { ativo: true },
-          },
-        },
-        ...(usuario?.perfil === "ESTAGIARIO" ? { id: usuario.id } : {}),
-      },
-    },
-    select: {
-      id: true,
-      estagiarioId: true,
-      estagiario: {
-        select: {
-          configuracoesAtendimento: {
-            where: {
-              unidadeId: alvo.unidadeId,
-              equipeId: alvo.equipeId,
-              periodoLetivoId: alvo.periodoLetivoId,
-              liberado: true,
-            },
-            take: 1,
-            select: { limitePacientes: true },
-          },
-        },
-      },
-    },
-  });
-  if (candidatos.length === 0) throw new ErroDeRegra("HORARIO_OCUPADO", "Este horário não está mais disponível. Escolha outro.");
-
-  const carga = await tx.agendamento.groupBy({
-    by: ["estagiarioId"],
-    where: { estagiarioId: { in: candidatos.map((candidato) => candidato.estagiarioId) }, horarioAtivoId: { not: null } },
-    _count: { _all: true },
-  });
-  const ativosPorEstagiario = new Map(carga.map((linha) => [linha.estagiarioId, linha._count._all]));
-
-  const escolhido = candidatos
-    .map((candidato) => ({ ...candidato, ativos: ativosPorEstagiario.get(candidato.estagiarioId) ?? 0 }))
-    .filter((candidato) => candidato.ativos < (candidato.estagiario.configuracoesAtendimento[0]?.limitePacientes ?? 0))
-    .sort((a, b) => a.ativos - b.ativos)[0];
-  if (!escolhido) throw new ErroDeRegra("HORARIO_OCUPADO", "Este horário não está mais disponível. Escolha outro.");
-  return escolhido;
-}
-
-export async function escolherSala(tx: Transacao, unidadeId: string, diaSemana: number, horaInicio: number): Promise<string> {
-  const salas = await tx.sala.findMany({
-    where: { unidadeId, ativa: true },
-    orderBy: { nome: "asc" },
-    select: { id: true },
-  });
-  const chaves = salas.map((sala) => chaveSala(sala.id, diaSemana, horaInicio));
-  const ocupadas = await tx.agendamento.findMany({
-    where: { salaAtivaChave: { in: chaves } },
-    select: { salaAtivaChave: true },
-  });
-  const chavesOcupadas = new Set(ocupadas.map((ocupada) => ocupada.salaAtivaChave));
-  const livre = salas.find((sala) => !chavesOcupadas.has(chaveSala(sala.id, diaSemana, horaInicio)));
-  if (!livre) throw new ErroDeRegra("SEM_SALA_LIVRE", "Não há sala livre neste horário. Escolha outro.");
-  return livre.id;
+  return { agendamentoId: agendamento.id, dataInicio, diaSemana, horaInicio, sala };
 }
