@@ -2,7 +2,7 @@
 
 import { CircleCheckIcon, Loader2Icon } from "lucide-react";
 import Link from "next/link";
-import { startTransition, useActionState, useId, useState } from "react";
+import { startTransition, useActionState, useId, useLayoutEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 
@@ -21,7 +21,13 @@ type Props = {
   unidades: { id: string; nome: string }[];
 };
 
-export function FormularioSolicitacao({ acao, unidades }: Props) {
+export function FormularioSolicitacao(props: Props) {
+  const [chave, definirChave] = useState(0);
+  useLayoutEffect(() => () => definirChave((anterior) => anterior + 1), []);
+  return <FormularioSolicitacaoInterno key={chave} {...props} />;
+}
+
+function FormularioSolicitacaoInterno({ acao, unidades }: Props) {
   const id = useId();
   const [estado, enviar, enviando] = useActionState(acao, ESTADO_INICIAL_SOLICITACAO);
   const [erroOculto, ocultarErro] = useState<EstadoSolicitacaoAcesso | null>(null);

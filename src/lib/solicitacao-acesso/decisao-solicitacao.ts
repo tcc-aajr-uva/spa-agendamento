@@ -26,7 +26,7 @@ export async function exigirSolicitacaoPendente(tx: Transacao, id: string, autor
 }
 
 type Decisao =
-  | { status: "APROVADA"; usuarioId: string }
+  | { status: "APROVADA"; usuarioId: string; unidadeId: string }
   | { status: "RECUSADA"; motivoRecusa: string | null };
 
 export async function registrarDecisao(

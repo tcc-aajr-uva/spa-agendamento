@@ -31,7 +31,11 @@ export async function aprovarSolicitacao(
         perfil: "ESTAGIARIO",
         ...resultado.data,
       }, autor, agora);
-      await registrarDecisao(tx, id, { status: "APROVADA", usuarioId: criado.usuarioId }, autor, agora);
+      await registrarDecisao(tx, id, {
+        status: "APROVADA",
+        usuarioId: criado.usuarioId,
+        unidadeId: resultado.data.unidadeIds[0],
+      }, autor, agora);
       return criado;
     });
   } catch (erro) {

@@ -102,7 +102,7 @@ export function FormularioRecusa({ acao, solicitacao, pendente }: Props) {
               <CardContent>
                 <Field data-invalid={!!errors.motivo}>
                   <FieldLabel htmlFor={`${id}-motivo`}>Motivo (opcional)</FieldLabel>
-                  <Textarea id={`${id}-motivo`} rows={4} maxLength={TAMANHO_MAXIMO_MOTIVO} disabled={bloqueado}
+                  <Textarea id={`${id}-motivo`} className="field-sizing-fixed" rows={4} maxLength={TAMANHO_MAXIMO_MOTIVO} disabled={bloqueado}
                     aria-invalid={!!errors.motivo} aria-describedby={errors.motivo ? `${id}-motivo-erro` : undefined}
                     {...register("motivo", { onChange: () => { if (estado.status === "erro") ocultarErro(estado); } })} />
                   <FieldDescription>O motivo fica registrado para consulta interna.</FieldDescription>

@@ -102,14 +102,16 @@ async function ListaSolicitacoes({ searchParams }: Props) {
                     {rotuloDoStatusSolicitacao(solicitacao.status)}
                   </Badge>
                 </TableCell>
-                <TableCell className="max-w-sm whitespace-normal text-muted-foreground">
+                <TableCell className="whitespace-normal text-muted-foreground">
                   {solicitacao.decididoEm ? (
-                    <div className="space-y-1">
+                    <div className="w-72 space-y-1 wrap-break-word">
                       <p>
                         {rotuloDoStatusSolicitacao(solicitacao.status)}
                         {solicitacao.decididoPor && ` por ${solicitacao.decididoPor}`} em {formatarDataHora(solicitacao.decididoEm)}
                       </p>
-                      {solicitacao.motivoRecusa && <p>Motivo: {solicitacao.motivoRecusa}</p>}
+                      {solicitacao.motivoRecusa && (
+                        <p className="line-clamp-3" title={solicitacao.motivoRecusa}>Motivo: {solicitacao.motivoRecusa}</p>
+                      )}
                     </div>
                   ) : "—"}
                 </TableCell>
